@@ -1,0 +1,2261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Hebreo Pro - Version completa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&family=Inter:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --cyan-pro:#22d3ee; --red-error:#ef4444; --green-success:#22c55e; --blue-audio:#6366f1;
+      --gold-accent:#fbbf24; --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { height: 100%; height: -webkit-fill-available; }
+    body { 
+      font-family:"Inter",sans-serif; 
+      background:#0f172a; 
+      color:#f8fafc; 
+      min-height:100vh; 
+      min-height: -webkit-fill-available;
+      overflow-x:hidden; 
+      display:flex; 
+      flex-direction:column;
+      padding-bottom: var(--safe-area-inset-bottom);
+    }
+    .hebrew-text { font-family:"Assistant",sans-serif; font-size:clamp(2.5rem, 8vw, 3.5rem); line-height:1.1; direction:rtl; }
+    .hebrew-option { font-family:"Assistant",sans-serif; direction:rtl; font-size:clamp(1.5rem, 5vw, 2rem); line-height:1.2; }
+    header { 
+      position:fixed; top:0; left:0; right:0; z-index:50; 
+      background:#0f172a; border-bottom:1px solid #1e293b; 
+      height:60px; display:flex; align-items:center; 
+      padding:0 16px; padding-top: env(safe-area-inset-top, 0px);
+    }
+    .series-circle { position:relative; width:120px; height:120px; display:flex; align-items:center; justify-content:center; transition:.3s; cursor:pointer; flex-shrink:0; }
+    .circle-svg { position:absolute; width:100%; height:100%; }
+    .circle-bg { fill:rgba(30,41,59,.5); stroke:#1e293b; stroke-width:5; }
+    .circle-progress { fill:none; stroke:var(--cyan-pro); stroke-width:5; stroke-linecap:round; transition:.8s; transform:rotate(-90deg); transform-origin:center; }
+    .circle-complete-fill .circle-bg { fill:var(--green-success); stroke:var(--green-success); }
+    .circle-complete-fill span { color:white !important; }
+    .circle-locked { opacity:.3; filter:grayscale(1); cursor:pointer; }
+    .help-drawer { 
+      position:fixed; top:0; right:-100%; width:min(95%, 400px); height:100%; 
+      background:#0f172a; z-index:100; transition:.3s ease-out; 
+      padding:20px; padding-top: calc(20px + env(safe-area-inset-top, 0px));
+      border-left:2px solid #334155; 
+      overflow-y:auto;
+    }
+    .help-drawer.open { right:0; }
+    .help-item { background:#1e293b; padding:14px 12px; border-radius:12px; font-weight:bold; display:flex; justify-content:center; align-items:center; gap:10px; font-size:1rem; min-height:52px; }
+    .audio-btn { 
+      width:min(100px, 25vw); height:min(100px, 25vw); min-width:80px; min-height:80px;
+      background:#334155; border-radius:100%; 
+      display:flex; align-items:center; justify-content:center; 
+      font-size:2.5rem; transition:.3s; 
+      -webkit-touch-callout: none; user-select: none;
+    }
+    .audio-btn:active { transform: scale(0.95); }
+    .audio-playing { background:var(--blue-audio)!important; box-shadow:0 0 35px var(--blue-audio); animation:pulse 1.1s infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+    .btn-option { 
+      background:#1e293b; border:2px solid #334155; border-radius:1rem; 
+      padding:16px 20px; font-weight:700; font-size:1rem; 
+      min-height:56px; width:100%;
+      transition: all 0.2s ease; 
+      -webkit-touch-callout: none; user-select: none;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .btn-option:active { transform: scale(0.98); background:#2d3a4f; }
+    .btn-correct { background:var(--green-success)!important; border-color:var(--green-success)!important; color:white; animation:pop .3s ease; }
+    .btn-incorrect { background:var(--red-error)!important; border-color:var(--red-error)!important; animation:shake .4s; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
+    @keyframes pop { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 70%{transform:scale(0.96)} 100%{transform:scale(1)} }
+    @keyframes word-jump { 0%{transform:translateY(0) scale(1)} 30%{transform:translateY(-12px) scale(1.08)} 60%{transform:translateY(-4px) scale(1.04)} 100%{transform:translateY(0) scale(1)} }
+    @keyframes word-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-10px)} 40%{transform:translateX(10px)} 60%{transform:translateX(-7px)} 80%{transform:translateX(7px)} }
+    .word-jump { animation:word-jump .45s cubic-bezier(.36,.07,.19,.97); }
+    .word-shake { animation:word-shake .45s cubic-bezier(.36,.07,.19,.97); }
+    .celebrate { animation: celebrate 0.5s ease; }
+    .progress-container { background:#1e293b; height:8px; border-radius:10px; width:100%; }
+    .progress-fill { background:var(--cyan-pro); height:100%; transition:.5s ease-out; width:0%; border-radius:10px; }
+    .custom-scroll { -webkit-overflow-scrolling: touch; }
+    .custom-scroll::-webkit-scrollbar { width:4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background:#334155; border-radius:10px; }
+    #view-game { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 20px; }
+    main { 
+      flex:1; margin-top:60px; display:flex; flex-direction:column; 
+      align-items:center; padding:16px; position:relative; 
+      overflow-y:auto; overflow-x:hidden; 
+      -webkit-overflow-scrolling: touch;
+      max-width: 100vw;
+    }
+    @supports (height: 100dvh) {
+      main { min-height: calc(100dvh - 60px); }
+    }
+    /* Responsive text sizes - minimum 12px */
+    .text-label { font-size: clamp(12px, 2.5vw, 14px); }
+    .text-small { font-size: clamp(11px, 2.2vw, 13px); }
+    .text-tiny { font-size: clamp(10px, 2vw, 11px); }
+    /* Better touch targets */
+    button { cursor: pointer; touch-action: manipulation; }
+    input { font-size: 16px !important; } /* Prevent zoom on iOS */
+    
+    /* SRS - Spaced Repetition visuals */
+    .needs-review { 
+      position: relative;
+      border-color: #f59e0b !important;
+    }
+    .needs-review::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .review-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #78350f;
+      color: #fbbf24;
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .fading-progress {
+      opacity: 0.5;
+      transition: opacity 0.3s;
+    }
+    .series-card-review .progress-bar-fill {
+      background: linear-gradient(90deg, #22c55e 0%, #a3e635 100%);
+      opacity: 0.6;
+    }
+    @keyframes pulse-amber {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+    }
+    .pulse-review {
+      animation: pulse-amber 2s infinite;
+    }
+
+    /* ── PROGRESS MAP ───────────────────────────── */
+    @keyframes node-glow {
+      0%,100% { filter: drop-shadow(0 0 6px rgba(34,211,238,0.5)); }
+      50%      { filter: drop-shadow(0 0 16px rgba(34,211,238,0.9)); }
+    }
+    @keyframes node-gold-glow {
+      0%,100% { filter: drop-shadow(0 0 6px rgba(250,204,21,0.5)); }
+      50%      { filter: drop-shadow(0 0 16px rgba(250,204,21,0.9)); }
+    }
+    @keyframes node-amber-pulse {
+      0%,100% { filter: drop-shadow(0 0 6px rgba(245,158,11,0.5)); }
+      50%      { filter: drop-shadow(0 0 20px rgba(245,158,11,1)); }
+    }
+    @keyframes fog-float {
+      0%,100% { opacity:0.55; transform:translateX(0); }
+      50%      { opacity:0.72; transform:translateX(3px); }
+    }
+    @keyframes path-draw {
+      from { stroke-dashoffset: 600; }
+      to   { stroke-dashoffset: 0; }
+    }
+    @keyframes star-twinkle {
+      0%,100% { opacity:0.4; transform:scale(0.92); }
+      50%      { opacity:1;   transform:scale(1.08); }
+    }
+    @keyframes star-appear {
+      from { opacity:0; transform:scale(0.2) rotate(-30deg); }
+      to   { opacity:1; transform:scale(1) rotate(0deg); }
+    }
+    @keyframes float-node {
+      0%,100% { transform:translateY(0); }
+      50%      { transform:translateY(-3px); }
+    }
+    .map-node { cursor:pointer; }
+    .map-node:active .node-ring { transform:scale(0.92); }
+    .node-ring { transition:transform .15s; }
+    .map-node.locked { cursor:default; }
+    .mix-star { cursor:pointer; }
+    .mix-star:active { transform:scale(0.88); }
+    .mix-star.locked-star { cursor:default; opacity:0.35; }
+  </style>
+</head>
+<body class="flex flex-col">
+  <!-- Help Drawer -->
+  <div id="help-drawer" class="help-drawer flex flex-col">
+    <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
+      <h3 class="text-cyan-400 font-black uppercase text-small tracking-widest">Guia de referencia</h3>
+      <button onclick="toggleHelp()" class="text-small font-bold bg-slate-800 px-4 py-2 rounded-xl uppercase min-h-[44px]">Cerrar</button>
+    </div>
+    <div id="help-content" class="overflow-y-auto flex-1 space-y-4 pr-1 custom-scroll"></div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="w-full flex justify-between items-center px-2 max-w-xl mx-auto">
+      <button id="home-btn" onclick="exitGame()" class="text-cyan-400 hover:scale-110 transition min-w-[44px] min-h-[44px] flex items-center justify-center text-xl" aria-label="Salir" style="visibility:hidden;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </button>
+      <span class="font-black tracking-tight text-base">ALEF<span class="text-cyan-400 text-lg">MASTER</span></span>
+      <button onclick="toggleHelp()" class="bg-cyan-600 px-4 py-2 rounded-xl text-small font-black flex items-center gap-2 min-h-[44px]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        Guia
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <!-- WELCOME SCREEN -->
+    <div id="view-welcome" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center text-center px-4 py-8" style="min-height:calc(100vh - 120px);">
+      <div class="hebrew-text text-cyan-400 font-semibold mb-2">אב</div>
+      <h1 class="text-2xl font-black text-white leading-tight mb-4">Aprende a leer<br><span class="text-cyan-400">hebreo</span></h1>
+      <p class="text-slate-400 text-label mb-2 max-w-xs leading-relaxed">Letra por letra, silaba por silaba - desde cero hasta leer palabras reales.</p>
+      <p class="text-slate-500 text-small mb-6 max-w-xs">Sin memorizar nombres. Solo sonidos.</p>
+      <div class="flex flex-col gap-3 w-full max-w-xs mb-6">
+        <div class="flex items-center gap-4 bg-slate-800 rounded-2xl p-4">
+          <span class="text-2xl flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </span>
+          <span class="text-label text-slate-300 text-left leading-snug">Conoces cada letra con su sonido</span>
+        </div>
+        <div class="flex items-center gap-4 bg-slate-800 rounded-2xl p-4">
+          <span class="text-2xl flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          </span>
+          <span class="text-label text-slate-300 text-left leading-snug">Practicas silabas antes de leer palabras</span>
+        </div>
+        <div class="flex items-center gap-4 bg-slate-800 rounded-2xl p-4">
+          <span class="text-2xl flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </span>
+          <span class="text-label text-slate-300 text-left leading-snug">Completas lecciones cortas de 9 desafios</span>
+        </div>
+      </div>
+      <button onclick="startApp()" class="w-full max-w-xs bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 p-4 rounded-2xl font-black text-lg transition-colors min-h-[56px]">Empezar</button>
+    </div>
+
+    <!-- HOME VIEW -->
+    <div id="view-home" class="w-full max-w-lg mx-auto overflow-y-auto custom-scroll pb-20 pt-2 px-3">
+      <div id="home-streak" class="text-center mb-4 mt-3"></div>
+      <div id="base-series-container"></div>
+      <div id="mix-series-container"></div>
+    </div>
+
+    <!-- INTRO: letter presentation -->
+    <div id="view-intro" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center py-6">
+      <div class="w-full flex flex-col items-center px-4">
+        <!-- progress dots -->
+        <div id="intro-dots" class="flex gap-2 mb-6"></div>
+        <!-- card -->
+        <div id="intro-card" class="w-full bg-slate-900 border border-slate-700 rounded-3xl p-6 flex flex-col items-center text-center mb-6">
+          <p class="text-tiny font-black text-slate-500 uppercase tracking-widest mb-4">Nueva letra</p>
+          <!-- Hebrew letter -->
+          <div id="intro-letter" class="text-white font-black mb-4" style="font-family:'Assistant',sans-serif;font-size:clamp(5rem, 20vw, 7rem);line-height:1;"></div>
+          <!-- Sound badge -->
+          <div class="flex items-center gap-3 mb-4 w-full">
+            <div class="h-px flex-1 bg-slate-700"></div>
+            <p class="text-tiny font-black text-slate-500 uppercase tracking-widest">suena</p>
+            <div class="h-px flex-1 bg-slate-700"></div>
+          </div>
+          <div id="intro-sound" class="text-4xl font-black text-cyan-400 tracking-widest mb-4" style="font-family:'Assistant',sans-serif;"></div>
+          <!-- Spanish example word -->
+          <div class="w-full bg-slate-800 rounded-2xl px-5 py-4">
+            <p class="text-tiny font-black text-slate-500 uppercase tracking-widest mb-2">como en espanol</p>
+            <p id="intro-example" class="text-lg font-black text-white tracking-wide leading-relaxed"></p>
+          </div>
+        </div>
+        <!-- nav -->
+        <div class="w-full flex gap-3">
+          <button onclick="skipIntro()" class="flex-1 text-slate-400 text-small py-4 min-h-[52px]">saltear intro</button>
+          <button id="intro-next-btn" onclick="introNext()" class="flex-[2] bg-cyan-600 py-4 rounded-2xl font-black text-base uppercase tracking-wide min-h-[52px]">Siguiente</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRE-TRAINING -->
+    <!-- LETRA QUIZ VIEW -->
+    <div id="view-letra-quiz" class="hidden w-full max-w-sm mx-auto flex flex-col items-center py-3 px-4">
+      <!-- phase stepper -->
+      <div id="lq-stepper" class="w-full mb-4"></div>
+      <!-- progress bar -->
+      <div class="w-full flex items-center gap-3 mb-4">
+        <div class="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
+          <div id="lq-progress-fill" class="h-full bg-cyan-400 rounded-full transition-all duration-400" style="width:0%"></div>
+        </div>
+        <span id="lq-progress-label" class="text-small font-bold text-slate-500 whitespace-nowrap"></span>
+      </div>
+      <!-- instruction -->
+      <p id="lq-instruction" class="text-small font-black text-slate-400 uppercase tracking-widest mb-3 text-center"></p>
+      <!-- target character display -->
+      <div class="w-full bg-slate-900 border border-slate-700 rounded-3xl px-4 py-4 flex flex-col items-center mb-4">
+        <p id="lq-mode-label" class="text-tiny font-black text-slate-500 uppercase tracking-widest mb-2"></p>
+        <div id="lq-target" class="flex items-center justify-center" style="min-height:4.5rem;"></div>
+      </div>
+      <!-- options grid -->
+      <p class="text-tiny font-black text-slate-500 uppercase tracking-widest mb-2">¿Cómo suena?</p>
+      <div id="lq-options" class="w-full grid grid-cols-4 gap-3"></div>
+      <!-- skip -->
+      <button onclick="skipLetraQuiz()" class="text-slate-500 text-small py-3 mt-2 italic">saltear reconocimiento</button>
+    </div>
+
+    <div id="view-vowel-present" class="hidden w-full max-w-sm mx-auto flex flex-col items-center py-3 px-4">
+      <!-- phase stepper -->
+      <div id="vp-stepper" class="w-full mb-3"></div>
+      <p id="vp-title" class="text-small font-black text-slate-400 uppercase tracking-widest mb-1 text-center"></p>
+      <p id="vp-subtitle" class="text-tiny text-slate-500 text-center mb-3"></p>
+      <!-- vowel cards -->
+      <div id="vp-cards" class="w-full flex flex-col gap-2 mb-4"></div>
+      <button id="vp-continue-btn" onclick="continueVowelPresent()" class="w-full bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 p-4 rounded-2xl font-black text-base uppercase tracking-wide min-h-[52px]">Entendido →</button>
+      <button onclick="skipLetraQuiz()" class="text-slate-500 text-small py-3 mt-1 italic">saltear todo</button>
+    </div>
+
+    <div id="view-pre-training" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center text-center px-4 py-8" style="min-height:calc(100vh - 120px);">
+      <h2 class="text-2xl font-black text-white mb-4 leading-tight">Practiquemos un poco</h2>
+      <p class="text-slate-400 text-label mb-10 leading-relaxed">Repasemos los sonidos de esta serie antes de la mision.</p>
+      <button onclick="renderTraining()" class="w-full max-w-xs bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 p-4 rounded-2xl font-black text-lg mb-4 min-h-[56px] transition-colors">CONTINUAR</button>
+      <button onclick="skipTraining()" class="text-slate-400 text-small py-3 min-h-[44px]">saltear practica</button>
+    </div>
+
+    <!-- TRAINING VIEW -->
+    <div id="view-training" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center py-4 px-4">
+      <!-- collapsible reference panel -->
+      <div class="w-full mb-3">
+        <button onclick="toggleTrainingRef()" id="training-ref-btn"
+          class="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-slate-600 bg-slate-800 mb-2 mt-2 active:scale-[0.98] transition-all min-h-[52px]">
+          <span class="text-small font-black uppercase tracking-widest text-slate-300">Ver letras y vocales</span>
+          <span id="training-ref-arrow" class="text-slate-400 text-small font-bold">toca</span>
+        </button>
+        <div id="training-ref-panel" class="hidden w-full">
+          <p class="text-cyan-500 text-small font-black uppercase tracking-widest text-center mb-2">Consonantes</p>
+          <div id="training-letters" class="w-full flex flex-wrap justify-center gap-2 mb-4"></div>
+          <p class="text-small font-black uppercase tracking-widest text-center mb-1" style="color:#fbbf24;">Vocales</p>
+          <p class="text-slate-400 text-tiny text-center mb-2">Van debajo de la consonante, excepto la O que va arriba</p>
+          <div id="training-vowels" class="w-full grid gap-2 mb-4" style="grid-template-columns:repeat(auto-fit,minmax(40px,1fr));"></div>
+        </div>
+      </div>
+      <!-- exercise card -->
+      <div class="bg-slate-900 border border-slate-700 w-full p-5 rounded-3xl text-center mb-4">
+        <div class="flex justify-between items-center mb-4">
+          <div class="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div id="training-progress-fill" class="h-full bg-cyan-400 rounded-full transition-all duration-400" style="width:0%;"></div>
+          </div>
+          <span id="training-progress-label" class="text-small font-bold text-slate-500 ml-3 whitespace-nowrap"></span>
+        </div>
+        <div class="flex items-center justify-center gap-6 mb-3">
+          <span class="text-tiny font-bold text-cyan-400 uppercase tracking-wider">consonante</span>
+          <span class="text-tiny font-bold uppercase tracking-wider" style="color:#fbbf24;">vocal</span>
+        </div>
+        <div id="train-heb" class="hebrew-text mb-5 font-bold flex items-center justify-center" style="min-height:4rem;"></div>
+        <div id="train-options" class="grid grid-cols-2 gap-3"></div>
+      </div>
+    </div>
+
+    <!-- GAME VIEW -->
+    <div id="view-game" class="hidden w-full max-w-sm mx-auto flex flex-col items-center px-3 py-3">
+      <div class="w-full flex justify-between items-center mb-2">
+        <span id="game-lesson-label" class="text-[11px] font-black text-cyan-500 uppercase tracking-wider">Lección</span>
+        <span id="game-percentage" class="text-[11px] font-black text-cyan-500 font-mono">0%</span>
+      </div>
+      <div class="progress-container mb-3"><div id="game-progress-fill" class="progress-fill"></div></div>
+      <p class="text-cyan-500 text-[11px] font-black uppercase tracking-widest text-center mb-1">Consonantes</p>
+      <div id="challenge-letters" class="w-full flex flex-wrap justify-center gap-1 mb-2"></div>
+      <div class="w-full mb-4">
+        <button onclick="toggleGameVowels()" id="game-vowels-btn" class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-slate-600 bg-slate-800 mb-2 active:scale-[0.98] transition-all">
+          <span class="text-[11px] font-black uppercase tracking-widest" style="color:#fbbf24;">📖 Vocales</span>
+          <span id="game-vowels-arrow" class="text-slate-400 text-xs font-bold">▼ tocá</span>
+        </button>
+        <div id="game-vowels-panel" class="hidden w-full">
+          <div id="game-vowels-grid" class="w-full grid gap-1" style="grid-template-columns:repeat(7,1fr);"></div>
+        </div>
+      </div>
+      <div class="h-24 flex items-center justify-center mb-4">
+        <div id="hebrew-word" class="hebrew-text font-black" style="color:white;transition:transform 0.45s;">שָׁלוֹם</div>
+      </div>
+      <div id="mode-select" class="hidden w-full grid grid-cols-1 gap-2"></div>
+      <div id="mode-write" class="hidden w-full flex flex-col gap-2">
+        <p id="write-hint" class="text-center text-[13px] font-bold text-slate-500" style="letter-spacing:0.02em;"></p>
+        <input type="text" id="write-input" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="escribí la fonética..." class="w-full bg-slate-900 border-2 border-slate-800 p-4 rounded-2xl text-center text-xl font-bold outline-none focus:border-cyan-500 transition-all">
+        <button onclick="checkWrite()" class="w-full bg-cyan-600 p-4 rounded-2xl font-black uppercase text-xs">Comprobar</button>
+      </div>
+      <div id="mode-listen" class="hidden w-full flex flex-col items-center gap-4">
+        <button id="audio-btn" onclick="playCurrentWordAudio()" class="audio-btn" type="button">🔊</button>
+        <p id="audio-status" class="text-[11px] font-black text-slate-500 uppercase tracking-widest text-center italic">Toca para escuchar</p>
+        <div id="listen-options" class="w-full grid grid-cols-1 gap-2"></div>
+        <button onclick="playCurrentWordAudio()" class="text-[11px] text-slate-500 font-bold underline uppercase tracking-widest">Escuchar otra vez</button>
+      </div>
+      <div id="mode-arrange" class="hidden w-full flex flex-col items-center gap-4">
+        <p class="text-[11px] font-black text-slate-500 uppercase tracking-widest">armá la pronunciación de la palabra</p>
+        <div id="arrange-answer" class="w-full min-h-[56px] flex flex-row flex-wrap justify-center gap-2 bg-slate-900 border-2 border-slate-600 rounded-2xl px-4 py-3" style="border-style:dashed;"></div>
+        <div id="arrange-tiles" class="w-full flex flex-row flex-wrap justify-center gap-2"></div>
+        <button onclick="arrangeUndo()" class="text-[11px] text-slate-500 font-bold uppercase tracking-widest underline">← deshacer última</button>
+      </div>
+      <div id="error-panel" class="hidden w-full mt-3 bg-red-950 border border-red-800 rounded-2xl px-4 py-3">
+        <p id="error-msg" class="text-sm font-bold text-red-200 text-center mb-2"></p>
+        <button id="error-detail-btn" onclick="showWordIntroFromError()" class="w-full text-xs font-bold text-red-400 underline py-1 text-center">Ver letra por letra →</button>
+      </div>
+      <div id="reward-area" class="invisible mt-4 pt-4 border-t border-slate-800 w-full text-center h-16" style="transition:opacity .25s,transform .25s;opacity:0;transform:translateY(6px);">
+        <p class="text-green-500 text-[8px] font-black mb-0.5 uppercase tracking-widest italic">Significado</p>
+        <h2 id="meaning-text" class="text-xl font-black text-white italic uppercase tracking-tighter">---</h2>
+      </div>
+    </div>
+
+    <!-- CELEBRATION SCREEN -->
+    <div id="view-celebration" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-start text-center px-4 overflow-y-auto custom-scroll py-6">
+      <div id="cel-stars" class="text-4xl mb-3 tracking-widest"></div>
+      <h2 id="cel-title" class="text-2xl font-black text-white leading-tight mb-2"></h2>
+      <p id="cel-subtitle" class="text-slate-400 text-small mb-5 leading-relaxed"></p>
+      <div class="flex gap-3 w-full max-w-xs mb-5">
+        <div class="flex-1 bg-slate-800 rounded-2xl p-3 text-center">
+          <div class="text-2xl mb-1">
+            <svg class="mx-auto" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          </div>
+          <div id="cel-words" class="text-xl font-black text-cyan-400"></div>
+          <div class="text-tiny font-bold text-slate-500 uppercase tracking-wider mt-1">palabras</div>
+        </div>
+        <div class="flex-1 bg-slate-800 rounded-2xl p-3 text-center">
+          <div class="text-2xl mb-1">
+            <svg class="mx-auto" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 8-9.04 9.06a2.82 2.82 0 1 0 3.98 3.98L16 12"/><circle cx="17" cy="7" r="5"/></svg>
+          </div>
+          <div id="cel-letters" class="text-xl font-black text-cyan-400"></div>
+          <div class="text-tiny font-bold text-slate-500 uppercase tracking-wider mt-1">letras</div>
+        </div>
+        <div class="flex-1 bg-slate-800 rounded-2xl p-3 text-center">
+          <div class="text-2xl mb-1">
+            <svg class="mx-auto" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+          </div>
+          <div id="cel-series" class="text-xl font-black text-green-500"></div>
+          <div class="text-tiny font-bold text-slate-500 uppercase tracking-wider mt-1">series</div>
+        </div>
+      </div>
+      <div class="w-full max-w-xs mb-5">
+        <div class="flex justify-between mb-2">
+          <span class="text-tiny font-bold text-slate-500 uppercase tracking-wider" id="cel-progress-label"></span>
+          <span class="text-tiny font-bold text-cyan-400" id="cel-progress-pct"></span>
+        </div>
+        <div class="bg-slate-800 h-2 rounded-full overflow-hidden">
+          <div id="cel-progress-fill" class="h-full bg-cyan-400 rounded-full transition-all duration-700" style="width:0%;"></div>
+        </div>
+      </div>
+      <p id="cel-words-label" class="text-tiny font-bold text-slate-500 uppercase tracking-wider mb-3">palabras de esta leccion</p>
+      <div id="cel-word-cards" class="flex flex-col gap-3 w-full max-w-xs mb-5"></div>
+      <button id="cel-next-btn" onclick="goNextLesson()" class="w-full max-w-xs bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 p-4 rounded-2xl font-black text-base mb-3 min-h-[56px] transition-colors" style="display:none;">Siguiente leccion</button>
+      <button id="cel-review-btn" onclick="startReview()" class="w-full max-w-xs p-4 rounded-2xl font-black text-base mb-3 border-2 border-red-500 text-red-500 min-h-[56px]" style="display:none;">Repasar palabras dificiles</button>
+      <button onclick="exitGame()" class="w-full max-w-xs p-4 rounded-2xl font-black text-base mb-3 border-2 border-slate-600 text-slate-400 min-h-[56px]" id="cel-home-btn">Volver al inicio</button>
+    </div>
+
+  </main>
+
+  <!-- Toast notification -->
+  <div id="toast" class="fixed left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-4 rounded-2xl font-bold shadow-2xl z-50 text-base flex items-center gap-2 min-w-[200px] justify-center" style="bottom:-100px;transition:bottom 0.4s ease;">
+    <span id="toast-text">Correcto!</span>
+  </div>
+
+<script>
+const FULL_ALEF_BET = [{"h": "א", "p": "Muda"}, {"h": "ב", "p": "B"}, {"h": "ג", "p": "G"}, {"h": "ד", "p": "D"}, {"h": "ה", "p": "H"}, {"h": "ו", "p": "V"}, {"h": "ז", "p": "Z"}, {"h": "ח", "p": "J"}, {"h": "ט", "p": "T"}, {"h": "י", "p": "I"}, {"h": "כּ", "p": "K"}, {"h": "כ", "p": "J"}, {"h": "ך", "p": "J Final"}, {"h": "ל", "p": "L"}, {"h": "מ", "p": "M"}, {"h": "ם", "p": "M Final"}, {"h": "נ", "p": "N"}, {"h": "ן", "p": "N Final"}, {"h": "ס", "p": "S"}, {"h": "ע", "p": "Muda"}, {"h": "פּ", "p": "P"}, {"h": "פ", "p": "F"}, {"h": "ף", "p": "F Final"}, {"h": "צ", "p": "Ts"}, {"h": "ץ", "p": "Ts Final"}, {"h": "ק", "p": "K"}, {"h": "ר", "p": "R"}, {"h": "שׁ", "p": "Sh"}, {"h": "שׂ", "p": "S"}, {"h": "ת", "p": "T"}];
+
+const LETTER_FON_MAP = Object.fromEntries(FULL_ALEF_BET.map(x => [x.h, x.p]));
+
+const FULL_VOWELS = [{"h": "ָ", "p": "A"}, {"h": "ַ", "p": "A"}, {"h": "ֲ", "p": "A"}, {"h": "ֵ", "p": "E"}, {"h": "ֶ", "p": "E"}, {"h": "ְ", "p": "E"}, {"h": "ֱ", "p": "E"}, {"h": "י", "p": "I"}, {"h": "ִ", "p": "I"}, {"h": "ֹ", "p": "O"}, {"h": "וֹ", "p": "O"}, {"h": "ֳ", "p": "O"}, {"h": "ֻ", "p": "U"}, {"h": "וּ", "p": "U"}];
+const ALL_DATA = {"A": {"type": "BASE", "letters": ["שׁ", "מ", "ם", "ל", "כּ", "כ", "ך"], "syllables": [{"h": "מָ", "p": "Ma"}, {"h": "שֶׁ", "p": "She"}, {"h": "לִי", "p": "Li"}, {"h": "כּוֹ", "p": "Ko"}, {"h": "שָׁ", "p": "Sha"}, {"h": "מֶ", "p": "Me"}, {"h": "כִּי", "p": "Ki"}, {"h": "לָ", "p": "La"}, {"h": "מוֹ", "p": "Mo"}, {"h": "שִׁי", "p": "Shi"}], "words": [{"heb": "שָׁלוֹם", "fon": "shalom", "sign": "PAZ", "audio": "audios/a_shalom.mp3"}, {"heb": "מֶלֶךְ", "fon": "melej", "sign": "REY", "audio": "audios/a_melej.mp3"}, {"heb": "מָלַךְ", "fon": "malaj", "sign": "REINO", "audio": "audios/a_malaj.mp3"}, {"heb": "יִמְלֹךְ", "fon": "imloj", "sign": "REINARA", "audio": "audios/a_imloj.mp3"}, {"heb": "מְלָכִים", "fon": "melajim", "sign": "REYES", "audio": "audios/a_melajim.mp3"}, {"heb": "מַלְכֵי", "fon": "maljei", "sign": "REY DE", "audio": "audios/a_maljei.mp3"}, {"heb": "מַלְכִּי", "fon": "malki", "sign": "MI REY", "audio": "audios/a_malki.mp3"}, {"heb": "מִכֹּל", "fon": "mikol", "sign": "DE TODO", "audio": "audios/a_mikol.mp3"}, {"heb": "שֵׁם", "fon": "shem", "sign": "NOMBRE", "audio": "audios/a_shem.mp3"}, {"heb": "מִי", "fon": "mi", "sign": "QUIEN", "audio": "audios/a_mi.mp3"}, {"heb": "שָׁמַיִם", "fon": "shamaim", "sign": "CIELO", "audio": "audios/a_shamaim.mp3"}, {"heb": "מַיִם", "fon": "maim", "sign": "AGUA", "audio": "audios/a_maim.mp3"}, {"heb": "יָם", "fon": "iam", "sign": "MAR", "audio": "audios/a_iam.mp3"}, {"heb": "יָמִים", "fon": "iamim", "sign": "DIAS", "audio": "audios/a_iamim.mp3"}, {"heb": "שָׁלֵם", "fon": "shalem", "sign": "COMPLETO", "audio": "audios/a_shalem.mp3"}]}, "B": {"type": "BASE", "letters": ["נ", "ן", "ב", "ה", "ר", "ת"], "syllables": [{"h": "בָ", "p": "Ba"}, {"h": "הֶ", "p": "He"}, {"h": "נִי", "p": "Ni"}, {"h": "רֹ", "p": "Ro"}, {"h": "תֻּ", "p": "Tu"}, {"h": "נָ", "p": "Na"}, {"h": "בֶ", "p": "Be"}, {"h": "תִּי", "p": "Ti"}, {"h": "הָ", "p": "Ha"}, {"h": "רִי", "p": "Ri"}], "words": [{"heb": "נָהָר", "fon": "nahar", "sign": "RIO", "audio": "audios/b_nahar.mp3"}, {"heb": "הַנָּהָר", "fon": "hanahar", "sign": "EL RIO", "audio": "audios/b_hanahar.mp3"}, {"heb": "בָּנָה", "fon": "bana", "sign": "CONSTRUYO", "audio": "audios/b_bana.mp3"}, {"heb": "בָּנִיתָ", "fon": "banita", "sign": "CONSTRUISTE", "audio": "audios/b_banita.mp3"}, {"heb": "נָתַן", "fon": "natan", "sign": "DIO", "audio": "audios/b_natan.mp3"}, {"heb": "נֵר", "fon": "ner", "sign": "VELA", "audio": "audios/b_ner.mp3"}, {"heb": "בֵן", "fon": "ben", "sign": "HIJO", "audio": "audios/b_ben.mp3"}, {"heb": "הַבֵּן", "fon": "haben", "sign": "EL HIJO", "audio": "audios/b_haben.mp3"}, {"heb": "בַת", "fon": "bat", "sign": "HIJA", "audio": "audios/b_bat.mp3"}, {"heb": "הַבַּת", "fon": "habat", "sign": "LA HIJA", "audio": "audios/b_habat.mp3"}, {"heb": "הִנֵּה", "fon": "hine", "sign": "AQUI ESTA", "audio": "audios/b_hine.mp3"}, {"heb": "הֵן", "fon": "hen", "sign": "ELLAS", "audio": "audios/b_hen.mp3"}, {"heb": "הַר", "fon": "har", "sign": "MONTAÑA", "audio": "audios/b_har.mp3"}, {"heb": "הָהָר", "fon": "hahar", "sign": "LA MONTAÑA", "audio": "audios/b_hahar.mp3"}]}, "C": {"type": "BASE", "letters": ["ד", "ג", "צ", "ץ", "א", "ו"], "syllables": [{"h": "דָ", "p": "Da"}, {"h": "צִי", "p": "Tsi"}, {"h": "וָ", "p": "Va"}, {"h": "גֶ", "p": "Ge"}, {"h": "צוֹ", "p": "Tso"}, {"h": "אָ", "p": "A"}, {"h": "דִי", "p": "Di"}, {"h": "גָ", "p": "Ga"}, {"h": "צֶ", "p": "Tse"}, {"h": "אוּ", "p": "U"}], "words": [{"heb": "דָּג", "fon": "dag", "sign": "PEZ", "audio": "audios/c_dag.mp3"}, {"heb": "צַו", "fon": "tsav", "sign": "MANDAMIENTO", "audio": "audios/c_tsav.mp3"}, {"heb": "יָצָא", "fon": "iatsa", "sign": "SALIO", "audio": "audios/c_iatsa.mp3"}, {"heb": "יָצְאוּ", "fon": "iatsu", "sign": "SALIERON", "audio": "audios/c_iatsu.mp3"}, {"heb": "דָּגִי", "fon": "dagi", "sign": "MI PESCADO", "audio": "audios/c_dagi.mp3"}, {"heb": "אָץ", "fon": "ats", "sign": "SE APURO", "audio": "audios/c_ats.mp3"}, {"heb": "גָּדִי", "fon": "gadi", "sign": "NOMBRE", "audio": "audios/c_gadi.mp3"}, {"heb": "דּוֹד", "fon": "dod", "sign": "TIO", "audio": "audios/c_dod.mp3"}, {"heb": "דָּוִד", "fon": "david", "sign": "NOMBRE", "audio": "audios/c_david.mp3"}, {"heb": "צַד", "fon": "tsad", "sign": "LADO", "audio": "audios/c_tsad.mp3"}, {"heb": "צַיִד", "fon": "tsaid", "sign": "CAZA", "audio": "audios/c_tsaid.mp3"}, {"heb": "גֶּץ", "fon": "guets", "sign": "CHISPA", "audio": "audios/c_guets.mp3"}, {"heb": "אֵד", "fon": "ed", "sign": "NIEBLA", "audio": "audios/c_ed.mp3"}, {"heb": "צֵא", "fon": "tse", "sign": "SAL", "audio": "audios/c_tse.mp3"}, {"heb": "צָאוּ", "fon": "tsau", "sign": "SALGAN", "audio": "audios/c_tsau.mp3"}]}, "D": {"type": "BASE", "letters": ["ח", "ז", "ט", "ק", "ע"], "syllables": [{"h": "חַ", "p": "Ja"}, {"h": "זִי", "p": "Zi"}, {"h": "קָ", "p": "Ka"}, {"h": "טֶ", "p": "Te"}, {"h": "עָ", "p": "A"}, {"h": "זָ", "p": "Za"}, {"h": "חִי", "p": "Ji"}, {"h": "קוֹ", "p": "Ko"}, {"h": "טָ", "p": "Ta"}, {"h": "עֶ", "p": "E"}], "words": [{"heb": "עָז", "fon": "az", "sign": "FUERTE", "audio": "audios/d_az.mp3"}, {"heb": "עֹז", "fon": "oz", "sign": "FUERZA", "audio": "audios/d_oz.mp3"}, {"heb": "עֵז", "fon": "ez", "sign": "CABRA", "audio": "audios/d_ez.mp3"}, {"heb": "עֵט", "fon": "et", "sign": "LAPICERA", "audio": "audios/d_et.mp3"}, {"heb": "חֹק", "fon": "jok", "sign": "LEY", "audio": "audios/d_jok.mp3"}, {"heb": "זָז", "fon": "zaz", "sign": "SE MOVIO", "audio": "audios/d_zaz.mp3"}, {"heb": "חָטַט", "fon": "jatat", "sign": "ESCARBO", "audio": "audios/d_jatat.mp3"}, {"heb": "חַטְּטִי", "fon": "jateti", "sign": "ESCARBA", "audio": "audios/d_jateti.mp3"}, {"heb": "חִטְחֵט", "fon": "jitjet", "sign": "REVOLVIO", "audio": "audios/d_jitjet.mp3"}, {"heb": "חֻקַּק", "fon": "jukak", "sign": "FUE GRABADO", "audio": "audios/d_jukak.mp3"}, {"heb": "חֲקֹק", "fon": "jakok", "sign": "INSCRIBE", "audio": "audios/d_jakok.mp3"}, {"heb": "קָט", "fon": "kat", "sign": "PEQUEÑO", "audio": "audios/d_kat.mp3"}, {"heb": "טָח", "fon": "taj", "sign": "CUBRIO", "audio": "audios/d_taj.mp3"}, {"heb": "זִעְזֵעַ", "fon": "zizea", "sign": "SACUDIO", "audio": "audios/d_zizea.mp3"}]}, "E": {"type": "BASE", "letters": ["שׂ", "ס", "פּ", "פ", "ף"], "syllables": [{"h": "סוֹ", "p": "So"}, {"h": "פִּי", "p": "Pi"}, {"h": "פָ", "p": "Fa"}, {"h": "שָׂ", "p": "Sa"}, {"h": "סִי", "p": "Si"}, {"h": "פּוּ", "p": "Pu"}, {"h": "פֶ", "p": "Fe"}, {"h": "שׂוּ", "p": "Su"}, {"h": "סֶ", "p": "Se"}, {"h": "פָּ", "p": "Pa"}], "words": [{"heb": "שָׂשׂ", "fon": "sas", "sign": "ALEGRE", "audio": "audios/e_sas.mp3"}, {"heb": "שִׂישׂ", "fon": "sis", "sign": "SE ALEGRARA", "audio": "audios/e_sis.mp3"}, {"heb": "פִּיס", "fon": "pis", "sign": "PIS", "audio": "audios/e_pis.mp3"}, {"heb": "יוֹסֵף", "fon": "iosef", "sign": "JOSE", "audio": "audios/e_iosef.mp3"}, {"heb": "סִיפּוּף", "fon": "sipuf", "sign": "COBERTURA", "audio": "audios/e_sipuf.mp3"}, {"heb": "פִּי", "fon": "pi", "sign": "MI BOCA", "audio": "audios/e_pi.mp3"}, {"heb": "פִּיסּוּי", "fon": "pisui", "sign": "COMPENSACION", "audio": "audios/e_pisui.mp3"}, {"heb": "פִּיּוּס", "fon": "pius", "sign": "CALMAR", "audio": "audios/e_pius.mp3"}, {"heb": "פִּיסוּ", "fon": "pisu", "sign": "CALMARON", "audio": "audios/e_pisu.mp3"}, {"heb": "סִפּוּי", "fon": "sipui", "sign": "REVESTIMIENTO", "audio": "audios/e_sipui.mp3"}, {"heb": "סוֹף", "fon": "sof", "sign": "FIN", "audio": "audios/e_sof.mp3"}, {"heb": "סוּף", "fon": "suf", "sign": "JUNCO", "audio": "audios/e_suf.mp3"}, {"heb": "סוּס", "fon": "sus", "sign": "CABALLO", "audio": "audios/e_sus.mp3"}, {"heb": "סוּסִי", "fon": "susi", "sign": "MI CABALLO", "audio": "audios/e_susi.mp3"}, {"heb": "סוֹפִי", "fon": "sofi", "sign": "MI FINAL", "audio": "audios/e_sofi.mp3"}]}, "A+B": {"type": "MIX", "req": ["A", "B"], "words": [{"heb": "יוֹם", "fon": "iom", "sign": "DIA", "audio": "audios/ab_iom.mp3"}, {"heb": "הַיּוֹם", "fon": "haiom", "sign": "HOY", "audio": "audios/ab_haiom.mp3"}, {"heb": "הָיוּ", "fon": "haiu", "sign": "FUERON", "audio": "audios/ab_haiu.mp3"}, {"heb": "וַיְהִי", "fon": "vaiehi", "sign": "SUCEDIO", "audio": "audios/ab_vaiehi.mp3"}, {"heb": "בָּנָיו", "fon": "banav", "sign": "SUS HIJOS", "audio": "audios/ab_banav.mp3"}, {"heb": "שִׁירוֹ", "fon": "shiro", "sign": "SU CANTO", "audio": "audios/ab_shiro.mp3"}, {"heb": "בַּשָּׁנָה", "fon": "bashana", "sign": "EN EL AÑO", "audio": "audios/ab_bashana.mp3"}, {"heb": "יָשׁוּב", "fon": "iashuv", "sign": "REGRESARA", "audio": "audios/ab_iashuv.mp3"}, {"heb": "כִּוּוּן", "fon": "kivun", "sign": "DIRECCION", "audio": "audios/ab_kivun.mp3"}, {"heb": "לֵוִי", "fon": "levi", "sign": "LEVI", "audio": "audios/ab_levi.mp3"}]}, "A+C": {"type": "MIX", "req": ["A", "C"], "words": [{"heb": "מוֹצִיא", "fon": "motsi", "sign": "SACA", "audio": "audios/ac_motsi.mp3"}, {"heb": "יוֹלֵד", "fon": "ioled", "sign": "DA A LUZ", "audio": "audios/ac_ioled.mp3"}, {"heb": "מוֹלִיד", "fon": "molid", "sign": "HACE NACER", "audio": "audios/ac_molid.mp3"}, {"heb": "מָגִיד", "fon": "maguid", "sign": "RELATA", "audio": "audios/ac_maguid.mp3"}, {"heb": "גָּדוֹל", "fon": "gadol", "sign": "GRANDE", "audio": "audios/ac_gadol.mp3"}, {"heb": "גָּמָל", "fon": "gamal", "sign": "CAMELLO", "audio": "audios/ac_gamal.mp3"}, {"heb": "מִגְדָּל", "fon": "migdal", "sign": "TORRE", "audio": "audios/ac_migdal.mp3"}, {"heb": "צָמִיד", "fon": "tsamid", "sign": "PULSERA", "audio": "audios/ac_tsamid.mp3"}, {"heb": "צִיץ", "fon": "tsits", "sign": "BROTE", "audio": "audios/ac_tsits.mp3"}, {"heb": "מְדוּיָק", "fon": "meduiak", "sign": "EXACTO", "audio": "audios/ac_meduiak.mp3"}]}, "A+D": {"type": "MIX", "req": ["A", "D"], "words": [{"heb": "קוֹל", "fon": "kol", "sign": "VOZ", "audio": "audios/ad_kol.mp3"}, {"heb": "מַשְׁקוֹעַ", "fon": "mashkoa", "sign": "HUNDIMIENTO", "audio": "audios/ad_mashkoa.mp3"}, {"heb": "מַזָּל", "fon": "mazal", "sign": "SUERTE", "audio": "audios/ad_mazal.mp3"}, {"heb": "עוֹלָם", "fon": "olam", "sign": "MUNDO", "audio": "audios/ad_olam.mp3"}, {"heb": "מַעֲלָה", "fon": "maala", "sign": "SUBIDA", "audio": "audios/ad_maala.mp3"}, {"heb": "שָׁקֵט", "fon": "shaket", "sign": "SILENCIOSO", "audio": "audios/ad_shaket.mp3"}, {"heb": "מָקוֹם", "fon": "makom", "sign": "LUGAR", "audio": "audios/ad_makom.mp3"}, {"heb": "חָלוֹם", "fon": "jalom", "sign": "SUEÑO", "audio": "audios/ad_jalom.mp3"}, {"heb": "שָׁחָט", "fon": "shajat", "sign": "SACRIFICO", "audio": "audios/ad_shajat.mp3"}, {"heb": "שְׁקִיעָה", "fon": "shkiaa", "sign": "ATARDECER", "audio": "audios/ad_shkiaa.mp3"}]}, "A+E": {"type": "MIX", "req": ["A", "E"], "words": [{"heb": "כֶּסֶף", "fon": "kesef", "sign": "PLATA", "audio": "audios/ae_kesef.mp3"}, {"heb": "מוּסָךְ", "fon": "musaj", "sign": "MUSAJ", "audio": "audios/ae_musaj.mp3"}, {"heb": "כּוֹס", "fon": "kos", "sign": "VASO", "audio": "audios/ae_kos.mp3"}, {"heb": "פָּסוּק", "fon": "pasuk", "sign": "VERSICULO", "audio": "audios/ae_pasuk.mp3"}, {"heb": "פָּסוּל", "fon": "pasul", "sign": "INVALIDO", "audio": "audios/ae_pasul.mp3"}, {"heb": "פֶּסֶל", "fon": "pesel", "sign": "IDOLO", "audio": "audios/ae_pesel.mp3"}, {"heb": "מַסְלוּל", "fon": "maslul", "sign": "RUTA", "audio": "audios/ae_maslul.mp3"}, {"heb": "שׁוֹפֵל", "fon": "shofel", "sign": "BAJO", "audio": "audios/ae_shofel.mp3"}, {"heb": "כֶּפֶל", "fon": "kefel", "sign": "DOBLE", "audio": "audios/ae_kefel.mp3"}, {"heb": "מוּסָף", "fon": "musaf", "sign": "MUSAF", "audio": "audios/ae_musaf.mp3"}]}, "B+C": {"type": "MIX", "req": ["B", "C"], "words": [{"heb": "תּוֹרָה", "fon": "tora", "sign": "TORA", "audio": "audios/bc_tora.mp3"}, {"heb": "אֲבוֹת", "fon": "avot", "sign": "PATRIARCAS", "audio": "audios/bc_avot.mp3"}, {"heb": "בְּרִית", "fon": "brit", "sign": "PACTO", "audio": "audios/bc_brit.mp3"}, {"heb": "אֶרֶץ", "fon": "erets", "sign": "TIERRA", "audio": "audios/bc_erets.mp3"}, {"heb": "צֹאן", "fon": "tson", "sign": "REBAÑO", "audio": "audios/bc_tson.mp3"}, {"heb": "בָּנוֹת", "fon": "banot", "sign": "HIJAS", "audio": "audios/bc_banot.mp3"}, {"heb": "גְּבוּרָה", "fon": "guevura", "sign": "VALENTIA", "audio": "audios/bc_guevura.mp3"}, {"heb": "גִּבּוֹר", "fon": "guibor", "sign": "VALIENTE", "audio": "audios/bc_guibor.mp3"}, {"heb": "הַדָּבָר", "fon": "hadavar", "sign": "LA COSA", "audio": "audios/bc_hadavar.mp3"}, {"heb": "בֶּגֶד", "fon": "begued", "sign": "ROPA", "audio": "audios/bc_begued.mp3"}]}, "B+D": {"type": "MIX", "req": ["B", "D"], "words": [{"heb": "בְּרִית", "fon": "brit", "sign": "PACTO", "audio": "audios/bd_brit.mp3"}, {"heb": "עִבְרִית", "fon": "ivrit", "sign": "HEBREO", "audio": "audios/bd_ivrit.mp3"}, {"heb": "הַנָּהָר", "fon": "hanahar", "sign": "EL RIO", "audio": "audios/bd_hanahar.mp3"}, {"heb": "חֶבֶר", "fon": "jever", "sign": "COMPAÑIA", "audio": "audios/bd_jever.mp3"}, {"heb": "עֶרֶב", "fon": "erev", "sign": "TARDE", "audio": "audios/bd_erev.mp3"}, {"heb": "עָבַר", "fon": "avar", "sign": "PASADO", "audio": "audios/bd_avar.mp3"}, {"heb": "קֶבֶר", "fon": "kever", "sign": "TUMBA", "audio": "audios/bd_kever.mp3"}, {"heb": "קָרוֹב", "fon": "karov", "sign": "CERCANO", "audio": "audios/bd_karov.mp3"}, {"heb": "תְּרוּעָה", "fon": "trua", "sign": "ACLAMACION", "audio": "audios/bd_trua.mp3"}, {"heb": "תַּנּוּר", "fon": "tanur", "sign": "ESTUFA", "audio": "audios/bd_tanur.mp3"}]}, "B+E": {"type": "MIX", "req": ["B", "E"], "words": [{"heb": "בְּשׂוֹרוֹת", "fon": "besorot", "sign": "BUENAS NOTICIAS", "audio": "audios/be_besorot.mp3"}, {"heb": "בָּשָׂר", "fon": "basar", "sign": "CARNE", "audio": "audios/be_basar.mp3"}, {"heb": "שָׂרָף", "fon": "saraf", "sign": "SERAFIN", "audio": "audios/be_saraf.mp3"}, {"heb": "נִשְׂרָף", "fon": "nisraf", "sign": "SE QUEMO", "audio": "audios/be_nisraf.mp3"}, {"heb": "הֶסְפֵּד", "fon": "hesped", "sign": "ELOGIO FUNEBRE", "audio": "audios/be_hesped.mp3"}, {"heb": "סֵפֶר", "fon": "sefer", "sign": "LIBRO", "audio": "audios/be_sefer.mp3"}, {"heb": "סוֹפֵר", "fon": "sofer", "sign": "ESCRIBA", "audio": "audios/be_sofer.mp3"}, {"heb": "פֵּרוֹת", "fon": "perot", "sign": "FRUTAS", "audio": "audios/be_perot.mp3"}, {"heb": "נֵס", "fon": "nes", "sign": "MILAGRO", "audio": "audios/be_nes.mp3"}, {"heb": "פּוֹרֵשׂ", "fon": "pores", "sign": "EXTIENDE", "audio": "audios/be_pores.mp3"}]}, "A+B+C": {"type": "MIX", "req": ["A", "B", "C"], "words": [{"heb": "בְּרָכָה", "fon": "beraja", "sign": "BENDICION", "audio": "audios/abc_beraja.mp3"}, {"heb": "בְּרָכוֹת", "fon": "berajot", "sign": "BENDICIONES", "audio": "audios/abc_berajot.mp3"}, {"heb": "בָּרוּךְ", "fon": "baruj", "sign": "BENDITO", "audio": "audios/abc_baruj.mp3"}, {"heb": "מְבֹרָךְ", "fon": "mevoraj", "sign": "BENDECIDO", "audio": "audios/abc_mevoraj.mp3"}, {"heb": "אֱלֹהִים", "fon": "elohim", "sign": "DIOS", "audio": "audios/abc_elohim.mp3"}, {"heb": "אַהֲבָה", "fon": "ahava", "sign": "AMOR", "audio": "audios/abc_ahava.mp3"}, {"heb": "אַהֲבַת", "fon": "ahavat", "sign": "AMOR DE", "audio": "audios/abc_ahavat.mp3"}, {"heb": "אֲהוּבִים", "fon": "ahuvim", "sign": "AMADOS", "audio": "audios/abc_ahuvim.mp3"}, {"heb": "נִבְרָא", "fon": "nivra", "sign": "FUE CREADO", "audio": "audios/abc_nivra.mp3"}, {"heb": "תְּבוּנָה", "fon": "tevuna", "sign": "ENTENDIMIENTO", "audio": "audios/abc_tevuna.mp3"}, {"heb": "גְּאֻלָּה", "fon": "gueula", "sign": "REDENCION", "audio": "audios/abc_gueula.mp3"}, {"heb": "גוֹאֵל", "fon": "goel", "sign": "REDENTOR", "audio": "audios/abc_goel.mp3"}, {"heb": "הַגָּדָה", "fon": "hagada", "sign": "RELATO", "audio": "audios/abc_hagada.mp3"}, {"heb": "תּוֹלְדוֹת", "fon": "toldot", "sign": "GENERACIONES", "audio": "audios/abc_toldot.mp3"}, {"heb": "הוֹדָאָה", "fon": "hodaa", "sign": "AGRADECIMIENTO", "audio": "audios/abc_hodaa.mp3"}, {"heb": "מַלְכוּת", "fon": "maljut", "sign": "REINO", "audio": "audios/abc_maljut.mp3"}, {"heb": "מְלוּכָה", "fon": "meluja", "sign": "REINADO", "audio": "audios/abc_meluja.mp3"}, {"heb": "מַדְרֵגָה", "fon": "madrega", "sign": "ESCALON", "audio": "audios/abc_madrega.mp3"}, {"heb": "מַהֲלָךְ", "fon": "mahalaj", "sign": "PROCESO", "audio": "audios/abc_mahalaj.mp3"}, {"heb": "בְּרִיאָה", "fon": "bria", "sign": "CREACION", "audio": "audios/abc_bria.mp3"}]}, "C+D": {"type": "MIX", "req": ["C", "D"], "words": [{"heb": "צָעַק", "fon": "tsaak", "sign": "GRITO", "audio": "audios/cd_tsaak.mp3"}, {"heb": "עָקַץ", "fon": "akats", "sign": "PICO", "audio": "audios/cd_akats.mp3"}, {"heb": "קוֹץ", "fon": "kots", "sign": "ESPINA", "audio": "audios/cd_kots.mp3"}, {"heb": "קֵץ", "fon": "kets", "sign": "FIN", "audio": "audios/cd_kets.mp3"}, {"heb": "צַדִּיק", "fon": "tsadik", "sign": "JUSTO", "audio": "audios/cd_tsadik.mp3"}, {"heb": "זִגְזָג", "fon": "zigzag", "sign": "ZIGZAG", "audio": "audios/cd_zigzag.mp3"}, {"heb": "צּוֹדֵק", "fon": "tsodek", "sign": "TIENE RAZON", "audio": "audios/cd_tsodek.mp3"}, {"heb": "צָעֲקוּ", "fon": "tsaaku", "sign": "GRITARON", "audio": "audios/cd_tsaaku.mp3"}, {"heb": "דִּגְדּוּג", "fon": "digdug", "sign": "COSQUILLEO", "audio": "audios/cd_digdug.mp3"}, {"heb": "צִדּוּק", "fon": "tsiduk", "sign": "JUSTIFICACION", "audio": "audios/cd_tsiduk.mp3"}]}, "C+E": {"type": "MIX", "req": ["C", "E"], "words": [{"heb": "אָסַף", "fon": "asaf", "sign": "RECOLECTA", "audio": "audios/ce_asaf.mp3"}, {"heb": "אֹסֶף", "fon": "osef", "sign": "RECOLECCION", "audio": "audios/ce_osef.mp3"}, {"heb": "אָסוּף", "fon": "asuf", "sign": "REUNIDO", "audio": "audios/ce_asuf.mp3"}, {"heb": "יְסוֹד", "fon": "iesod", "sign": "FUNDAMENTO", "audio": "audios/ce_iesod.mp3"}, {"heb": "סוֹד", "fon": "sod", "sign": "SECRETO", "audio": "audios/ce_sod.mp3"}, {"heb": "וַדַּאי", "fon": "vadai", "sign": "CON CERTEZA", "audio": "audios/ce_vadai.mp3"}, {"heb": "גְּדוּד", "fon": "guedud", "sign": "BATALLON", "audio": "audios/ce_guedud.mp3"}, {"heb": "גִּדּוּף", "fon": "guiduf", "sign": "INSULTO", "audio": "audios/ce_guiduf.mp3"}, {"heb": "סְפוֹג", "fon": "sfog", "sign": "ESPONJA", "audio": "audios/ce_sfog.mp3"}, {"heb": "פִּסְפּוּס", "fon": "pispus", "sign": "AJUSTE FINO", "audio": "audios/ce_pispus.mp3"}]}, "D+E": {"type": "MIX", "req": ["D", "E"], "words": [{"heb": "שִׁקּוּף", "fon": "shikuf", "sign": "REFLEJO", "audio": "audios/de_shikuf.mp3"}, {"heb": "שׂוֹחֵק", "fon": "sojek", "sign": "RIE", "audio": "audios/de_sojek.mp3"}, {"heb": "שִׂיחָה", "fon": "sija", "sign": "CONVERSACION", "audio": "audios/de_sija.mp3"}, {"heb": "עִטּוּף", "fon": "ituf", "sign": "ENVOLTURA", "audio": "audios/de_ituf.mp3"}, {"heb": "סִפּוּק", "fon": "sipuk", "sign": "SATISFACCION", "audio": "audios/de_sipuk.mp3"}, {"heb": "סִפֵּק", "fon": "sipek", "sign": "SUMINISTRO", "audio": "audios/de_sipek.mp3"}, {"heb": "פִּתּוּחַ", "fon": "pituaj", "sign": "DESARROLLO", "audio": "audios/de_pituaj.mp3"}, {"heb": "פָּשׂוּט", "fon": "pasut", "sign": "SIMPLE", "audio": "audios/de_pasut.mp3"}]}, "C+D+E": {"type": "MIX", "req": ["C", "D", "E"], "words": [{"heb": "קֶצֶף", "fon": "ketsef", "sign": "ENOJO", "audio": "audios/cde_ketsef.mp3"}, {"heb": "קָצָף", "fon": "katsaf", "sign": "ESPUMA", "audio": "audios/cde_katsaf.mp3"}, {"heb": "קִצֵּף", "fon": "kitsef", "sign": "SE ENOJO", "audio": "audios/cde_kitsef.mp3"}, {"heb": "פֶּצַע", "fon": "petsa", "sign": "HERIDA", "audio": "audios/cde_petsa.mp3"}, {"heb": "פָּצַע", "fon": "patsa", "sign": "HIRIO", "audio": "audios/cde_patsa.mp3"}, {"heb": "פִּצּוּעַ", "fon": "pitsua", "sign": "LESION", "audio": "audios/cde_pitsua.mp3"}, {"heb": "סִפּוּחַ", "fon": "sipuaj", "sign": "AGREGADO", "audio": "audios/cde_sipuaj.mp3"}, {"heb": "שְׂחוֹק", "fon": "sjok", "sign": "RISA", "audio": "audios/cde_sjok.mp3"}, {"heb": "שָׂחוּק", "fon": "sajuk", "sign": "GASTADO", "audio": "audios/cde_sajuk.mp3"}, {"heb": "שִׂיחַ", "fon": "siaj", "sign": "ARBUSTO", "audio": "audios/cde_siaj.mp3"}, {"heb": "צָחַק", "fon": "tsajak", "sign": "SE RIO", "audio": "audios/cde_tsajak.mp3"}, {"heb": "צְחוֹק", "fon": "tsjok", "sign": "RISA", "audio": "audios/cde_tsjok.mp3"}, {"heb": "צָעִיף", "fon": "tsaif", "sign": "BUFANDA", "audio": "audios/cde_tsaif.mp3"}, {"heb": "זָעִיף", "fon": "zaif", "sign": "IRRITABLE", "audio": "audios/cde_zaif.mp3"}, {"heb": "קוֹצֵץ", "fon": "kotsets", "sign": "RECORTA", "audio": "audios/cde_kotsets.mp3"}, {"heb": "פּוֹצֵץ", "fon": "potsets", "sign": "DETONA", "audio": "audios/cde_potsets.mp3"}, {"heb": "עָזוּז", "fon": "azuz", "sign": "FUERTE", "audio": "audios/cde_azuz.mp3"}, {"heb": "עָצִיץ", "fon": "atsits", "sign": "MACETA", "audio": "audios/cde_atsits.mp3"}, {"heb": "חָצִי", "fon": "jatsi", "sign": "MITAD", "audio": "audios/cde_jatsi.mp3"}]}};
+
+const STORAGE_KEY = "heb_pro_v18_completa";
+const state = {
+  activeSeries:null,
+  activeLesson:0,
+  pool:[],
+  progress:JSON.parse(localStorage.getItem(STORAGE_KEY))||{},
+  trainingIdx:0,
+  introIdx:0,
+  introLetters:[],
+  arrangeAnswer:[],
+  arrangeBlocks:[],
+  arrangeFonTarget:[],
+  arrangeAttempts:0,
+  totalTasks:0,
+  currentChallenge:null,
+  isAudioPlaying:false,
+  currentAudio:null,
+  lqItems:[],
+  lqIdx:0,
+  lqCorrect:0,
+  lqPhase:1,
+  lqLetters:[],
+  lqTotalPhase:0,
+  lqSoundPool:null,
+  lqNextPhase:null
+};
+
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state.progress)); }
+
+// ── STREAK ──────────────────────────────────────────────────
+function getStreak(){
+  const data=JSON.parse(localStorage.getItem("heb_streak")||"{}");
+  const today=new Date().toDateString();
+  const yesterday=new Date(Date.now()-86400000).toDateString();
+  if(data.last===today) return data.count||0;
+  if(data.last===yesterday) return data.count||0; // still valid
+  return 0; // broken
+}
+function updateStreak(){
+  const data=JSON.parse(localStorage.getItem("heb_streak")||"{}");
+  const today=new Date().toDateString();
+  const yesterday=new Date(Date.now()-86400000).toDateString();
+  let count=1;
+  if(data.last===today) count=data.count||1; // already updated today
+  else if(data.last===yesterday) count=(data.count||0)+1; // extend streak
+  localStorage.setItem("heb_streak",JSON.stringify({last:today,count}));
+  return count;
+}
+
+// ── FEEDBACK SENSORIAL (Sonidos + Vibracion) ──────────────────
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function initAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+// Generar sonidos sintetizados (no requiere archivos externos)
+function playTone(frequency, duration, type = 'sine', volume = 0.3) {
+  initAudioContext();
+  if (!audioCtx) return;
+  
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  
+  oscillator.frequency.value = frequency;
+  oscillator.type = type;
+  
+  gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+  
+  oscillator.start(audioCtx.currentTime);
+  oscillator.stop(audioCtx.currentTime + duration);
+}
+
+// Sonido de acierto - acordes ascendentes alegres
+function playSuccessSound() {
+  initAudioContext();
+  if (!audioCtx) return;
+  
+  // Acorde mayor ascendente
+  setTimeout(() => playTone(523.25, 0.1, 'sine', 0.2), 0);    // C5
+  setTimeout(() => playTone(659.25, 0.1, 'sine', 0.2), 50);   // E5
+  setTimeout(() => playTone(783.99, 0.15, 'sine', 0.25), 100); // G5
+}
+
+// Sonido de error - tono descendente corto
+function playErrorSound() {
+  initAudioContext();
+  if (!audioCtx) return;
+  
+  playTone(311.13, 0.15, 'square', 0.15); // Eb4 - tono bajo y corto
+}
+
+// Sonido de click/tap
+function playClickSound() {
+  initAudioContext();
+  if (!audioCtx) return;
+  
+  playTone(800, 0.05, 'sine', 0.1);
+}
+
+// Sonido de celebracion - fanfarria corta
+function playCelebrationSound() {
+  initAudioContext();
+  if (!audioCtx) return;
+  
+  setTimeout(() => playTone(523.25, 0.12, 'sine', 0.2), 0);
+  setTimeout(() => playTone(659.25, 0.12, 'sine', 0.2), 100);
+  setTimeout(() => playTone(783.99, 0.12, 'sine', 0.2), 200);
+  setTimeout(() => playTone(1046.50, 0.25, 'sine', 0.3), 300);
+}
+
+// Vibracion haptica
+function vibrate(pattern) {
+  if ('vibrate' in navigator) {
+    navigator.vibrate(pattern);
+  }
+}
+
+function vibrateSuccess() {
+  vibrate([50, 30, 50]); // Dos vibraciones cortas
+}
+
+function vibrateError() {
+  vibrate([100]); // Una vibracion mas larga
+}
+
+function vibrateClick() {
+  vibrate([10]); // Vibracion muy sutil
+}
+
+// Funcion combinada de feedback
+function feedbackSuccess() {
+  playSuccessSound();
+  vibrateSuccess();
+  const wordEl=document.getElementById("hebrew-word");
+  if(wordEl){ wordEl.classList.remove("word-shake"); void wordEl.offsetWidth; wordEl.classList.add("word-jump"); setTimeout(()=>wordEl.classList.remove("word-jump"),500); }
+}
+
+function feedbackError() {
+  playErrorSound();
+  vibrateError();
+  const wordEl=document.getElementById("hebrew-word");
+  if(wordEl){ wordEl.classList.remove("word-jump"); void wordEl.offsetWidth; wordEl.classList.add("word-shake"); setTimeout(()=>wordEl.classList.remove("word-shake"),500); }
+}
+
+function feedbackClick() {
+  playClickSound();
+  vibrateClick();
+}
+
+function feedbackCelebration() {
+  playCelebrationSound();
+  vibrate([50, 50, 50, 50, 100]);
+}
+
+// ── SPACED REPETITION SYSTEM (SRS) ────────────────────────────
+const SRS_KEY = "heb_srs_reviews";
+const SRS_INTERVALS = [1, 3, 7, 14, 30]; // dias entre repasos
+
+function getSRSData(){
+  return JSON.parse(localStorage.getItem(SRS_KEY) || "{}");
+}
+
+function saveSRSData(data){
+  localStorage.setItem(SRS_KEY, JSON.stringify(data));
+}
+
+// Llamar cuando se completa una serie
+function markSeriesReviewed(seriesKey){
+  const data = getSRSData();
+  const today = new Date().toDateString();
+  const existing = data[seriesKey] || { level: 0, lastReview: null };
+  
+  // Si es primer completado o repaso exitoso, subir nivel (hasta maximo)
+  const newLevel = Math.min(existing.level + 1, SRS_INTERVALS.length - 1);
+  
+  data[seriesKey] = {
+    level: newLevel,
+    lastReview: today,
+    firstComplete: existing.firstComplete || today
+  };
+  
+  saveSRSData(data);
+}
+
+// Verificar si una serie necesita repaso
+function needsReview(seriesKey){
+  if(!seriesDone(seriesKey)) return false; // Solo series completadas
+  
+  const data = getSRSData();
+  const srsInfo = data[seriesKey];
+  
+  if(!srsInfo || !srsInfo.lastReview) return false;
+  
+  const lastReview = new Date(srsInfo.lastReview);
+  const now = new Date();
+  const daysSince = Math.floor((now - lastReview) / (1000 * 60 * 60 * 24));
+  const interval = SRS_INTERVALS[srsInfo.level] || SRS_INTERVALS[SRS_INTERVALS.length - 1];
+  
+  return daysSince >= interval;
+}
+
+// Obtener info de memoria para mostrar en UI
+function getMemoryStrength(seriesKey){
+  const data = getSRSData();
+  const srsInfo = data[seriesKey];
+  
+  if(!srsInfo || !srsInfo.lastReview) return { strength: 100, daysUntilReview: null };
+  
+  const lastReview = new Date(srsInfo.lastReview);
+  const now = new Date();
+  const daysSince = Math.floor((now - lastReview) / (1000 * 60 * 60 * 24));
+  const interval = SRS_INTERVALS[srsInfo.level] || SRS_INTERVALS[SRS_INTERVALS.length - 1];
+  
+  // Fuerza de memoria: 100% justo despues del repaso, baja gradualmente
+  const strength = Math.max(30, Math.round(100 - (daysSince / interval) * 70));
+  const daysUntilReview = Math.max(0, interval - daysSince);
+  
+  return { strength, daysUntilReview, daysSince, level: srsInfo.level };
+}
+
+// ── ERROR TRACKING ───────────────────────────────────────────
+function trackError(wordIdx){
+  const key=state.activeSeries;
+  if(!key) return;
+  const errKey="heb_errors_"+key;
+  const errors=JSON.parse(localStorage.getItem(errKey)||"{}");
+  errors[wordIdx]=(errors[wordIdx]||0)+1;
+  localStorage.setItem(errKey,JSON.stringify(errors));
+}
+function getHardWords(seriesKey){
+  const errKey="heb_errors_"+seriesKey;
+  const errors=JSON.parse(localStorage.getItem(errKey)||"{}");
+  return Object.entries(errors)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,5)
+    .map(([idx])=>parseInt(idx));
+}
+
+// ── LESSON STATS ─────────────────────────────────────────────
+state.lessonErrors=0;
+
+const LESSON_SIZE=3;
+function getLessons(key){
+  const words=ALL_DATA[key].words;
+  const n=Math.ceil(words.length/LESSON_SIZE);
+  const perLesson=Math.ceil(words.length/n);
+  const lessons=[];
+  for(let i=0;i<n;i++){
+    const start=i*perLesson;
+    lessons.push(words.slice(start,start+perLesson).map((_,j)=>start+j));
+  }
+  return lessons;
+}
+function lessonKey(series,lesson){ return series+'_L'+lesson; }
+function seriesDone(key){
+  const lessons=getLessons(key);
+  return lessons.every((_,i)=>lessonDone(key,i));
+}
+function lessonDone(key,lessonIdx){
+  const lessons=getLessons(key);
+  const wordIdxs=lessons[lessonIdx];
+  const modes=ALL_DATA[key].type==='MIX'?3:3;
+  return (state.progress[lessonKey(key,lessonIdx)]||0)>=(wordIdxs.length*modes);
+}
+function showView(v){
+  ["view-home","view-pre-training","view-training","view-game","view-intro","view-celebration","view-welcome","view-letra-quiz","view-vowel-present"].forEach(id=>document.getElementById(id).classList.add("hidden"));
+  document.getElementById(`view-${v}`).classList.remove("hidden");
+  const homeBtn=document.getElementById("home-btn");
+  if(homeBtn) homeBtn.style.visibility = (v==="home"||v==="welcome") ? "hidden" : "visible";
+}
+function showToast(t,color="green"){ const toast=document.getElementById("toast"), tt=document.getElementById("toast-text"); tt.innerText=t; toast.classList.remove("bg-green-600","bg-red-600","bg-cyan-600"); if(color==="red") toast.classList.add("bg-red-600"); else if(color==="cyan") toast.classList.add("bg-cyan-600"); else toast.classList.add("bg-green-600"); toast.style.bottom="30px"; setTimeout(()=>toast.style.bottom="-100px",2000); }
+function cleanHebrew(text){
+  if(!text) return "";
+  const DAGESH='\u05BC';
+  const KEEP=['\u05E4','\u05DB','\u05D5']; // פ כ ו — keep dagesh only after these
+  const chars=[...text];
+  let result='';
+  for(let i=0;i<chars.length;i++){
+    if(chars[i]===DAGESH){
+      const prev=result.slice(-1);
+      if(KEEP.includes(prev)) result+=chars[i]; // keep פּ כּ וּ
+      // else skip dagesh
+    } else {
+      result+=chars[i];
+    }
+  }
+  return result;
+}
+
+// Renders Hebrew word with silent shva (ְ) colored gray when it's silent.
+// Rules: shva is silent (nach) when: (1) at end of word, (2) after a long vowel,
+// (3) the second of two consecutive shvas. Otherwise it's vocal (na) = sounds like E.
+const SHVA='\u05B0'; // ְ
+const LONG_VOWELS=new Set(['\u05B8','\u05B5','\u05B4','\u05B9','\u05D5\u05B9','\u05BB','\u05D5\u05BC']); // qamats,tsere,hiriq gadol,holam,vav-holam,qibbuts,shuruk
+
+function isSilentShva(chars, idx){
+  // Must be a shva character
+  if(chars[idx]!==SHVA) return false;
+  // Rule 1: last vowel in word (nothing after except other diacritics or end)
+  const remaining=chars.slice(idx+1).filter(c=>{
+    const cp=c.codePointAt(0);
+    return cp>=0x05D0&&cp<=0x05EA; // consonants only
+  });
+  if(remaining.length===0) return true; // end of word
+  // Rule 2: after a long vowel (check char before shva)
+  if(idx>0 && LONG_VOWELS.has(chars[idx-1])) return true;
+  // Rule 3: second of two consecutive shvas
+  if(idx>0 && chars[idx-1]===SHVA) return true;
+  return false;
+}
+
+function renderHebrewWithShva(text){
+  if(!text) return '';
+  const cleaned=cleanHebrew(text);
+  const chars=[...cleaned];
+  let html='';
+  for(let i=0;i<chars.length;i++){
+    const c=chars[i];
+    if(c===SHVA && isSilentShva(chars,i)){
+      html+=`<span style="color:#64748b;" title="shva silencioso">${c}</span>`;
+    } else {
+      html+=c;
+    }
+  }
+  return html;
+}
+function getCurrentWord(){ if(!state.activeSeries||!state.currentChallenge) return null; const series=ALL_DATA[state.activeSeries]; return series?.words[state.currentChallenge.wordIdx]||null; }
+function shuffle(array,seed=1){ const arr=[...array]; let m=arr.length,t,i; while(m){ i=Math.floor(Math.abs(Math.sin(seed++)*m--)); t=arr[m]; arr[m]=arr[i]; arr[i]=t; } return arr; }
+function getSeriesSeed(name){ return name.split("").reduce((acc,ch)=>acc+ch.charCodeAt(0),0); }
+
+
+function getCurrentLetters(){
+  if(!state.activeSeries || !ALL_DATA[state.activeSeries]) return [];
+  const s = ALL_DATA[state.activeSeries];
+  if(s.type === "BASE") return s.letters || [];
+  let out = [];
+  (s.req || []).forEach(k => {
+    if(ALL_DATA[k] && ALL_DATA[k].letters) out = out.concat(ALL_DATA[k].letters);
+  });
+  return [...new Set(out)];
+}
+
+function toggleGameVowels(){
+  const panel=document.getElementById("game-vowels-panel");
+  const arrow=document.getElementById("game-vowels-arrow");
+  const btn=document.getElementById("game-vowels-btn");
+  const isOpen=!panel.classList.contains("hidden");
+  panel.classList.toggle("hidden");
+  arrow.innerText=isOpen?"▼ tocá":"▲ cerrar";
+  btn.style.borderColor=isOpen?"#475569":"#fbbf24";
+}
+
+function renderLettersBand(){
+  const el = document.getElementById("challenge-letters");
+  if(!el) return;
+  const letters = getCurrentLetters();
+  el.innerHTML = letters.map(l => {
+    const fon = LETTER_FON_MAP[l] || "";
+    return `<div class="flex flex-col items-center justify-start min-w-[40px]">
+      <span class="inline-flex items-center justify-center min-w-[34px] h-9 px-2 rounded-xl bg-slate-800 border border-slate-700 text-xl font-bold" style="color:#22d3ee;">${l}</span>
+      <span class="text-[11px] mt-1 font-bold uppercase" style="color:#22d3ee;">${fon}</span>
+    </div>`;
+  }).join("");
+  // populate vowel grid
+  const grid=document.getElementById("game-vowels-grid");
+  if(!grid) return;
+  grid.innerHTML=FULL_VOWELS.map(v=>{
+    const style=vowelStyleMap[v.h]||{size:"2.65rem",left:"-12px",top:"-21px"};
+    const fontSize=v.h==='י'?"1.5rem":style.size;
+    const left=v.h==='י'?"0px":style.left;
+    const top=v.h==='י'?"0px":style.top;
+    return `<div class="flex flex-col items-center justify-start min-w-[15px]">
+      <span class="inline-flex items-center justify-center w-[32px] h-[40px] rounded-xl bg-slate-800 border border-slate-700 overflow-hidden">
+        <span class="font-regular leading-none flex items-center justify-center w-full h-full text-center"
+              style="font-size:${fontSize};line-height:1;position:relative;left:${left};top:${top};color:#fbbf24;">
+          ${v.h}
+        </span>
+      </span>
+      <span class="text-[11px] mt-1 font-bold uppercase text-center" style="color:#fbbf24;">${v.p}</span>
+    </div>`;
+  }).join("");
+}
+
+
+const vowelStyleMap = {
+  "ָ": { size: "2.65rem", left: "-12px", top: "-21px" },
+  "ַ": { size: "2.65rem", left: "-12px", top: "-21px" },
+  "ֲ": { size: "2.65rem", left: "-12px", top: "-21px" },
+  "ֵ": { size: "2.65rem", left: "-12px", top: "-21px" },
+  "ֶ": { size: "2.65rem", left: "-12px", top: "-21px" },
+  "ְ": { size: "2.65rem", left: "-12px", top: "-21px" },
+  "ֱ": { size: "2.65rem", left: "-12px", top: "-21px" },
+  "ִ": { size: "2.65rem", left: "-12px", top: "-5px" },
+  "ֹ": { size: "2.65rem", left: "-3px", top: "3px" },
+  "וֹ": { size: "2rem", left: "-2px", top: "0px" },
+  "ֻ": { size: "2.65rem", left: "-12px", top: "-21px" },
+  "וּ": { size: "2rem", left: "-2px", top: "0px" },
+  "ֳ": { size: "2.65rem", left: "-12px", top: "-21px" }
+};
+
+function renderTrainingHelpers(){
+  const lettersEl = document.getElementById("training-letters");
+  const vowelsEl = document.getElementById("training-vowels");
+  if(!lettersEl || !vowelsEl || !state.activeSeries || !ALL_DATA[state.activeSeries]) return;
+
+  const letters = getCurrentLetters();
+  lettersEl.innerHTML = letters.map(l => {
+    const fon = LETTER_FON_MAP[l] || "";
+    return `<div class="flex flex-col items-center justify-start min-w-[40px]">
+      <span class="inline-flex items-center justify-center min-w-[34px] h-9 px-2 rounded-xl bg-slate-800 border border-slate-700 text-xl font-bold" style="color:#22d3ee;">${l}</span>
+      <span class="text-[11px] mt-1 font-bold uppercase" style="color:#22d3ee;">${fon}</span>
+    </div>`;
+  }).join("");
+
+  vowelsEl.innerHTML = FULL_VOWELS.map(v => {
+    const style = vowelStyleMap[v.h] || { size: "2.65rem", left: "-12px", top: "-21px" };
+    const fontSize = v.h === 'י' ? "1.5rem" : style.size;
+    const left = v.h === 'י' ? "0px" : style.left;
+    const top = v.h === 'י' ? "0px" : style.top;
+    return `<div class="flex flex-col items-center justify-start min-w-[15px]">
+      <span class="inline-flex items-center justify-center w-[32px] h-[40px] rounded-xl bg-slate-800 border border-slate-700 overflow-hidden">
+        <span class="font-regular leading-none flex items-center justify-center w-full h-full text-center"
+              style="font-size:${fontSize};line-height:1;position:relative;left:${left};top:${top};color:#fbbf24;">
+          ${v.h}
+        </span>
+      </span>
+      <span class="text-[11px] mt-1 font-bold uppercase text-center" style="color:#fbbf24;">${v.p}</span>
+    </div>`;
+  }).join("");
+}
+
+function renderHome(){
+  state.activeSeries=null; showView("home");
+
+  // ── STREAK ───────────────────────────────────────────────
+  const streak=getStreak();
+  const reviewCount=Object.keys(ALL_DATA).filter(k=>needsReview(k)).length;
+  const streakEl=document.getElementById("home-streak");
+  if(streakEl){
+    let html='';
+    if(streak>0){
+      html=`<div class="flex items-center justify-center gap-2"><span class="text-2xl">🔥</span><span class="text-lg font-black text-orange-500">${streak}</span><span class="text-small text-slate-400 font-semibold">${streak===1?"dia seguido":"dias seguidos"}</span></div>`;
+    } else {
+      html=`<span class="text-small text-slate-400">ESTUDIA HOY PARA EMPEZAR TU RACHA 🔥</span>`;
+    }
+    if(reviewCount>0){
+      html+=`<div class="mt-3 flex items-center justify-center gap-2 bg-amber-900/30 border border-amber-700/50 rounded-xl px-4 py-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="text-small text-amber-400 font-semibold">${reviewCount} ${reviewCount===1?'serie necesita':'series necesitan'} repaso</span>
+      </div>`;
+    }
+    streakEl.innerHTML=html;
+  }
+
+  const baseC=document.getElementById("base-series-container");
+  const mixC=document.getElementById("mix-series-container");
+  baseC.innerHTML=""; mixC.innerHTML="";
+
+  // ── BASE SERIES MAP ──────────────────────────────────────
+  const BASE_KEYS=["A","B","C","D","E"];
+
+  // Title
+  const mapTitle=document.createElement("p");
+  mapTitle.className="text-small font-black text-slate-400 tracking-widest uppercase text-center mb-5";
+  mapTitle.textContent="Tu camino";
+  baseC.appendChild(mapTitle);
+
+  const pathWrap=document.createElement("div");
+  pathWrap.style.cssText="position:relative; padding: 0 12px;";
+
+  // Vertical line running down the center-left
+  const vline=document.createElement("div");
+  vline.style.cssText="position:absolute; left:35px; top:24px; bottom:24px; width:2px; background:linear-gradient(to bottom,#1e3a4a,#1e293b); z-index:0;";
+  pathWrap.appendChild(vline);
+
+  BASE_KEYS.forEach((key,i)=>{
+    const s=ALL_DATA[key];
+    const lessons=getLessons(key);
+    const totalTasks=s.words.length*3;
+    const totalDone=lessons.reduce((sum,_,j)=>sum+(state.progress[lessonKey(key,j)]||0),0);
+    const percent=Math.min(100,Math.round((totalDone/totalTasks)*100));
+    const isComplete=seriesDone(key);
+    const reviewNeeded=needsReview(key);
+    const isStarted=totalDone>0;
+    const prevDone=i===0||seriesDone(BASE_KEYS[i-1]);
+    const isLocked=!isStarted && !prevDone;
+
+    // Row wrapper
+    const row=document.createElement("div");
+    row.style.cssText="display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; position:relative; z-index:1;";
+
+    // ── NODE CIRCLE ──────────────────────────────────────
+    let nodeColor, nodeBg, nodeBorder, nodeAnim;
+    if(isLocked){
+      nodeColor="#475569"; nodeBg="#0f172a"; nodeBorder="#1e293b"; nodeAnim="";
+    } else if(reviewNeeded){
+      nodeColor="#f59e0b"; nodeBg="#1c1300"; nodeBorder="#f59e0b"; nodeAnim="animation:node-amber-pulse 1.8s ease-in-out infinite;";
+    } else if(isComplete){
+      nodeColor="#22c55e"; nodeBg="#0a2010"; nodeBorder="#22c55e"; nodeAnim="animation:node-gold-glow 2.5s ease-in-out infinite;";
+    } else if(isStarted){
+      nodeColor="#22d3ee"; nodeBg="#051520"; nodeBorder="#22d3ee"; nodeAnim="animation:node-glow 2s ease-in-out infinite;";
+    } else {
+      nodeColor="#22d3ee"; nodeBg="#051520"; nodeBorder="#334155"; nodeAnim="";
+    }
+
+    const nodeIcon=isLocked?"🔒":isComplete?"✓":reviewNeeded?"⏰":key;
+
+    const nodeEl=document.createElement("div");
+    nodeEl.style.cssText=`width:48px; height:48px; border-radius:50%; background:${nodeBg}; border:2px solid ${nodeBorder}; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:900; font-size:${isComplete||reviewNeeded||isLocked?18:15}px; color:${nodeColor}; ${nodeAnim} cursor:${isLocked?"default":"pointer"};`;
+    nodeEl.textContent=nodeIcon;
+    if(!isLocked) nodeEl.addEventListener("click",()=>startSeries(key));
+    row.appendChild(nodeEl);
+
+    // ── CARD ─────────────────────────────────────────────
+    let cardBorder;
+    if(reviewNeeded) cardBorder="#f59e0b";
+    else if(isComplete) cardBorder="#22c55e44";
+    else if(isStarted) cardBorder="#22d3ee44";
+    else if(isLocked) cardBorder="#1e293b";
+    else cardBorder="#334155";
+
+    const card=document.createElement("div");
+    card.style.cssText=`flex:1; background:#0f172a; border:1.5px solid ${cardBorder}; border-radius:16px; padding:12px 14px; cursor:${isLocked?"default":"pointer"}; opacity:${isLocked?0.45:1};`;
+    if(!isLocked) card.addEventListener("click",()=>startSeries(key));
+
+    // Card top: name + status badge
+    const cardTop=document.createElement("div");
+    cardTop.style.cssText="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;";
+
+    const nameEl=document.createElement("span");
+    nameEl.style.cssText="font-weight:900; font-size:13px; color:#f1f5f9; letter-spacing:0.02em;";
+    nameEl.textContent="Serie "+key;
+    cardTop.appendChild(nameEl);
+
+    const badge=document.createElement("span");
+    let badgeText, badgeColor, badgeBg;
+    if(isLocked){ badgeText="Bloqueada"; badgeColor="#475569"; badgeBg="#1e293b"; }
+    else if(reviewNeeded){ badgeText="⏰ Repaso"; badgeColor="#f59e0b"; badgeBg="#292208"; }
+    else if(isComplete){ badgeText="✓ Completa"; badgeColor="#22c55e"; badgeBg="#0a2010"; }
+    else if(isStarted){ badgeText=percent+"%"; badgeColor="#22d3ee"; badgeBg="#051520"; }
+    else { badgeText="Nueva"; badgeColor="#94a3b8"; badgeBg="#1e293b"; }
+    badge.style.cssText=`font-size:11px; font-weight:700; color:${badgeColor}; background:${badgeBg}; border:1px solid ${badgeColor}44; padding:2px 8px; border-radius:99px;`;
+    badge.textContent=badgeText;
+    cardTop.appendChild(badge);
+    card.appendChild(cardTop);
+
+    // Progress bar
+    if(!isLocked){
+      const barWrap=document.createElement("div");
+      barWrap.style.cssText="background:#1e293b; border-radius:99px; height:4px; margin-bottom:10px; overflow:hidden;";
+      const barFill=document.createElement("div");
+      barFill.style.cssText=`height:100%; border-radius:99px; width:${percent}%; background:${reviewNeeded?"#f59e0b":isComplete?"#22c55e":"#22d3ee"}; transition:width .6s ease;`;
+      barWrap.appendChild(barFill);
+      card.appendChild(barWrap);
+    }
+
+    // Letter pills
+    const pillsRow=document.createElement("div");
+    pillsRow.style.cssText="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;";
+    s.letters.forEach(l=>{
+      const fon=LETTER_FON_MAP[l]||"";
+      const pill=document.createElement("div");
+      pill.style.cssText=`display:flex; align-items:center; gap:3px; background:#1e293b; border-radius:6px; padding:3px 6px;`;
+      pill.innerHTML=`<span style="font-family:'Assistant',sans-serif;font-size:15px;font-weight:700;color:${isLocked?"#475569":"#22d3ee"};">${l}</span><span style="font-size:11px;font-weight:700;color:${isLocked?"#334155":"#64748b"};text-transform:uppercase;">${fon}</span>`;
+      pillsRow.appendChild(pill);
+    });
+    card.appendChild(pillsRow);
+
+    // Lesson dots
+    if(!isLocked){
+      const dotsRow=document.createElement("div");
+      dotsRow.style.cssText="display:flex; gap:6px; align-items:center;";
+      const dotsLabel=document.createElement("span");
+      dotsLabel.style.cssText="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.05em; margin-right:2px;";
+      dotsLabel.textContent="Lecciones";
+      dotsRow.appendChild(dotsLabel);
+      lessons.forEach((_,li)=>{
+        const done=lessonDone(key,li);
+        const nextLesson=lessons.findIndex((_,j)=>!lessonDone(key,j));
+        const isCurrent=li===nextLesson;
+        const dot=document.createElement("button");
+        dot.style.cssText=`width:28px; height:28px; border-radius:50%; border:2px solid ${done?"#22c55e":isCurrent?"#22d3ee":"#334155"}; background:${done?"#22c55e":isCurrent?"#22d3ee33":"#0f172a"}; color:${done?"#fff":isCurrent?"#22d3ee":"#475569"}; font-size:11px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center;`;
+        dot.textContent=done?"✓":(li+1);
+        dot.addEventListener("click",(e)=>{e.stopPropagation(); startSeries(key,li);});
+        dotsRow.appendChild(dot);
+      });
+      card.appendChild(dotsRow);
+    }
+
+    row.appendChild(card);
+    pathWrap.appendChild(row);
+
+    // Connector line segment between nodes (colored up to progress)
+    if(i < BASE_KEYS.length-1){
+      const connector=document.createElement("div");
+      connector.style.cssText="display:flex; align-items:center; padding:0 0 0 22px; margin-bottom:0; height:20px; position:relative; z-index:1;";
+      const dot1=document.createElement("div");
+      dot1.style.cssText=`width:4px; height:20px; background:${isComplete?"#22d3ee33":"#1e293b"}; border-radius:99px; margin:0 auto;`;
+      connector.appendChild(dot1);
+      pathWrap.appendChild(connector);
+    }
+  });
+
+  baseC.appendChild(pathWrap);
+
+  // ── MIX SERIES ────────────────────────────────────────────
+  const MIX_KEYS=Object.keys(ALL_DATA).filter(k=>ALL_DATA[k].type==="MIX");
+  if(!MIX_KEYS.length) return;
+
+  const mixTitle=document.createElement("p");
+  mixTitle.className="text-small font-black text-cyan-500 tracking-widest uppercase text-center mt-8 mb-1";
+  mixTitle.textContent="✦ Mezclas Maestras ✦";
+  mixC.appendChild(mixTitle);
+
+  const mixSub=document.createElement("p");
+  mixSub.className="text-tiny text-slate-500 text-center mb-5";
+  mixSub.textContent="Completa las series base para desbloquear";
+  mixC.appendChild(mixSub);
+
+  const mixGrid=document.createElement("div");
+  mixGrid.style.cssText="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; padding:0 4px;";
+
+  MIX_KEYS.forEach(key=>{
+    const s=ALL_DATA[key];
+    const isLocked=!s.req.every(r=>seriesDone(r));
+    const lessons=getLessons(key);
+    const totalTasks=s.words.length*3;
+    const totalDone=lessons.reduce((sum,_,i)=>sum+(state.progress[lessonKey(key,i)]||0),0);
+    const percent=Math.min(100,Math.round((totalDone/totalTasks)*100));
+    const isComplete=seriesDone(key);
+    const reviewNeeded=needsReview(key);
+
+    let borderColor, textColor, bgColor, anim;
+    if(isLocked){ borderColor="#1e293b"; textColor="#334155"; bgColor="#0a0f16"; anim=""; }
+    else if(reviewNeeded){ borderColor="#f59e0b"; textColor="#f59e0b"; bgColor="#1c1300"; anim="animation:node-amber-pulse 2s ease-in-out infinite;"; }
+    else if(isComplete){ borderColor="#22c55e"; textColor="#22c55e"; bgColor="#0a1f0f"; anim="animation:node-gold-glow 3s ease-in-out infinite;"; }
+    else if(totalDone>0){ borderColor="#22d3ee"; textColor="#22d3ee"; bgColor="#051520"; anim="animation:node-glow 2.5s ease-in-out infinite;"; }
+    else { borderColor="#334155"; textColor="#94a3b8"; bgColor="#0f172a"; anim="animation:star-twinkle 3s ease-in-out infinite;"; }
+
+    const chip=document.createElement("div");
+    chip.style.cssText=`background:${bgColor}; border:1.5px solid ${borderColor}; border-radius:12px; padding:8px 10px; cursor:${isLocked?"default":"pointer"}; opacity:${isLocked?0.4:1}; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:64px; ${anim}`;
+
+    const chipKey=document.createElement("span");
+    chipKey.style.cssText=`font-weight:900; font-size:13px; color:${isLocked?"#334155":textColor};`;
+    chipKey.textContent=isLocked?"🔒":key;
+    chip.appendChild(chipKey);
+
+    if(!isLocked){
+      const chipBar=document.createElement("div");
+      chipBar.style.cssText="width:44px; height:3px; background:#1e293b; border-radius:99px; overflow:hidden;";
+      const chipFill=document.createElement("div");
+      chipFill.style.cssText=`height:100%; width:${percent}%; background:${borderColor}; border-radius:99px;`;
+      chipBar.appendChild(chipFill);
+      chip.appendChild(chipBar);
+
+      const chipLbl=document.createElement("span");
+      chipLbl.style.cssText=`font-size:11px; font-weight:700; color:${textColor};`;
+      chipLbl.textContent=reviewNeeded?"Repaso":isComplete?"✓":percent>0?percent+"%":"Nueva";
+      chip.appendChild(chipLbl);
+    } else {
+      const lockLbl=document.createElement("span");
+      lockLbl.style.cssText="font-size:8px; font-weight:700; color:#334155; text-align:center;";
+      lockLbl.textContent=s.req.filter(r=>!seriesDone(r)).join("+");
+      chip.appendChild(lockLbl);
+    }
+
+    if(!isLocked) chip.addEventListener("click",()=>startSeries(key));
+    else {
+      const needed=s.req.filter(r=>!seriesDone(r));
+      chip.addEventListener("click",()=>showToast(`Completa la serie ${needed.join(" y ")} primero`,"cyan"));
+    }
+    mixGrid.appendChild(chip);
+  });
+
+  mixC.appendChild(mixGrid);
+}
+
+function startSeries(key, lessonIdx){
+  state.activeSeries=key;
+  const lessons=getLessons(key);
+  // find first incomplete lesson if not specified
+  if(lessonIdx===undefined){
+    lessonIdx=lessons.findIndex((_,i)=>!lessonDone(key,i));
+    if(lessonIdx===-1) lessonIdx=0; // all done, replay first
+  }
+  state.activeLesson=lessonIdx;
+  const anyDone=(state.progress[lessonKey(key,0)]||0)>0;
+  if(anyDone || ALL_DATA[key].type==="MIX"){ startMission(); return; }
+  const letters=getCurrentLetters();
+  if(letters.length===0){ state.trainingIdx=0; showView("pre-training"); return; }
+  state.introIdx=0;
+  state.introLetters=letters;
+  renderIntroSlide();
+  showView("intro");
+}
+
+function renderIntroSlide(){
+  const letters=state.introLetters, idx=state.introIdx, letterH=letters[idx];
+  const info=LETRA_INTRO_MAP[letterH]||{ fon: LETTER_FON_MAP[letterH]||"", ejemplo:"" };
+  // dots
+  const dotsEl=document.getElementById("intro-dots");
+  dotsEl.innerHTML=letters.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i===idx?"#22d3ee":i<idx?"#0e7490":"#1e293b"};transition:.3s;"></div>`).join("");
+  // letter + sound
+  document.getElementById("intro-letter").innerText=cleanHebrew(letterH);
+  document.getElementById("intro-sound").innerText=info.fon;
+  // example word with highlighted onset
+  const exampleHTML=info.ejemplo.replace(/<b-mark>(.*?)<\/b-mark>/g,
+    '<span style="color:#22d3ee;font-size:1.3em;">$1</span>');
+  document.getElementById("intro-example").innerHTML=exampleHTML;
+  // next button label
+  const isLast=idx===letters.length-1;
+  document.getElementById("intro-next-btn").innerText=isLast?"Comenzar práctica →":"Siguiente →";
+  // entrance animation
+  const card=document.getElementById("intro-card");
+  card.style.opacity="0"; card.style.transform="translateY(12px)";
+  requestAnimationFrame(()=>{ card.style.transition="opacity .25s, transform .25s"; card.style.opacity="1"; card.style.transform="translateY(0)"; });
+}
+
+// Mapa letra → { fon, ejemplo en español con la parte relevante marcada }
+const LETRA_INTRO_MAP = {
+  "א": { fon: "— muda",  ejemplo: "no suena (como la 'h' en 'hora')" },
+  "ב": { fon: "B",       ejemplo: "<b-mark>B</b-mark>oca" },
+  "ג": { fon: "G",       ejemplo: "<b-mark>G</b-mark>ato" },
+  "ד": { fon: "D",       ejemplo: "<b-mark>D</b-mark>ado" },
+  "ה": { fon: "H",       ejemplo: "<b-mark>H</b-mark>ambre" },
+  "ו": { fon: "V",       ejemplo: "<b-mark>V</b-mark>ino" },
+  "ז": { fon: "Z",       ejemplo: "el zumbido de una abeja: <b-mark>zzzz</b-mark>" },
+  "ח": { fon: "J",       ejemplo: "<b-mark>J</b-mark>arro" },
+  "ט": { fon: "T",       ejemplo: "<b-mark>T</b-mark>aza" },
+  "י": { fon: "I / Y",   ejemplo: "<b-mark>Y</b-mark>ema" },
+  "כּ": { fon: "K",      ejemplo: "<b-mark>C</b-mark>asa" },
+  "כ": { fon: "J",       ejemplo: "<b-mark>J</b-mark>arro" },
+  "ך": { fon: "J",       ejemplo: "<b-mark>J</b-mark>arro (final)" },
+  "ל": { fon: "L",       ejemplo: "<b-mark>L</b-mark>una" },
+  "מ": { fon: "M",       ejemplo: "<b-mark>M</b-mark>esa" },
+  "ם": { fon: "M",       ejemplo: "<b-mark>M</b-mark>esa (final)" },
+  "נ": { fon: "N",       ejemplo: "<b-mark>N</b-mark>ube" },
+  "ן": { fon: "N",       ejemplo: "<b-mark>N</b-mark>ube (final)" },
+  "ס": { fon: "S",       ejemplo: "<b-mark>S</b-mark>ol" },
+  "ע": { fon: "— muda",  ejemplo: "no suena (como la 'h' en 'hora')" },
+  "פּ": { fon: "P",      ejemplo: "<b-mark>P</b-mark>ato" },
+  "פ": { fon: "F",       ejemplo: "<b-mark>F</b-mark>uego" },
+  "ף": { fon: "F",       ejemplo: "<b-mark>F</b-mark>uego (final)" },
+  "צ": { fon: "TS",      ejemplo: "<b-mark>TS</b-mark>unami" },
+  "ץ": { fon: "TS",      ejemplo: "<b-mark>TS</b-mark>unami (final)" },
+  "ק": { fon: "K",       ejemplo: "<b-mark>C</b-mark>asa" },
+  "ר": { fon: "R",       ejemplo: "<b-mark>R</b-mark>osa" },
+  "שׁ": { fon: "SH",     ejemplo: "<b-mark>SH</b-mark>ampoo" },
+  "שׂ": { fon: "S",      ejemplo: "<b-mark>S</b-mark>ol" },
+  "ת": { fon: "T",       ejemplo: "<b-mark>T</b-mark>aza" }
+};
+
+function playIntroAudio(){ /* reservado para audios reales */ }
+
+function introNext(){ if(state.introIdx<state.introLetters.length-1){ state.introIdx++; renderIntroSlide(); } else { skipIntro(); } }
+function skipIntro(){ stopAudio(); startLetraQuiz(); }
+
+// ── LETRA QUIZ ────────────────────────────────────────────────
+// Flow:
+//  PHASE 1 — 2 consonant quiz questions (letter → pick sound)
+//  PHASE 2 — vowel presentation A/E/I (all variants shown together)
+//  PHASE 3 — 8 quiz questions: A/E/I vowels
+//  PHASE 4 — vowel presentation O/U
+//  PHASE 5 — 6 quiz questions: O/U vowels
+//  PHASE 6 — 15 mixed questions: consonants + all vowels alternating
+
+// Vowel groups
+const VOW_AEI = ['A','E','I'];
+const VOW_OU  = ['O','U'];
+
+function vowelsForSounds(sounds){
+  return FULL_VOWELS.filter(v=>sounds.includes(v.p));
+}
+
+// Render a single vowel (with מ base) as inline HTML, sized for display
+// Show a vowel sign correctly: attach it to a transparent base letter so
+// the font positions it properly (above/below), but only the vowel is visible.
+// The compound vowels (וֹ וּ) are full letters so they render fine standalone.
+function vowelDisplay(vH, fontSize='6rem'){
+  const isCompound=vH==='\u05D5\u05B9'||vH==='\u05D5\u05BC';
+  if(isCompound){
+    return `<span style="font-family:'Assistant',sans-serif;font-size:${fontSize};color:#fbbf24;line-height:1.2;display:inline-block;">${vH}</span>`;
+  }
+  // Vowel first, then transparent base — browser attaches diacritic to following char
+  return `<span style="font-family:'Assistant',sans-serif;font-size:${fontSize};line-height:1.2;display:inline-block;"><span style="color:#fbbf24;">${vH}</span><span style="color:transparent;">א</span></span>`;
+}
+
+// Legacy alias used in training helpers (keeps consonant visible)
+function vowelOnMem(vH, size='3rem'){ return vowelDisplay(vH, size); }
+
+// ── PHASE STEPPER ────────────────────────────────────────────
+const LQ_PHASES = [
+  { n:1, label:'Consonantes',       type:'quiz' },
+  { n:2, label:'Vocales A, E, I',   type:'present' },
+  { n:3, label:'Quiz A, E, I',      type:'quiz' },
+  { n:4, label:'Vocales O, U',      type:'present' },
+  { n:5, label:'Quiz O, U',         type:'quiz' },
+  { n:6, label:'Repaso mixto',      type:'quiz' },
+];
+
+function renderLqStepper(currentPhase, containerId){
+  const el=document.getElementById(containerId);
+  if(!el) return;
+  // Dots row
+  const dots=LQ_PHASES.map(p=>{
+    const done=p.n<currentPhase;
+    const active=p.n===currentPhase;
+    const color=done?'#22c55e':active?'#22d3ee':'#334155';
+    const size=active?'10px':'8px';
+    const margin=active?'0 3px':'0 3px';
+    return `<span style="display:inline-block;width:${size};height:${size};border-radius:50%;background:${color};transition:all .3s;margin:${margin};vertical-align:middle;"></span>`;
+  }).join('');
+  const current=LQ_PHASES[currentPhase-1];
+  el.innerHTML=`
+    <div style="text-align:center;margin-bottom:4px;">${dots}</div>
+    <p style="text-align:center;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">
+      Paso ${currentPhase} de 6 · ${current.label}
+    </p>`;
+}
+
+function startLetraQuiz(){
+  const letters=getCurrentLetters();
+  state.lqPhase=1;
+  state.lqLetters=letters;
+  runLqPhase1();
+}
+
+// ── PHASE 1: 12 consonant questions ──────────────────────────
+function runLqPhase1(){
+  const letters=state.lqLetters;
+  const pool=shuffle(letters.map(l=>({type:'con',target:l,sound:LETTER_FON_MAP[l]||l})),Date.now());
+  state.lqItems=buildQuizPool(pool,12);
+  state.lqIdx=0;
+  state.lqTotalPhase=12;
+  state.lqPhase=1;
+  showView('letra-quiz');
+  renderLqStepper(1,'lq-stepper');
+  renderLetraQuizSlide();
+}
+
+// ── PHASE 2 / 4: present vowels ───────────────────────────────
+function runVowelPresent(sounds, nextFn){
+  state.lqNextPhase=nextFn;
+  const phaseNum=sounds.join('')==='AEI'?2:4;
+  renderLqStepper(phaseNum,'vp-stepper');
+  document.getElementById('vp-title').textContent='Vocales que suenan '+sounds.join(' / ');
+  document.getElementById('vp-subtitle').textContent='Distintos signos, mismo sonido. Todas las formas valen.';
+
+  const cards=document.getElementById('vp-cards');
+  cards.innerHTML='';
+  sounds.forEach(sound=>{
+    const vowels=vowelsForSounds([sound]);
+    if(!vowels.length) return;
+    const card=document.createElement('div');
+    card.style.cssText='background:#0f172a;border:1.5px solid #1e293b;border-radius:14px;padding:10px 14px;';
+
+    const header=document.createElement('div');
+    header.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:10px;';
+    const soundBadge=document.createElement('span');
+    soundBadge.style.cssText='font-size:1.4rem;font-weight:900;color:#fbbf24;min-width:32px;';
+    soundBadge.textContent=sound;
+    const line=document.createElement('div');
+    line.style.cssText='flex:1;height:1px;background:#1e293b;';
+    const desc=document.createElement('span');
+    desc.style.cssText='font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.05em;';
+    desc.textContent=vowels.length===1?'1 forma':vowels.length+' formas';
+    header.appendChild(soundBadge); header.appendChild(line); header.appendChild(desc);
+    card.appendChild(header);
+
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;flex-wrap:wrap;gap:10px;align-items:center;';
+    vowels.forEach(v=>{
+      const cell=document.createElement('div');
+      cell.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
+      cell.innerHTML=vowelDisplay(v.h,'4rem');
+      row.appendChild(cell);
+    });
+    card.appendChild(row);
+    cards.appendChild(card);
+  });
+
+  // Special shva rule card — shown when E vowels are presented
+  if(sounds.includes('E')){
+    const shvaCard=document.createElement('div');
+    shvaCard.style.cssText='background:#0c1a2e;border:1.5px solid #1e3a5f;border-radius:14px;padding:12px 14px;';
+
+    const shvaHeader=document.createElement('div');
+    shvaHeader.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:8px;';
+    shvaHeader.innerHTML='<span style="font-size:1rem;font-weight:900;color:#60a5fa;">⚠ Regla importante</span>';
+    shvaCard.appendChild(shvaHeader);
+
+    const shvaBody=document.createElement('div');
+    shvaBody.style.cssText='display:flex;gap:12px;align-items:flex-start;';
+
+    const shvaChar=document.createElement('div');
+    shvaChar.style.cssText='flex-shrink:0;';
+    shvaChar.innerHTML=vowelDisplay('\u05B0','3.5rem');
+    shvaBody.appendChild(shvaChar);
+
+    const shvaText=document.createElement('div');
+    shvaText.style.cssText='font-size:12px;color:#94a3b8;line-height:1.5;';
+    shvaText.innerHTML='Este signo es el <strong style="color:#60a5fa;">Shva</strong>. Puede sonar <strong style="color:#fbbf24;">E</strong> o ser <strong style="color:#64748b;">silencioso</strong>.<br><br>Es <strong style="color:#64748b;">silencioso</strong> cuando aparece:<br>&bull; Al <strong style="color:#e2e8f0;">final</strong> de una palabra<br>&bull; Después de una <strong style="color:#e2e8f0;">vocal larga</strong><br><br>En el juego lo verás en <strong style="color:#64748b;">gris</strong> cuando es silencioso.';
+    shvaBody.appendChild(shvaText);
+    shvaCard.appendChild(shvaBody);
+
+    const example=document.createElement('div');
+    example.style.cssText='margin-top:10px;padding-top:10px;border-top:1px solid #1e3a5f;display:flex;align-items:center;gap:10px;';
+    example.innerHTML='<span style="font-family:\'Assistant\',sans-serif;font-size:1.8rem;font-weight:900;color:white;">מֶלֶ<span style="color:#64748b;">\u05B0</span>ך</span><span style="font-size:11px;color:#64748b;">→ se lee <strong style="color:#e2e8f0;">"melej"</strong>, no "meleje"</span>';
+    shvaCard.appendChild(example);
+    cards.appendChild(shvaCard);
+  }
+
+  showView('vowel-present');
+}
+
+function continueVowelPresent(){
+  if(state.lqNextPhase) state.lqNextPhase();
+}
+
+function runLqPhase3(){
+  const pool=vowelsForSounds(VOW_AEI).map(v=>({type:'vow',target:v.h,sound:v.p}));
+  state.lqItems=buildQuizPool(pool,8);
+  state.lqIdx=0;
+  state.lqTotalPhase=8;
+  state.lqPhase=3;
+  state.lqSoundPool=VOW_AEI;
+  showView('letra-quiz');
+  renderLqStepper(3,'lq-stepper');
+  renderLetraQuizSlide();
+}
+
+// ── PHASE 4: present O/U ─────────────────────────────────────
+function runLqPhase4(){ runVowelPresent(VOW_OU, runLqPhase5); }
+
+// ── PHASE 5: 6 O/U questions ─────────────────────────────────
+function runLqPhase5(){
+  const pool=vowelsForSounds(VOW_OU).map(v=>({type:'vow',target:v.h,sound:v.p}));
+  state.lqItems=buildQuizPool(pool,6);
+  state.lqIdx=0;
+  state.lqTotalPhase=6;
+  state.lqPhase=5;
+  state.lqSoundPool=VOW_OU;
+  showView('letra-quiz');
+  renderLqStepper(5,'lq-stepper');
+  renderLetraQuizSlide();
+}
+
+// ── PHASE 6: 15 mixed alternating questions ───────────────────
+function runLqPhase6(){
+  const letters=state.lqLetters;
+  const conPool=letters.map(l=>({type:'con',target:l,sound:LETTER_FON_MAP[l]||l}));
+  const vowPool=FULL_VOWELS.map(v=>({type:'vow',target:v.h,sound:v.p}));
+  // Build 15 items alternating con/vow
+  const cons=buildQuizPool(conPool,8);
+  const vows=buildQuizPool(vowPool,7);
+  const mixed=[];
+  const maxLen=Math.max(cons.length,vows.length);
+  for(let i=0;i<maxLen;i++){
+    if(i<cons.length) mixed.push(cons[i]);
+    if(i<vows.length) mixed.push(vows[i]);
+  }
+  state.lqItems=mixed.slice(0,15);
+  state.lqIdx=0;
+  state.lqTotalPhase=15;
+  state.lqPhase=6;
+  state.lqSoundPool=null; // mixed: distractors from full pool
+  showView('letra-quiz');
+  renderLqStepper(6,'lq-stepper');
+  renderLetraQuizSlide();
+}
+
+// Build a quiz pool of exactly N items cycling through source
+function buildQuizPool(source,n){
+  if(!source.length) return [];
+  const result=[];
+  const s=shuffle([...source],Date.now());
+  while(result.length<n) result.push(...s);
+  return result.slice(0,n);
+}
+
+function renderLetraQuizSlide(){
+  const items=state.lqItems;
+  const idx=state.lqIdx;
+  if(idx>=items.length){ advanceLqPhase(); return; }
+
+  const item=items[idx];
+  const total=state.lqTotalPhase;
+  const pct=Math.round((idx/total)*100);
+
+  document.getElementById('lq-progress-fill').style.width=pct+'%';
+  document.getElementById('lq-progress-label').textContent=`${idx+1} de ${total}`;
+
+  const phaseLabel={1:'Fase 1 · Consonantes',3:'Fase 2 · Vocales A/E/I',5:'Fase 3 · Vocales O/U',6:'Repaso · Consonantes y vocales'};
+  document.getElementById('lq-mode-label').textContent=phaseLabel[state.lqPhase]||'';
+  document.getElementById('lq-instruction').textContent=item.type==='vow'?'¿Cómo suena esta vocal?':'¿Cómo suena esta letra?';
+
+  // Show target Hebrew character
+  const targetEl=document.getElementById('lq-target');
+  if(item.type==='vow'){
+    targetEl.innerHTML=vowelDisplay(item.target,'6rem');
+  } else {
+    targetEl.innerHTML=`<span style="font-family:'Assistant',sans-serif;font-size:5.5rem;font-weight:900;color:#22d3ee;">${item.target}</span>`;
+  }
+
+  // Build phonetic sound options
+  const optsDiv=document.getElementById('lq-options');
+  optsDiv.innerHTML='';
+
+  let distractorSounds;
+  if(item.type==='vow'){
+    // Distractors from same phase sound pool (harder!) or all sounds if mixed
+    const soundPool=state.lqSoundPool||[...new Set(FULL_VOWELS.map(v=>v.p))];
+    distractorSounds=shuffle(soundPool.filter(s=>s!==item.sound),Date.now()).slice(0,3);
+    // Pad if needed
+    if(distractorSounds.length<3){
+      const extra=shuffle([...new Set(FULL_VOWELS.map(v=>v.p))].filter(s=>s!==item.sound&&!distractorSounds.includes(s)),Date.now());
+      distractorSounds=[...distractorSounds,...extra].slice(0,3);
+    }
+  } else {
+    const letters=state.lqLetters;
+    const seriesSounds=letters.filter(l=>l!==item.target).map(l=>LETTER_FON_MAP[l]||l);
+    const fallback=['B','G','D','H','V','Z','J','T','I','K','L','M','N','S','P','Ts','R','Sh','F'];
+    distractorSounds=shuffle([...new Set([...seriesSounds,...fallback])].filter(s=>s!==item.sound),Date.now()).slice(0,3);
+  }
+
+  const opts=shuffle([item.sound,...distractorSounds],Date.now()+2);
+  // Use 2 cols if options are long, 4 otherwise
+  const maxLen=Math.max(...opts.map(o=>o.length));
+  optsDiv.style.gridTemplateColumns=maxLen>2?'1fr 1fr':'repeat(4,1fr)';
+
+  opts.forEach(sound=>{
+    const btn=document.createElement('button');
+    btn.className='btn-option';
+    btn.style.cssText='min-height:56px;font-size:1.1rem;font-weight:900;letter-spacing:0.04em;';
+    btn.textContent=sound;
+    btn.onclick=()=>handleLqAnswer(btn,sound===item.sound,optsDiv,item.sound);
+    optsDiv.appendChild(btn);
+  });
+}
+
+function handleLqAnswer(btn, correct, optsDiv, correctSound){
+  optsDiv.querySelectorAll('.btn-option').forEach(b=>b.disabled=true);
+  if(correct){
+    btn.classList.add('btn-correct');
+    feedbackSuccess();
+    setTimeout(()=>{ state.lqIdx++; renderLetraQuizSlide(); }, 550);
+  } else {
+    btn.classList.add('btn-incorrect');
+    feedbackError();
+    optsDiv.querySelectorAll('.btn-option').forEach(b=>{
+      if(b.textContent.trim()===correctSound) b.classList.add('btn-correct');
+    });
+    setTimeout(()=>{
+      optsDiv.querySelectorAll('.btn-option').forEach(b=>{
+        b.classList.remove('btn-correct','btn-incorrect');
+        b.disabled=false;
+      });
+    }, 1200);
+  }
+}
+
+function advanceLqPhase(){
+  const p=state.lqPhase;
+  if(p===1)      runVowelPresent(VOW_AEI, runLqPhase3);
+  else if(p===3) runLqPhase4();
+  else if(p===5) runLqPhase6();
+  else           finishLetraQuiz();
+}
+
+function finishLetraQuiz(){
+  state.trainingIdx=0;
+  showView('pre-training');
+}
+
+function skipLetraQuiz(){
+  state.trainingIdx=0;
+  showView('pre-training');
+}
+// ─────────────────────────────────────────────────────────────
+
+
+function renderColoredSyllable(s){
+  const chars=[...s];
+  const isCon=c=>c.codePointAt(0)>=0x05D0&&c.codePointAt(0)<=0x05EA;
+  const isMod=c=>(c.codePointAt(0)>=0x05B0&&c.codePointAt(0)<=0x05C7)||c==='\u05C1'||c==='\u05C2';
+  // compound vowels that include a vav consonant — handle separately
+  const COMPOUND=['\u05D5\u05B9','\u05D5\u05BC']; // וֹ וּ
+  let html='', i=0;
+  while(i<chars.length){
+    // check for 2-char compound vowel
+    const two=chars[i]+(chars[i+1]||'');
+    if(COMPOUND.includes(two)){
+      html+=`<span style="color:#fbbf24;">${two}</span>`;
+      i+=2; continue;
+    }
+    const c=chars[i];
+    if(isCon(c)){
+      // yod after a consonant acts as vowel (mater lectionis) — amber
+      const isVowelYod = c==='\u05D9' && i>0;
+      html+=`<span style="color:${isVowelYod?'#fbbf24':'#22d3ee'};">${c}</span>`;
+    } else if(isMod(c)){
+      if(c==='\u05B9') // holam
+        html+=`<span style="color:#fbbf24;position:relative;left:-8px;top:-5px;">${c}</span>`;
+      else if(c==='\u05C2') // sin dot — parte de la consonante
+        html+=`<span style="color:#22d3ee;position:relative;left:-8px;top:-5px;">${c}</span>`;
+      else if(c==='\u05C1') // shin dot — parte de la consonante
+        html+=`<span style="color:#22d3ee;position:relative;left:35px;top:-5px;">${c}</span>`;
+      else if(c==='\u05BC'){ // dagesh — parte de la consonante, posición según letra previa
+        const prevCon=[...html.matchAll(/>[^<]+</g)].map(m=>m[0].slice(1,-1)).filter(t=>t).pop()||'';
+        const lastCon=prevCon.trim().slice(-1);
+        if(lastCon==='\u05DB') // כ
+          html+=`<span style="color:#22d3ee;position:relative;left:5px;">${c}</span>`;
+        else // פ y resto — solo color
+          html+=`<span style="color:#22d3ee;">${c}</span>`;
+      } else
+        html+=`<span style="color:#fbbf24;position:relative;left:12px;">${c}</span>`;
+    }
+    i++;
+  }
+  return html;
+}
+
+function toggleTrainingRef(){
+  const panel=document.getElementById("training-ref-panel");
+  const arrow=document.getElementById("training-ref-arrow");
+  const btn=document.getElementById("training-ref-btn");
+  const isOpen=!panel.classList.contains("hidden");
+  panel.classList.toggle("hidden");
+  arrow.innerText=isOpen?"▼ tocá":"▲ cerrar";
+  btn.style.borderColor=isOpen?"#475569":"#22d3ee";
+}
+
+function renderTraining(){
+  showView("training");
+  renderTrainingHelpers();
+  const s=ALL_DATA[state.activeSeries];
+  const syllables=s.syllables;
+  const idx=state.trainingIdx;
+  const total=syllables.length;
+  const current=syllables[idx];
+  const pct=Math.round((idx/total)*100);
+  const fillEl=document.getElementById("training-progress-fill");
+  const labelEl=document.getElementById("training-progress-label");
+  if(fillEl) fillEl.style.width=pct+"%";
+  if(labelEl) labelEl.innerText=`${idx+1} de ${total}`;
+  document.getElementById("train-heb").innerHTML=renderColoredSyllable(cleanHebrew(current.h));
+  const optsDiv=document.getElementById("train-options"); optsDiv.innerHTML="";
+  const distractors=["La","Si","Ro","Ba","Te","Ko","Ma","Nu","Pi","Ze"];
+  const options=shuffle([current.p,...distractors.filter(d=>d!==current.p).slice(0,3)],Date.now()).slice(0,4);
+  options.forEach(o=>{
+    const btn=document.createElement("button"); btn.className="btn-option"; btn.innerText=o;
+    btn.onclick=()=>{
+      if(o===current.p){
+        btn.classList.add("btn-correct");
+        feedbackSuccess();
+        setTimeout(()=>{
+          state.trainingIdx++;
+          if(state.trainingIdx>=total){ setTimeout(startMission,300); }
+          else renderTraining();
+        },600);
+      } else {
+        btn.classList.add("btn-incorrect");
+        feedbackError();
+        setTimeout(()=>btn.classList.remove("btn-incorrect"),400);
+        optsDiv.querySelectorAll(".btn-option").forEach(b=>{ if(b.innerText===current.p) b.classList.add("btn-correct"); });
+        setTimeout(()=>optsDiv.querySelectorAll(".btn-option").forEach(b=>b.classList.remove("btn-correct","btn-incorrect")),1200);
+      }
+    };
+    optsDiv.appendChild(btn);
+  });
+}
+function skipTraining(){ showToast("¡Comenzamos!","cyan"); startMission(); }
+
+function startMission(){
+  showView("game");
+  renderLettersBand();
+  const key=state.activeSeries;
+  const lessons=getLessons(key);
+  const wordIdxs=lessons[state.activeLesson];
+  const isMix=ALL_DATA[key].type==="MIX";
+  const modes=isMix?["SELECT","WRITE","LISTEN"]:["SELECT","WRITE","ARRANGE"];
+  // Build pool fully shuffled, then fix consecutive same-word repetitions
+  const seed=getSeriesSeed(key+state.activeLesson);
+  const rawPool=[];
+  wordIdxs.forEach(idx=>modes.forEach(mode=>rawPool.push({wordIdx:idx,mode})));
+  const shuffled=shuffle(rawPool,seed);
+  // pass 1: fix left-to-right
+  for(let i=1;i<shuffled.length;i++){
+    if(shuffled[i].wordIdx===shuffled[i-1].wordIdx){
+      for(let j=i+1;j<shuffled.length;j++){
+        if(shuffled[j].wordIdx!==shuffled[i-1].wordIdx){
+          [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]; break;
+        }
+      }
+    }
+  }
+  // pass 2: fix right-to-left for any remaining
+  for(let i=shuffled.length-2;i>=0;i--){
+    if(shuffled[i].wordIdx===shuffled[i+1].wordIdx){
+      for(let j=i-1;j>=0;j--){
+        if(shuffled[j].wordIdx!==shuffled[i+1].wordIdx){
+          [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]]; break;
+        }
+      }
+    }
+  }
+  const fullPool=shuffled;
+  state.totalTasks=fullPool.length;
+  state.lessonErrors=0;
+  const prog=state.progress[lessonKey(key,state.activeLesson)]||0;
+  state.pool=shuffle(fullPool,getSeriesSeed(key+state.activeLesson)).slice(prog);
+  // set progress bar immediately from saved state (no reset to 0)
+  const p=state.totalTasks?Math.round((prog/state.totalTasks)*100):0;
+  document.getElementById("game-progress-fill").style.width=p+"%";
+  document.getElementById("game-percentage").innerText=p+"%";
+  updateGameUI(); nextChallenge();
+}
+function updateGameUI(){
+  const key=state.activeSeries;
+  const lessons=getLessons(key);
+  const lessonIdx=state.activeLesson;
+  const prog=state.progress[lessonKey(key,lessonIdx)]||0;
+  const p=state.totalTasks?Math.round((prog/state.totalTasks)*100):0;
+  document.getElementById("game-percentage").innerText=p+"%";
+  document.getElementById("game-progress-fill").style.width=p+"%";
+  const label=document.getElementById("game-lesson-label");
+  if(label) label.innerText=`Serie ${key} · Lección ${lessonIdx+1} de ${lessons.length}`;
+}
+
+function nextChallenge(){
+  if(state.pool.length===0){ showCelebration(); return; }
+  stopAudio(); state.currentChallenge=state.pool.pop(); renderGameChallenge(); updateGameUI();
+}
+
+function showCelebration(){
+  stopAudio();
+  feedbackCelebration();
+  const key=state.activeSeries;
+  const s=ALL_DATA[key];
+  const lessons=getLessons(key);
+  const totalLessons=lessons.length;
+  // update streak
+  const streak=updateStreak();
+  // update SRS - mark this series as reviewed
+  if(seriesDone(key)) {
+    markSeriesReviewed(key);
+  }
+  const completedSeries=Object.keys(ALL_DATA).filter(k=>seriesDone(k)).length;
+  const wordIdxs=lessons[state.activeLesson];
+  const wordCount=wordIdxs.length;
+  const letterCount=s.type!=='MIX'?(s.letters||[]).length:0;
+  const isSeriesDone=seriesDone(key);
+
+  // series progress
+  const totalTasks=s.words.length*3;
+  const totalDone=lessons.reduce((sum,_,i)=>sum+(state.progress[lessonKey(key,i)]||0),0);
+  const pct=Math.min(100,Math.round((totalDone/totalTasks)*100));
+
+  // stars based on errors
+  const errors=state.lessonErrors||0;
+  const stars=errors===0?"⭐⭐⭐":errors<=2?"⭐⭐":"⭐";
+  const isPerfect=errors===0;
+  document.getElementById("cel-stars").innerText=stars;
+  document.getElementById("cel-title").innerText=isSeriesDone?"¡Serie completa!":isPerfect?"¡Lección perfecta!":"¡Lección completada!";
+  const streakMsg=streak>1?` 🔥 ${streak} días seguidos`:"";
+  document.getElementById("cel-subtitle").innerText=isSeriesDone
+    ? `Serie ${key} — ¡dominaste todas las lecciones!${streakMsg}`
+    : `Serie ${key} · lección ${state.activeLesson+1} de ${totalLessons}${streakMsg}`;
+  document.getElementById("cel-words").innerText=wordCount;
+  document.getElementById("cel-letters").innerText=letterCount||"—";
+  document.getElementById("cel-series").innerText=completedSeries;
+
+  // progress bar
+  document.getElementById("cel-progress-label").innerText=`progreso serie ${key}`;
+  document.getElementById("cel-progress-pct").innerText=pct+"%";
+  setTimeout(()=>{ document.getElementById("cel-progress-fill").style.width=pct+"%"; },300);
+
+  // word cards — all series words if done, otherwise just this lesson
+  const cardsEl=document.getElementById("cel-word-cards");
+  const wordsLabel=document.getElementById("cel-words-label");
+  const wordsToShow=isSeriesDone ? s.words.map((_,i)=>i) : wordIdxs;
+  if(wordsLabel) wordsLabel.innerText=isSeriesDone ? `todas las palabras de la serie ${key}` : "palabras de esta lección";
+  cardsEl.innerHTML=wordsToShow.map(idx=>{
+    const w=s.words[idx];
+    return `<div class="bg-slate-800 rounded-2xl p-4 flex items-center justify-between gap-3">
+      <span style="font-family:'Assistant',sans-serif;" class="text-2xl text-white font-semibold" dir="rtl">${cleanHebrew(w.heb)}</span>
+      <span class="text-base font-bold text-slate-400 flex-1 text-center">${w.fon}</span>
+      <span class="text-small font-black text-cyan-400 uppercase tracking-wide text-right">${w.sign}</span>
+    </div>`;
+  }).join("");
+
+  // next/home buttons
+  const nextLessonIdx=lessons.findIndex((_,i)=>i>state.activeLesson&&!lessonDone(key,i));
+  const nextBtn=document.getElementById("cel-next-btn");
+  const homeBtn=document.getElementById("cel-home-btn");
+  if(nextLessonIdx!==-1){
+    nextBtn.style.display="block";
+    nextBtn.innerText=`Siguiente lección (${nextLessonIdx+1} de ${totalLessons}) →`;
+  } else {
+    nextBtn.style.display="none";
+  }
+
+  // review button — show if series has hard words
+  const reviewBtn=document.getElementById("cel-review-btn");
+  const hardWords=getHardWords(key);
+  if(reviewBtn) reviewBtn.style.display=hardWords.length>0?"block":"none";
+
+  const starsEl=document.getElementById("cel-stars");
+  starsEl.style.opacity="0"; starsEl.style.transform="scale(0.5)";
+  showView("celebration");
+  requestAnimationFrame(()=>{
+    starsEl.style.transition="opacity .4s, transform .4s";
+    starsEl.style.opacity="1"; starsEl.style.transform="scale(1)";
+  });
+}
+
+function renderGameChallenge(){
+  const word=getCurrentWord(); if(!word) return;
+  const mode=state.currentChallenge.mode;
+  document.getElementById("reward-area").classList.add("invisible");
+  hideErrorPanel();
+  document.getElementById("reward-area").style.opacity="0";
+  ["mode-select","mode-write","mode-listen","mode-arrange"].forEach(id=>document.getElementById(id).classList.add("hidden"));
+  const wordEl=document.getElementById("hebrew-word");
+  wordEl.style.color="white"; // reset before innerHTML (handles post-correct green flash)
+  if(mode==="LISTEN"){ wordEl.innerText=""; renderListenMode(word); return; }
+  wordEl.innerHTML=word.heb;
+  // Show silent-shva notice if word contains one
+  const shvaNoticeId="shva-notice";
+  let notice=document.getElementById(shvaNoticeId);
+  if(!notice){
+    notice=document.createElement("div");
+    notice.id=shvaNoticeId;
+    wordEl.parentNode.insertBefore(notice, wordEl.nextSibling);
+  }
+  const hasSilentShva=[...cleanHebrew(word.heb)].some((c,i,arr)=>c===SHVA&&isSilentShva(arr,i));
+  if(hasSilentShva){
+    const SHVA_HINT_KEY='heb_shva_hints';
+    let hintCount=parseInt(localStorage.getItem(SHVA_HINT_KEY)||'0');
+    const showHint=hintCount<2;
+    if(showHint){ hintCount++; localStorage.setItem(SHVA_HINT_KEY,hintCount); }
+    notice.style.cssText="margin-top:8px;margin-bottom:4px;background:#0c1a2e;border:1px solid #1e3a5f;border-radius:10px;padding:8px 12px;font-size:11px;color:#94a3b8;line-height:1.5;text-align:center;";
+    notice.innerHTML=`<span style="color:#60a5fa;font-weight:700;">ְ Shva silencioso</span> — al final de palabra no suena y no se escribe en la fonética.`
+      +(showHint?`<br><span style="color:#64748b;">→ <strong style="color:#e2e8f0;">${word.fon}</strong>, no "${word.fon}e"</span>`:'');
+  } else {
+    notice.style.cssText="";
+    notice.innerHTML="";
+  }
+  if(mode==="SELECT") renderSelectMode(word);
+  if(mode==="WRITE") renderWriteMode();
+  if(mode==="ARRANGE"){
+    // if word has fewer than 3 phonetic blocks, ARRANGE is trivial — use SELECT instead
+    const blocks=mapBlocksToFon(word.heb,word.fon).filter(f=>f!=='');
+    if(blocks.length<3) renderSelectMode(word);
+    else renderArrangeMode(word);
+    return;
+  }
+}
+
+function renderSelectMode(word){
+  const container=document.getElementById("mode-select"); container.innerHTML="";
+  const distractors=buildFoneticaDistractors(word.fon,3);
+  const opts=shuffle([word.fon,...distractors],Date.now());
+  let attempts=0;
+  opts.forEach(opt=>{
+    const btn=document.createElement("button"); btn.className="btn-option"; btn.innerText=opt;
+    btn.onclick=()=>{
+      if(opt===word.fon){
+btn.classList.add("btn-correct"); feedbackSuccess(); handleSuccess();
+        } else {
+          attempts++;
+          btn.classList.add("btn-incorrect");
+          feedbackError();
+          setTimeout(()=>btn.classList.remove("btn-incorrect"),400);
+          trackError(state.currentWordIdx);
+          container.querySelectorAll(".btn-option").forEach(b=>{ if(b.innerText===cleanHebrew(word.heb)) b.classList.add("btn-correct"); });
+          setTimeout(()=>container.querySelectorAll(".btn-option").forEach(b=>b.classList.remove("btn-correct","btn-incorrect")),1200);
+        }
+    };
+    container.appendChild(btn);
+  });
+  container.classList.remove("hidden");
+}
+function renderWriteMode(){
+  const word = getCurrentWord();
+  const hint = document.getElementById("write-hint");
+  if(hint) hint.innerHTML = `escribe en minusculas sin acentos, ej: <span class="text-cyan-400">"${word ? word.fon[0] : 'a'}..."</span>`;
+  state.writeAttempts = 0;
+  document.getElementById("mode-write").classList.remove("hidden");
+  const input = document.getElementById("write-input");
+  const btn = document.querySelector("#mode-write button");
+  input.disabled = false;
+  input.style.opacity = "1";
+  input.value = "";
+  if(btn){ btn.innerText = "Comprobar"; btn.setAttribute("onclick","checkWrite()"); }
+  setTimeout(()=>{ input.focus(); input.scrollIntoView({ behavior:"smooth", block:"center" }); }, 300);
+}
+function renderListenMode(word){
+  document.getElementById("mode-listen").classList.remove("hidden");
+  document.getElementById("audio-status").innerText="Toca para escuchar y elegi la palabra";
+  document.getElementById("audio-btn").className="audio-btn";
+  const container=document.getElementById("listen-options"); container.innerHTML="";
+  const distractors=buildHebrewDistractors(word.heb,3);
+  const opts=shuffle([word.heb,...distractors],Date.now());
+  let attempts=0;
+  opts.forEach(opt=>{
+    const btn=document.createElement("button"); btn.className="btn-option hebrew-option"; btn.innerText=cleanHebrew(opt);
+    btn.onclick=()=>{
+      if(opt===word.heb){
+btn.classList.add("btn-correct"); feedbackSuccess(); handleSuccess();
+        } else {
+          attempts++;
+          btn.classList.add("btn-incorrect");
+          feedbackError();
+          setTimeout(()=>btn.classList.remove("btn-incorrect"),400);
+          trackError(state.currentWordIdx);
+          showErrorPanel(word, null);
+          container.querySelectorAll(".btn-option").forEach(b=>{ if(b.innerText===cleanHebrew(word.heb)) b.classList.add("btn-correct"); });
+          setTimeout(()=>container.querySelectorAll(".btn-option").forEach(b=>b.classList.remove("btn-correct","btn-incorrect")),1200);
+        }
+    };
+    container.appendChild(btn);
+  });
+}
+function buildFoneticaDistractors(correctFon,count=3){
+  const seriesWords=(ALL_DATA[state.activeSeries]?.words||[]).filter(w=>w.fon!==correctFon);
+  const seriesUnique=[...new Map(seriesWords.map(w=>[w.fon,w])).values()];
+  const fromSeries=shuffle(seriesUnique,correctFon.length+Date.now()).slice(0,count).map(w=>w.fon);
+  if(fromSeries.length>=count) return fromSeries;
+  // fallback: fill remaining from other series
+  const need=count-fromSeries.length;
+  const otherWords=[];
+  Object.values(ALL_DATA).forEach(s=>s.words.forEach(w=>{
+    if(w.fon!==correctFon&&!fromSeries.includes(w.fon)) otherWords.push(w);
+  }));
+  const otherUnique=[...new Map(otherWords.map(w=>[w.fon,w])).values()];
+  const fromOther=shuffle(otherUnique,Date.now()).slice(0,need).map(w=>w.fon);
+  return [...fromSeries,...fromOther];
+}
+
+function buildHebrewDistractors(correctHeb,count=3){
+  const seriesWords=(ALL_DATA[state.activeSeries]?.words||[]).filter(w=>w.heb!==correctHeb);
+  const otherWords=[];
+  Object.values(ALL_DATA).forEach(s=>s.words.forEach(w=>{ if(w.heb!==correctHeb) otherWords.push(w); }));
+  const fromSeries=seriesWords.filter(w=>w.heb.length===correctHeb.length);
+  const fromOther=otherWords.filter(w=>w.heb.length===correctHeb.length);
+  const fallback=[...seriesWords,...otherWords];
+  const pool=[...fromSeries,...fromOther,...fallback];
+  const unique=[...new Map(pool.map(w=>[w.heb,w])).values()];
+  return shuffle(unique,correctHeb.length+Date.now()).slice(0,count).map(w=>w.heb);
+}
+function checkWrite(){
+  const input = document.getElementById("write-input");
+  const value = input.value.toLowerCase().trim();
+  const target = getCurrentWord()?.fon || "";
+  const hint = document.getElementById("write-hint");
+  const btn = document.querySelector("#mode-write button[onclick='checkWrite()']");
+  if(value === target){
+    handleSuccess();
+  } else {
+    feedbackError();
+    state.writeAttempts = (state.writeAttempts || 0) + 1;
+    if(state.writeAttempts===1){
+      state.lessonErrors=(state.lessonErrors||0)+1;
+      trackError(state.currentChallenge.wordIdx);
+    }
+    if(state.writeAttempts >= 2){
+      if(hint) hint.innerHTML = `la respuesta era: <span style="color:#22d3ee;font-weight:900;">${target}</span>`;
+      input.disabled = true;
+      input.style.opacity = "0.4";
+      if(btn){ btn.innerText = "Continuar →"; btn.setAttribute("onclick","nextChallenge()"); }
+    } else {
+      // Character-level diff: show which chars are right/wrong
+      const v=[...value], t=[...target];
+      let diffHtml='';
+      const maxLen=Math.max(v.length,t.length);
+      for(let i=0;i<maxLen;i++){
+        if(i>=v.length){
+          // missing character
+          diffHtml+=`<span style="color:#64748b;border-bottom:2px solid #64748b;padding:0 2px;">_</span>`;
+        } else if(v[i]===t[i]){
+          diffHtml+=`<span style="color:#22c55e;font-weight:900;">${v[i]}</span>`;
+        } else {
+          diffHtml+=`<span style="color:#f87171;font-weight:900;text-decoration:line-through;">${v[i]}</span>`;
+        }
+      }
+      if(hint) hint.innerHTML=`<span style="letter-spacing:0.08em;font-size:1.1rem;">${diffHtml}</span> <span style="color:#475569;font-size:0.75rem;">· intentá de nuevo</span>`;
+      input.value="";
+      // flash red border on input briefly
+      input.classList.add("btn-incorrect");
+      setTimeout(()=>{ input.classList.remove("btn-incorrect"); input.focus(); }, 400);
+    }
+  }
+}
+
+function stopAudio(){
+  if(state.currentAudio){ state.currentAudio.pause(); state.currentAudio.currentTime=0; state.currentAudio=null; }
+  state.isAudioPlaying=false;
+  const btn=document.getElementById("audio-btn"), status=document.getElementById("audio-status");
+  if(btn) btn.className="audio-btn";
+  if(status && document.getElementById("mode-listen") && !document.getElementById("mode-listen").classList.contains("hidden")) status.innerText="Toca para escuchar y elige la palabra";
+}
+function playCurrentWordAudio(){
+  const word=getCurrentWord();
+  if(!word || !word.audio){ showToast("Audio no disponible","red"); return; }
+  stopAudio();
+  const audio=new Audio(word.audio); state.currentAudio=audio;
+  audio.onplay=()=>{ state.isAudioPlaying=true; document.getElementById("audio-btn").className="audio-btn audio-playing"; document.getElementById("audio-status").innerText="Escuchando..."; };
+  audio.onended=()=>{ state.isAudioPlaying=false; document.getElementById("audio-btn").className="audio-btn"; document.getElementById("audio-status").innerText="Elige la palabra en hebreo"; };
+  audio.onerror=()=>{ state.isAudioPlaying=false; document.getElementById("audio-btn").className="audio-btn"; document.getElementById("audio-status").innerText="No se pudo reproducir"; showToast("No se pudo reproducir el audio","red"); };
+  audio.play().catch(()=>showToast("Bloqueado por el navegador","red"));
+}
+
+function splitHebBlocks(heb){
+  const chars=[...heb];
+  const isCon=c=>c.codePointAt(0)>=0x05D0&&c.codePointAt(0)<=0x05EA;
+  const isMod=c=>(c.codePointAt(0)>=0x05B0&&c.codePointAt(0)<=0x05C7)||c==='\u05C1'||c==='\u05C2';
+  let blocks=[],cur='';
+  for(const c of chars){
+    if(isCon(c)){ if(cur) blocks.push(cur); cur=c; }
+    else if(isMod(c)){ cur+=c; }
+  }
+  if(cur) blocks.push(cur);
+  return blocks;
+}
+
+const _LFON={'\u05D0':'','\u05D1':'v','\u05D2':'g','\u05D3':'d','\u05D4':'h','\u05D5':'v','\u05D6':'z','\u05D7':'j','\u05D8':'t','\u05D9':'i','\u05DB':'j','\u05DA':'j','\u05DC':'l','\u05DE':'m','\u05DD':'m','\u05E0':'n','\u05DF':'n','\u05E1':'s','\u05E2':'','\u05E4':'f','\u05E3':'f','\u05E6':'ts','\u05E5':'ts','\u05E7':'k','\u05E8':'r','\u05E9':'sh','\u05EA':'t'};
+const _DAGESH={'\u05DB':'k','\u05E4':'p','\u05D1':'b','\u05EA':'t','\u05D3':'d','\u05D2':'g'};
+const _ALT={'\u05D1':['b','v'],'\u05E4':['p','f']};
+
+function _getConFon(block){
+  const isCon=c=>c.codePointAt(0)>=0x05D0&&c.codePointAt(0)<=0x05EA;
+  const hasDagesh=block.includes('\u05BC');
+  let con='';
+  for(const c of [...block]){ if(isCon(c)){ con=c; break; } }
+  if(hasDagesh&&_DAGESH[con]) return _DAGESH[con];
+  if(con==='\u05E9'&&block.includes('\u05C1')) return 'sh';
+  if(con==='\u05E9'&&block.includes('\u05C2')) return 's';
+  return _LFON[con]??'';
+}
+
+function mapBlocksToFon(heb,fon){
+  const blocks=splitHebBlocks(heb);
+  const n=blocks.length;
+  if(n===0) return [];
+  if(n===1) return [fon];
+  const result=[];
+  let pos=0;
+  for(let i=0;i<n;i++){
+    const conFon=_getConFon(blocks[i]);
+    const isCon=c=>c.codePointAt(0)>=0x05D0&&c.codePointAt(0)<=0x05EA;
+    let con='';
+    for(const c of [...blocks[i]]){ if(isCon(c)){ con=c; break; } }
+    const remaining=fon.slice(pos);
+    if(remaining===''){ result.push(''); continue; }
+    const candidates=[conFon,...(_ALT[con]||[])];
+    let matched=false;
+    for(const cand of candidates){
+      if(cand&&remaining.startsWith(cand)){
+        let chunk=cand; pos+=cand.length;
+        if(pos<fon.length&&'aeiou'.includes(fon[pos])){ chunk+=fon[pos]; pos++; }
+        result.push(chunk); matched=true; break;
+      }
+    }
+    if(!matched){
+      if(!conFon){
+        let chunk='';
+        if(pos<fon.length&&'aeiou'.includes(fon[pos])){ chunk+=fon[pos]; pos++; }
+        result.push(chunk);
+      } else if(i===n-1){ result.push(remaining); pos=fon.length; }
+      else result.push('');
+    }
+  }
+  if(pos<fon.length) result[n-1]=(result[n-1]||'')+fon.slice(pos);
+  return result;
+}
+
+function renderArrangeMode(word){
+  const fonBlocks=mapBlocksToFon(word.heb,word.fon).filter(f=>f!=='');
+  const indexed=fonBlocks.map((f,i)=>({fon:f,idx:i}));
+  state.arrangeAnswer=[];
+  state.arrangeBlocks=shuffle([...indexed],Date.now());
+  state.arrangeFonTarget=fonBlocks;
+  state.arrangeAttempts=0;
+  document.getElementById("mode-arrange").classList.remove("hidden");
+  renderArrangeTiles();
+}
+
+function renderArrangeTiles(){
+  const tilesEl=document.getElementById("arrange-tiles");
+  const answerEl=document.getElementById("arrange-answer");
+  answerEl.innerHTML=state.arrangeAnswer.length===0
+    ? '<span style="color:#64748b;font-size:0.8rem;font-weight:700;letter-spacing:0.05em;">acá va la fonética</span>'
+    : state.arrangeAnswer.map((b,i)=>`<button onclick="arrangePop(${i})" class="btn-option" style="padding:10px 16px;font-size:1rem;font-weight:900;background:#1e3a5f;border-color:#2563eb;color:#93c5fd;">${b.fon}</button>`).join('');
+  tilesEl.innerHTML=state.arrangeBlocks.map((b,i)=>`<button onclick="arrangePick(${i})" class="btn-option" style="padding:10px 16px;font-size:1rem;font-weight:900;">${b.fon}</button>`).join('');
+  if(state.arrangeBlocks.length===0&&state.arrangeAnswer.length>0){
+    const answered=state.arrangeAnswer.map(b=>b.fon).join('');
+    const target=state.arrangeFonTarget.join('');
+    if(answered===target){
+      answerEl.querySelectorAll("button").forEach(b=>b.classList.add("btn-correct"));
+      feedbackSuccess();
+      handleSuccess();
+    } else {
+      // Mark each tile: green if correct position, red if wrong
+      const answerBtns=answerEl.querySelectorAll("button");
+      answerBtns.forEach((b,i)=>{
+        if(state.arrangeAnswer[i]&&state.arrangeAnswer[i].fon===state.arrangeFonTarget[i]){
+          b.classList.add("btn-correct");
+        } else {
+          b.classList.add("btn-incorrect");
+        }
+      });
+      feedbackError();
+      state.arrangeAttempts=(state.arrangeAttempts||0)+1;
+      if(state.arrangeAttempts>=2){
+        // show correct answer in green before resetting
+        setTimeout(()=>{
+          answerEl.innerHTML=state.arrangeFonTarget.map(f=>
+            `<button class="btn-option btn-correct" style="padding:10px 16px;font-size:1rem;font-weight:900;" disabled>${f}</button>`
+          ).join('');
+          tilesEl.innerHTML='';
+        },400);
+        setTimeout(()=>{
+          state.arrangeAttempts=0;
+          const indexed=state.arrangeFonTarget.map((f,i)=>({fon:f,idx:i}));
+          state.arrangeBlocks=shuffle([...indexed],Date.now());
+          state.arrangeAnswer=[];
+          renderArrangeTiles();
+        },1800);
+      } else {
+        setTimeout(()=>{
+          const indexed=state.arrangeFonTarget.map((f,i)=>({fon:f,idx:i}));
+          state.arrangeBlocks=shuffle([...indexed],Date.now());
+          state.arrangeAnswer=[];
+          renderArrangeTiles();
+        },900);
+      }
+    }
+  }
+}
+
+function arrangePick(i){
+  state.arrangeAnswer.push(state.arrangeBlocks[i]);
+  state.arrangeBlocks.splice(i,1);
+  renderArrangeTiles();
+}
+
+function arrangePop(i){
+  state.arrangeBlocks.push(state.arrangeAnswer[i]);
+  state.arrangeAnswer.splice(i,1);
+  renderArrangeTiles();
+}
+
+function arrangeUndo(){
+  if(state.arrangeAnswer.length===0) return;
+  state.arrangeBlocks.push(state.arrangeAnswer.pop());
+  renderArrangeTiles();
+}
+
+function showErrorPanel(word, wrongAnswer){
+  const panel=document.getElementById('error-panel');
+  const msg=document.getElementById('error-msg');
+  if(!panel||!msg) return;
+  // Build message: "[palabra] suena [correcto], no [lo que eligió]"
+  const correct=word.fon.toUpperCase();
+  const wrong=wrongAnswer?wrongAnswer.toUpperCase():'';
+  msg.innerHTML=`<span style="font-family:'Assistant',sans-serif;font-size:1.1rem;color:white;">${word.heb}</span> suena <strong style="color:#22d3ee;">${correct}</strong>${wrong&&wrong!==correct?`, no <strong style="color:#f87171;">${wrong}</strong>`:''}`;
+  panel.classList.remove('hidden');
+  // Auto-hide when next challenge loads
+}
+
+function hideErrorPanel(){
+  const panel=document.getElementById('error-panel');
+  if(panel) panel.classList.add('hidden');
+}
+
+function showWordIntroFromError(){
+  const word=getCurrentWord();
+  if(!word) return;
+  // Show a quick modal overlay with syllable breakdown
+  const fon=word.fon;
+  const heb=word.heb;
+  // Split fon into syllables by uppercase vowels pattern
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;';
+  overlay.innerHTML=`
+    <div style="background:#0f172a;border:1.5px solid #334155;border-radius:20px;padding:24px;max-width:320px;width:100%;text-align:center;">
+      <p style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Pronunciación</p>
+      <div style="font-family:'Assistant',sans-serif;font-size:3.5rem;font-weight:900;color:white;margin-bottom:8px;">${heb}</div>
+      <div style="font-size:1.6rem;font-weight:900;color:#22d3ee;letter-spacing:0.12em;margin-bottom:6px;">${fon}</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:20px;">${word.sign}</div>
+      <button onclick="this.parentElement.parentElement.remove()" style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#94a3b8;">Cerrar</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+}
+
+function handleSuccess(){
+  const word=getCurrentWord(); if(!word) return;
+  stopAudio();
+  const wordEl=document.getElementById("hebrew-word");
+  if(state.currentChallenge.mode!=="LISTEN"){
+    wordEl.style.color="#22c55e";
+    wordEl.classList.remove('word-shake'); void wordEl.offsetWidth;
+    wordEl.classList.add('word-jump');
+    setTimeout(()=>wordEl.classList.remove('word-jump'),500);
+  }
+  document.getElementById("meaning-text").innerText=word.sign;
+  const reward=document.getElementById("reward-area");
+  reward.style.opacity="0"; reward.style.transform="translateY(6px)";
+  reward.classList.remove("invisible");
+  requestAnimationFrame(()=>{ reward.style.opacity="1"; reward.style.transform="translateY(0)"; });
+  state.progress[lessonKey(state.activeSeries,state.activeLesson)]=(state.progress[lessonKey(state.activeSeries,state.activeLesson)]||0)+1;
+  save(); showToast("✓ ¡Muy bien!","green");
+  setTimeout(nextChallenge,1200);
+}
+
+function toggleHelp(){
+  const container=document.getElementById("help-content"); container.innerHTML="";
+  let combined=[]; if(state.activeSeries){ state.activeSeries.split("+").forEach(p=>{ if(ALL_DATA[p]) combined=combined.concat(ALL_DATA[p].letters||[]); }); }
+  const letList=combined.length ? FULL_ALEF_BET.filter(l=>combined.includes(l.h)) : FULL_ALEF_BET;
+  let html=`<p class="text-slate-500 text-small font-black uppercase mb-4 text-center tracking-widest">Letras</p><div class="grid grid-cols-2 gap-3 mb-6">`;
+  letList.forEach(l=>{ html += `<div class="help-item"><span class="text-xl">${l.h}</span><span class="text-slate-600 mx-1">-</span><span class="text-cyan-400 font-bold">${l.p}</span></div>`; });
+  html += `</div><p class="text-slate-500 text-small font-black uppercase mb-4 text-center tracking-widest">Vocales</p><div class="grid grid-cols-2 gap-3">`;
+  FULL_VOWELS.forEach(v=>{ html += `<div class="help-item"><span class="text-2xl" style="color:#fbbf24;">${v.h}</span><span class="text-slate-600 mx-1">-</span><span class="text-cyan-400 font-bold">${v.p}</span></div>`; });
+  html += "</div>"; container.innerHTML=html;
+  document.getElementById("help-drawer").classList.toggle("open");
+}
+function exitGame(){ stopAudio(); state.currentChallenge=null; state.activeSeries=null; renderHome(); }
+function goNextLesson(){
+  const key=state.activeSeries;
+  const lessons=getLessons(key);
+  const nextIdx=lessons.findIndex((_,i)=>i>state.activeLesson&&!lessonDone(key,i));
+  if(nextIdx!==-1){ startSeries(key,nextIdx); }
+  else exitGame();
+}
+
+function startReview(){
+  const key=state.activeSeries;
+  const hardIdxs=getHardWords(key);
+  if(!hardIdxs.length){ exitGame(); return; }
+  // build a mini review pool: SELECT + WRITE for hard words only
+  const modes=["SELECT","WRITE"];
+  const rawPool=[];
+  hardIdxs.forEach(idx=>modes.forEach(mode=>rawPool.push({wordIdx:idx,mode})));
+  state.pool=shuffle(rawPool,Date.now());
+  state.totalTasks=state.pool.length;
+  state.lessonErrors=0;
+  showView("game");
+  renderLettersBand();
+  updateGameUI();
+  nextChallenge();
+}
+
+document.getElementById("write-input").addEventListener("keydown",(e)=>{ if(e.key==="Enter") checkWrite(); });
+
+// Shrink main area when mobile keyboard opens so input stays visible
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", ()=>{
+    const main = document.querySelector("main");
+    if(!main) return;
+    const keyboardOpen = window.visualViewport.height < window.innerHeight * 0.75;
+    if(keyboardOpen){
+      main.style.height = (window.visualViewport.height - 65) + "px";
+      // scroll input into view
+      const input = document.getElementById("write-input");
+      if(input && document.activeElement === input){
+        setTimeout(()=>input.scrollIntoView({ behavior:"smooth", block:"center" }), 50);
+      }
+    } else {
+      main.style.height = "";
+    }
+  });
+}
+
+function startApp(){
+  localStorage.setItem("heb_welcomed","1");
+  renderHome();
+}
+
+const isFirstVisit=!localStorage.getItem("heb_welcomed");
+if(isFirstVisit){ showView("welcome"); } else { renderHome(); }
+</script>
+</body>
+</html>
