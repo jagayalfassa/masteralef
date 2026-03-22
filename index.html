@@ -1200,11 +1200,12 @@ function renderHome(){
     const reviewNeeded=needsReview(key);
     const pct=Math.min(100,Math.round((totalDone/(s.words.length*3))*100));
     sequence.push({type:'series',key,si,color,isComplete,isStarted,isLocked,reviewNeeded,lessons,s,totalDone,pct});
-    lessons.forEach((_,li)=>{
+    lessons.forEach((wordIdxs,li)=>{
       const done=lessonDone(key,li);
       const nextL=lessons.findIndex((_,j)=>!lessonDone(key,j));
       const isStudy=li===nextL&&isStarted&&!isComplete&&!isLocked;
-      sequence.push({type:'lesson',key,si,li,color,done,isStudy,isLocked,isStarted,s});
+      const wordCount=wordIdxs.length;
+      sequence.push({type:'lesson',key,si,li,color,done,isStudy,isLocked,isStarted,s,wordCount});
     });
   });
 
@@ -1289,7 +1290,7 @@ function renderHome(){
       if(item.isStudy){
         // Build progress oval from lesson progress
         const lessonProgress=state.progress[lessonKey(item.key,item.li)]||0;
-        const lessonTotal=(ALL_DATA[item.key]?.words?.length||3)*3;
+        const lessonTotal=Math.max(1,item.wordCount||LESSON_SIZE)*3;
         const lessonPct=Math.min(100,Math.round((lessonProgress/lessonTotal)*100));
         const svgNS2="http://www.w3.org/2000/svg";
         const OW=pos.w+14, OH=pos.h+14;
@@ -1345,14 +1346,14 @@ function renderHome(){
   const topMoises=Math.round((posSerieA.y + posSerieB.y) / 2);
   const figMoises=document.createElement("img");
   figMoises.src=IMG_MOISES;
-  figMoises.style.cssText=`position:absolute;width:130px;height:auto;left:0px;top:${topMoises}px;opacity:0.95;filter:drop-shadow(2px 4px 10px rgba(13,31,53,0.18));pointer-events:none;z-index:0;`;
+  figMoises.style.cssText=`position:absolute;width:130px;height:auto;left:0px;top:${topMoises}px;opacity:0.95;pointer-events:none;z-index:0;`;
   mapOuter.appendChild(figMoises);
 
   // Arca: midpoint between series B and C
   const topArca=Math.round((posSerieB.y + posSerieC.y) / 2);
   const figArca=document.createElement("img");
   figArca.src=IMG_ARCA;
-  figArca.style.cssText=`position:absolute;width:150px;height:auto;right:0px;top:${topArca}px;opacity:0.95;filter:drop-shadow(2px 4px 10px rgba(13,31,53,0.18));pointer-events:none;z-index:0;`;
+  figArca.style.cssText=`position:absolute;width:200px;height:auto;right:0px;top:${topArca}px;opacity:0.95;pointer-events:none;z-index:0;`;
   mapOuter.appendChild(figArca);
 
   mapOuter.appendChild(mapCanvas);
