@@ -1,0 +1,122 @@
+[
+  {
+    "id": "mode_ani",
+    "secciones": 1,
+    "versiculos": 3,
+    "palabras": 12
+  },
+  {
+    "id": "psukei_dezimra",
+    "secciones": 6,
+    "versiculos": 64,
+    "palabras": 348
+  },
+  {
+    "id": "shema",
+    "secciones": 4,
+    "versiculos": 47,
+    "palabras": 246
+  },
+  {
+    "id": "amida",
+    "secciones": 19,
+    "versiculos": 111,
+    "palabras": 573
+  },
+  {
+    "id": "mi_jamoja",
+    "secciones": 4,
+    "versiculos": 19,
+    "palabras": 104
+  },
+  {
+    "id": "aleinu",
+    "secciones": 2,
+    "versiculos": 29,
+    "palabras": 167
+  },
+  {
+    "id": "jatsi_kadish",
+    "secciones": 1,
+    "versiculos": 15,
+    "palabras": 51
+  },
+  {
+    "id": "adon_olam",
+    "secciones": 5,
+    "versiculos": 10,
+    "palabras": 72
+  },
+  {
+    "id": "hashkivenu",
+    "secciones": 1,
+    "versiculos": 15,
+    "palabras": 70
+  },
+  {
+    "id": "ose_shalom",
+    "secciones": 1,
+    "versiculos": 5,
+    "palabras": 16
+  },
+  {
+    "id": "shalom_alejem",
+    "secciones": 4,
+    "versiculos": 8,
+    "palabras": 48
+  },
+  {
+    "id": "leja_dodi",
+    "secciones": 7,
+    "versiculos": 19,
+    "palabras": 142
+  },
+  {
+    "id": "kidush_shabat",
+    "secciones": 3,
+    "versiculos": 25,
+    "palabras": 143
+  },
+  {
+    "id": "havdala",
+    "secciones": 6,
+    "versiculos": 23,
+    "palabras": 114
+  },
+  {
+    "id": "hotsaat_hatora",
+    "secciones": 5,
+    "versiculos": 25,
+    "palabras": 144
+  },
+  {
+    "id": "hajnaat_hatora",
+    "secciones": 2,
+    "versiculos": 5,
+    "palabras": 33
+  },
+  {
+    "id": "hamotsi",
+    "secciones": 1,
+    "versiculos": 2,
+    "palabras": 10
+  },
+  {
+    "id": "bore_hagafen",
+    "secciones": 1,
+    "versiculos": 2,
+    "palabras": 9
+  },
+  {
+    "id": "tsitsit",
+    "secciones": 1,
+    "versiculos": 2,
+    "palabras": 12
+  },
+  {
+    "id": "tefilin",
+    "secciones": 3,
+    "versiculos": 7,
+    "palabras": 40
+  }
+]
