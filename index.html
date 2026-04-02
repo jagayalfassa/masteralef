@@ -2895,36 +2895,204 @@ function getTorahWordInfo(heb){
 }
 
 function _generateBasicTranslit(heb){
-  // Mapeo simplificado consonantes + vocales principales
+  // ── Puntos de referencia ────────────────────────────────────
+  const DAGESH   = '\u05BC'; // dagesh/mapiq/shuruk
+  const SHIN_DOT = '\u05C1'; // shin dot
+  const SIN_DOT  = '\u05C2'; // sin dot
+  const VAV      = '\u05D5'; // ו
+  const YOD      = '\u05D9'; // י
+  const HE       = '\u05D4'; // ה
+  const HOLAM    = '\u05B9'; // ֹ  (también puede ir sobre vav)
+  const HIRIQ    = '\u05B4'; // ִ
+  const TSERE    = '\u05B5'; // ֵ
+
+  // ── Mapa consonántico ──────────────────────────────────────
+  // Con dagesh (begadkefat) van primero — orden crítico
   const CONS = {
-    'א':'','ב':'v','בּ':'b','ג':'g','ד':'d','ה':'h',
-    'ו':'v','ז':'z','ח':'j','ט':'t','י':'y','ך':'j',
-    'כ':'j','כּ':'k','ל':'l','ם':'m','מ':'m','ן':'n',
-    'נ':'n','ס':'s','ע':'','ף':'f','פ':'f','פּ':'p',
-    'ץ':'tz','צ':'tz','ק':'k','ר':'r','ש':'sh','שׁ':'sh',
-    'שׂ':'s','ת':'t','שׁ':'sh','שׂ':'s'
+    // Con dagesh — cambia sonido
+    '\u05D1\u05BC':'b',  // בּ
+    '\u05DB\u05BC':'k',  // כּ
+    '\u05E4\u05BC':'p',  // פּ
+    '\u05EA\u05BC':'t',  // תּ
+    '\u05D3\u05BC':'d',  // דּ
+    '\u05D2\u05BC':'g',  // גּ
+    // Sin dagesh
+    '\u05D0':'',   // א alef — silenciosa (lleva la vocal)
+    '\u05D1':'v',  // ב vet
+    '\u05D2':'g',  // ג gimel
+    '\u05D3':'d',  // ד dalet
+    '\u05D4':'h',  // ה he
+    '\u05D5':'v',  // ו vav (como consonante — casos especiales manejados aparte)
+    '\u05D6':'z',  // ז zayin
+    '\u05D7':'j',  // ח jet
+    '\u05D8':'t',  // ט tet
+    '\u05D9':'y',  // י yod (como consonante)
+    '\u05DA':'j',  // ך kaf final
+    '\u05DB':'j',  // כ jaf
+    '\u05DC':'l',  // ל lamed
+    '\u05DD':'m',  // ם mem final
+    '\u05DE':'m',  // מ mem
+    '\u05DF':'n',  // ן nun final
+    '\u05E0':'n',  // נ nun
+    '\u05E1':'s',  // ס samej
+    '\u05E2':'',   // ע ayin — silenciosa
+    '\u05E3':'f',  // ף pe final
+    '\u05E4':'f',  // פ fe
+    '\u05E5':'tz', // ץ tzadi final
+    '\u05E6':'tz', // צ tzadi
+    '\u05E7':'k',  // ק kof
+    '\u05E8':'r',  // ר resh
+    '\u05E9':'sh', // ש shin (default)
+    '\u05EA':'t',  // ת tav
   };
+
+  // ── Mapa vocálico (nikud) ──────────────────────────────────
   const VOW = {
-    'ְ':'e','ֱ':'e','ֲ':'a','ֳ':'o','ִ':'i','ֵ':'e',
-    'ֶ':'e','ַ':'a','ָ':'a','ֹ':'o','ֺ':'o','ֻ':'u',
-    'ּ':'','ֽ':'','ׁ':'','ׂ':''
+    '\u05B0':'',   // shva — silencioso (vocal inicial manejada aparte)
+    '\u05B1':'e',  // hataf segol
+    '\u05B2':'a',  // hataf pataj
+    '\u05B3':'o',  // hataf kamatz
+    '\u05B4':'i',  // hiriq
+    '\u05B5':'e',  // tsere
+    '\u05B6':'e',  // segol
+    '\u05B7':'a',  // pataj
+    '\u05B8':'a',  // kamatz gadol/katan
+    '\u05B9':'o',  // holam male
+    '\u05BA':'o',  // holam haser
+    '\u05BB':'u',  // kubutz
+    '\u05BC':'',   // dagesh — consumido junto a la consonante
+    '\u05BD':'',   // meteg — ignorar
+    '\u05BE':'',   // maqaf — ignorar
+    '\u05BF':'',   // rafe — ignorar
+    '\u05C0':'',   // paseq — ignorar
+    '\u05C1':'',   // shin dot — ya procesado
+    '\u05C2':'',   // sin dot — ya procesado
+    '\u05C3':'',   // sof pasuk — ignorar
+    '\u05C4':'',   // upper dot — ignorar
+    '\u05C5':'',   // lower dot — ignorar
   };
-  let result = '';
+
   const chars = [...heb];
-  for(let i = 0; i < chars.length; i++){
-    const ch = chars[i];
-    const cp = ch.codePointAt(0);
-    if(cp >= 0x05D0 && cp <= 0x05EA){
-      // Consonante — buscar con dagesh si sigue
-      const next = chars[i+1] || '';
-      const withDag = ch + next;
-      result += (CONS[withDag] !== undefined ? CONS[withDag] : (CONS[ch] !== undefined ? CONS[ch] : ch));
-    } else if(cp >= 0x05B0 && cp <= 0x05C4){
-      result += VOW[ch] || '';
+  const n = chars.length;
+  let result = '';
+  let i = 0;
+  let prevWasVowel = false; // para detectar vav consonántica vs mater
+
+  while(i < n){
+    const ch  = chars[i];
+    const cp  = ch.codePointAt(0);
+    const n1  = i+1 < n ? chars[i+1] : '';
+    const n2  = i+2 < n ? chars[i+2] : '';
+
+    // ── Trope / cantilación U+0591–U+05AF → saltar ──────────
+    if(cp >= 0x0591 && cp <= 0x05AF){ i++; continue; }
+
+    // ── Espacio / puntuación ─────────────────────────────────
+    if(ch === ' ' || ch === '\n' || ch === '\u05BE'){
+      result += ' '; prevWasVowel = false; i++; continue;
     }
+
+    // ── CASO ESPECIAL: vav + dagesh (shuruk ּו) = vocal 'u' ──
+    // El dagesh en vav sin precedente consonántico = shuruk
+    if(ch === VAV && n1 === DAGESH){
+      result += 'u'; prevWasVowel = true; i += 2; continue;
+    }
+
+    // ── CASO ESPECIAL: vav + holam (וֹ) = vocal 'o' ──────────
+    // Holam puede venir antes o después del vav en el encoding
+    if(ch === VAV && (n1 === HOLAM || n2 === HOLAM)){
+      result += 'o'; prevWasVowel = true;
+      i += (n1 === HOLAM ? 2 : 3); continue;
+    }
+
+    // ── CASO ESPECIAL: yod — mater lectionis ────────────────
+    if(ch === YOD){
+      // yod al final de palabra (n1 vacío o espacio) → 'i'
+      if(!n1 || n1 === ' '){ result += 'i'; i++; continue; }
+      // yod seguida de hiriq o tsere → silenciosa (el nikud ya dio la vocal)
+      if(n1 === HIRIQ || n1 === TSERE){ i++; continue; }
+      // yod entre vocales como mater de hiriq → silenciosa
+      const prevIsVowel = result.length > 0 && 'aeiou'.includes(result.slice(-1));
+      const nextIsNikud = n1 && n1.codePointAt(0) >= 0x05B0 && n1.codePointAt(0) <= 0x05C7;
+      if(prevIsVowel && !nextIsNikud){ i++; continue; }
+      // Default: consonante 'y'
+    }
+
+    // ── CASO ESPECIAL: he final sin vocal = silenciosa ────────
+    if(ch === HE && i === n-1){ i++; continue; }
+    if(ch === HE && (n1 === '' || ord_cp(n1) < 0x05B0 || ord_cp(n1) > 0x05C7)){
+      // He al final de sílaba sin nikud propio = silenciosa
+      if(i === n-2 && (n1 === DAGESH || ord_cp(n1) < 0x05B0)){
+        i++; continue;
+      }
+    }
+
+    // ── CONSONANTE HEBREA ─────────────────────────────────────
+    if(cp >= 0x05D0 && cp <= 0x05EA){
+
+      // Lookahead: buscar si hay dagesh en el cluster de nikud de esta consonante
+      // (el dagesh puede aparecer DESPUÉS del nikud: bet+kamatz+dagesh = בָּ)
+      let hasDagesh = false;
+      for(let k = i+1; k < n && k < i+5; k++){
+        const kcp = chars[k].codePointAt(0);
+        if(chars[k] === DAGESH){ hasDagesh = true; break; }
+        if(kcp >= 0x05D0 && kcp <= 0x05EA) break; // llegamos a otra consonante
+      }
+
+      // Shin/sin — detectar dot (puede venir antes o después del nikud)
+      if(ch === '\u05E9'){
+        let isShin = true, isSin = false;
+        for(let k = i+1; k < n && k < i+5; k++){
+          if(chars[k] === SHIN_DOT){ isShin = true; break; }
+          if(chars[k] === SIN_DOT) { isSin  = true; isShin = false; break; }
+          if(chars[k].codePointAt(0) >= 0x05D0) break;
+        }
+        result += isSin ? 's' : 'sh';
+        prevWasVowel = false; i++; continue;
+      }
+
+      // Aplicar dagesh si corresponde
+      const twoChar = ch + DAGESH;
+      if(hasDagesh && CONS[twoChar] !== undefined){
+        result += CONS[twoChar];
+      } else {
+        result += CONS[ch] !== undefined ? CONS[ch] : '';
+      }
+      prevWasVowel = false; i++; continue;
+    }
+
+    // ── NIKUD / VOCALES ───────────────────────────────────────
+    if(cp >= 0x05B0 && cp <= 0x05C7){
+      // Shva: naá (vocal) vs naج (silencioso)
+      // Naá: inicio absoluto de palabra, o después de sílaba cerrada larga
+      // Naج: final de sílaba, final de palabra, después de vocal
+      if(ch === '\u05B0'){
+        const lastChar = result.slice(-1);
+        const nextChar = chars[i+1] || '';
+        const nextCp   = nextChar ? nextChar.codePointAt(0) : 0;
+        // Shva al final absoluto de palabra → siempre silencioso
+        const isWordEnd = !nextChar || nextChar === ' ';
+        // Shva después de vocal → silencioso
+        const afterVowel = 'aeiou'.includes(lastChar);
+        // Shva inicial absoluto → 'e'
+        const isAbsInit = lastChar === '' || lastChar === ' ';
+        if(!isWordEnd && !afterVowel){
+          result += isAbsInit ? 'e' : 'e'; // shva naá
+        }
+        // else: silencioso
+      } else {
+        result += VOW[ch] !== undefined ? VOW[ch] : '';
+      }
+      prevWasVowel = true; i++; continue;
+    }
+
+    i++;
   }
-  return result || null;
+
+  return result.replace(/\s+/g,' ').trim() || null;
 }
+
+function ord_cp(ch){ return ch ? ch.codePointAt(0) : 0; }
 
 // ── IS PARASHA UNLOCKED ───────────────────────────────────────────
 // Full unlock: todas las series base completas → práctica completa
@@ -6831,7 +6999,7 @@ function runVowelPresent(sounds, nextFn){
     if(tipMap[sound]){
       const tip=document.createElement('div');
       tip.style.cssText='margin-top:8px;padding:6px 10px;background:rgba(196,150,60,0.12);border-radius:8px;border-left:3px solid var(--gold-500);';
-      tip.innerHTML='<span style="font-size:11px;color:var(--navy-700);line-height:1.4;">💡 '+tipMap[sound]+'</span>';
+      tip.innerHTML='<span style="font-size:11px;color:#f1e6c8;line-height:1.4;font-weight:600;">💡 '+tipMap[sound]+'</span>';
       card.appendChild(tip);
     }
 
@@ -6864,7 +7032,7 @@ function runVowelPresent(sounds, nextFn){
 
     const example=document.createElement('div');
     example.style.cssText='margin-top:10px;padding-top:10px;border-top:1px solid var(--sand-300);display:flex;align-items:center;gap:10px;';
-    example.innerHTML='<span style="font-family:\'Libertinus Serif\',sans-serif;font-size:1.8rem;font-weight:900;color:white;">מֶלֶ<span style="color:#64748b;">\u05B0</span>ך</span><span style="font-size:11px;color:#64748b;">→ se lee <strong style="color:#e2e8f0;">"melej"</strong>, no "meleje"</span>';
+    example.innerHTML='<span style="font-family:\'Noto Serif Hebrew\',serif;font-size:1.8rem;font-weight:900;color:var(--navy-800);">מֶלֶ<span style="color:#94a3b8;">\u05B0</span>ך</span><span style="font-size:11px;color:var(--navy-700);font-weight:600;">→ se lee <strong style="color:var(--navy-900);">"melej"</strong>, no <em>"meleje"</em></span>';
     shvaCard.appendChild(example);
     cards.appendChild(shvaCard);
   }
