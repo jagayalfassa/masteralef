@@ -23,6 +23,8 @@
   <title>AlefMaster</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Hebrew:wght@400;600;700;900&family=Fraunces:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -478,7 +480,32 @@
     }
 
     /* ── MASCOTA RASHI — estados ────────────────────────────── */
+
+    /* Wrapper: recibe el transform del cursor-follow (JS) sin conflicto con anims CSS */
+    .rashi-mascot-wrap {
+      display: inline-block;
+      transition: transform .18s cubic-bezier(.25,.46,.45,.94);
+      will-change: transform;
+    }
+
+    /* Parpadeo — se aplica como pseudo overlay en el wrapper */
+    @keyframes mascot-blink {
+      0%, 90%, 100% { opacity: 1; }
+      94%            { opacity: 0.08; }
+      97%            { opacity: 1; }
+    }
+    .rashi-mascot-wrap.is-blinking {
+      animation: mascot-blink 180ms ease-in-out;
+    }
+
     .rashi-mascot {
+      cursor: pointer;
+      transition: transform .3s cubic-bezier(.34,1.56,.64,1),
+                  filter .3s ease,
+                  opacity .15s ease;
+      -webkit-tap-highlight-color: transparent;
+      will-change: transform, filter, opacity;
+    }
       cursor: pointer;
       transition: transform .3s cubic-bezier(.34,1.56,.64,1),
                   filter .3s ease,
@@ -655,23 +682,32 @@
   <!-- Header -->
   <header>
     <div class="w-full flex justify-between items-center px-2 max-w-xl mx-auto">
-      <button id="home-btn" style="color:#1B3A5C;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;visibility:hidden;" aria-label="Salir">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+
+      <!-- Botón volver (oculto por defecto) -->
+      <button id="home-btn" style="color:#1B3A5C;min-width:40px;min-height:44px;display:flex;align-items:center;justify-content:center;visibility:hidden;flex-shrink:0;" aria-label="Salir">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </button>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <img src="img/rashi-ok-2.png" alt="Rashi" class="rashi-mascot" style="height:38px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(13,31,53,0.2));">
-        <span style="font-family:'Fraunces',serif;font-weight:900;font-size:18px;color:#1B3A5C;letter-spacing:-0.02em;">Alef<span style="color:#C4963C;">Master</span></span>
+
+      <!-- Logo — compacto -->
+      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+        <img src="img/rashi-ok-2.png" alt="Rashi" class="rashi-mascot"
+             style="height:32px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(13,31,53,0.2));">
+        <span style="font-family:'Fraunces',serif;font-weight:900;font-size:16px;color:#1B3A5C;letter-spacing:-0.02em;white-space:nowrap;">
+          Alef<span style="color:#C4963C;">Master</span>
+        </span>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <!-- Flash — siempre visible, acción principal -->
-        <button id="flash-header-btn" style="background:var(--navy-800);color:white;border:none;
-          padding:8px 12px;border-radius:12px;font-size:15px;font-weight:700;min-height:44px;
-          min-width:44px;" title="Flash Recall">⚡</button>
-        <!-- Logros con badge -->
-        <button id="achievements-btn" style="background:var(--gold-500);color:white;
-          border:none;box-shadow:0 3px 0 var(--gold-600);padding:8px 10px;border-radius:12px;
-          font-size:15px;font-weight:700;min-height:44px;min-width:44px;position:relative;
-          transition:transform .1s,box-shadow .1s;" title="Logros"
+
+      <!-- Botones derecha — solo 3 -->
+      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+        <button id="flash-header-btn"
+          style="background:var(--navy-800);color:white;border:none;
+                 padding:8px 11px;border-radius:12px;font-size:15px;font-weight:700;
+                 min-height:40px;min-width:40px;" title="Flash Recall">⚡</button>
+        <button id="achievements-btn"
+          style="background:var(--gold-500);color:white;border:none;
+                 box-shadow:0 3px 0 var(--gold-600);padding:8px 11px;border-radius:12px;
+                 font-size:15px;font-weight:700;min-height:40px;min-width:40px;position:relative;
+                 transition:transform .1s,box-shadow .1s;" title="Logros"
           onmousedown="this.style.transform='translateY(2px)';this.style.boxShadow='0 1px 0 var(--gold-600)'"
           onmouseup="this.style.transform='';this.style.boxShadow='0 3px 0 var(--gold-600)'"
           ontouchstart="this.style.transform='translateY(2px)';this.style.boxShadow='0 1px 0 var(--gold-600)'"
@@ -681,17 +717,23 @@
             background:var(--navy-800);color:white;font-size:9px;font-weight:900;
             border-radius:99px;padding:2px 5px;"></span>
         </button>
-        <!-- Menú "..." con Export + Guía -->
-        <button id="menu-btn" style="background:var(--sand-200);color:var(--navy-800);
-          border:1.5px solid var(--sand-300);padding:8px 10px;border-radius:12px;
-          font-size:18px;font-weight:900;min-height:44px;min-width:44px;line-height:1;"
-          title="Más opciones">···</button>
+        <button id="menu-btn"
+          style="background:var(--sand-200);color:var(--navy-800);border:1.5px solid var(--sand-300);
+                 padding:8px 11px;border-radius:12px;font-size:18px;font-weight:900;
+                 min-height:40px;min-width:40px;line-height:1;" title="Más opciones">···</button>
       </div>
 
-      <!-- Menú desplegable -->
-      <div id="header-menu" style="display:none;position:absolute;top:60px;right:12px;
+      <!-- Menú desplegable — auth movido acá -->
+      <div id="header-menu" style="display:none;position:absolute;top:58px;right:12px;
         background:white;border:1.5px solid var(--sand-300);border-radius:16px;
-        box-shadow:0 8px 24px rgba(13,31,53,0.12);z-index:500;min-width:180px;overflow:hidden;">
+        box-shadow:0 8px 24px rgba(13,31,53,0.12);z-index:500;min-width:200px;overflow:hidden;">
+        <!-- Auth — login/logout -->
+        <button id="auth-header-btn"
+          style="width:100%;padding:14px 16px;border:none;background:none;
+                 text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);cursor:pointer;
+                 display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--sand-200);">
+          🔑 Entrar
+        </button>
         <button id="shop-menu-btn" style="width:100%;padding:14px 16px;border:none;background:none;
           text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);cursor:pointer;
           display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--sand-200);">
@@ -779,7 +821,7 @@
 
           <div id="ob-demo-feedback" style="font-size:13px;color:var(--success);font-weight:700;min-height:18px;margin-bottom:8px;"></div>
 
-          <button id="ob-finish-btn" style="background:linear-gradient(135deg,#D4A843,#C4963C,#A67C28);color:white;border:none;border-radius:14px;padding:14px 36px;font-size:15px;font-weight:900;font-family:'Fraunces',serif;box-shadow:0 4px 0 #8a6420;cursor:pointer;letter-spacing:0.05em;">¡Empezar a aprender!</button>
+          <button id="ob-slide3-next" onclick="onboardNext()" style="background:linear-gradient(135deg,#D4A843,#C4963C,#A67C28);color:white;border:none;border-radius:14px;padding:14px 36px;font-size:15px;font-weight:900;font-family:'Fraunces',serif;box-shadow:0 4px 0 #8a6420;cursor:pointer;letter-spacing:0.05em;">Continuar →</button>
         </div>
       
 
@@ -921,8 +963,95 @@
     <!-- WELCOME VIEW -->
     <div id="view-welcome" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center text-center px-4 py-8" style="display:none;min-height:calc(100vh - 60px);">
       <div style="position:relative;margin-bottom:8px;">
-        <img src="img/rashi-idle.png" alt="Rashi mascota" id="mascot" class="rashi-mascot" style="width:200px;height:auto;object-fit:contain;filter:drop-shadow(0 12px 32px rgba(13,31,53,0.18));animation:fadeSlideUp .5s ease both;">
+        <div id="mascot-wrap" class="rashi-mascot-wrap" style="display:inline-block;">
+          <img src="img/rashi-idle.png" alt="Rashi mascota" id="mascot" class="rashi-mascot" style="width:200px;height:auto;object-fit:contain;filter:drop-shadow(0 12px 32px rgba(13,31,53,0.18));animation:fadeSlideUp .5s ease both;">
+        </div>
       </div>
+
+    <!-- ── AUTH VIEW ─────────────────────────────────────────── -->
+    <div id="view-auth" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center text-center px-4 py-8"
+         style="display:none;min-height:calc(100vh - 60px);">
+
+      <div style="margin-bottom:24px;">
+        <img src="img/rashi-idle.png" alt="Rashi" class="rashi-mascot"
+             style="width:100px;height:auto;object-fit:contain;">
+      </div>
+
+      <h2 style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:900;color:var(--navy-800);margin-bottom:6px;">
+        <span id="auth-title">Ingresá</span>
+      </h2>
+      <p id="auth-subtitle" style="font-size:13px;color:var(--sand-500);margin-bottom:24px;">
+        Guardá tu progreso y accedé desde cualquier dispositivo
+      </p>
+
+      <!-- Tabs login / signup -->
+      <div style="display:flex;gap:4px;background:var(--sand-200);border-radius:12px;padding:4px;margin-bottom:20px;width:100%;max-width:280px;">
+        <button id="auth-tab-login" onclick="authSwitchTab('login')"
+          style="flex:1;padding:8px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;
+                 background:white;color:var(--navy-800);box-shadow:0 1px 4px rgba(13,31,53,0.1);">
+          Entrar
+        </button>
+        <button id="auth-tab-signup" onclick="authSwitchTab('signup')"
+          style="flex:1;padding:8px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;
+                 background:transparent;color:var(--sand-500);">
+          Registrarse
+        </button>
+      </div>
+
+      <!-- Formulario -->
+      <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
+
+        <input id="auth-name" type="text" placeholder="Nombre (opcional)"
+          style="display:none;padding:13px 16px;border:1.5px solid var(--sand-300);border-radius:14px;
+                 font-size:15px;color:var(--navy-800);background:white;outline:none;width:100%;"
+          onfocus="this.style.borderColor='var(--navy-600)'"
+          onblur="this.style.borderColor='var(--sand-300)'">
+
+        <!-- Role selector — solo en signup -->
+        <div id="auth-role-wrap" style="display:none;gap:8px;flex-direction:row;">
+          <button id="auth-role-student" onclick="authSelectRole('student')"
+            style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--gold-500);
+                   background:#FEF3C7;color:var(--navy-800);font-size:13px;font-weight:700;cursor:pointer;">
+            🎓 Alumno
+          </button>
+          <button id="auth-role-teacher" onclick="authSelectRole('teacher')"
+            style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--sand-300);
+                   background:white;color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
+            📚 Profesor
+          </button>
+        </div>
+
+        <input id="auth-email" type="email" placeholder="Email"
+          style="padding:13px 16px;border:1.5px solid var(--sand-300);border-radius:14px;
+                 font-size:15px;color:var(--navy-800);background:white;outline:none;width:100%;"
+          onfocus="this.style.borderColor='var(--navy-600)'"
+          onblur="this.style.borderColor='var(--sand-300)'">
+
+        <input id="auth-password" type="password" placeholder="Contraseña"
+          style="padding:13px 16px;border:1.5px solid var(--sand-300);border-radius:14px;
+                 font-size:15px;color:var(--navy-800);background:white;outline:none;width:100%;"
+          onfocus="this.style.borderColor='var(--navy-600)'"
+          onblur="this.style.borderColor='var(--sand-300)'">
+
+        <div id="auth-error" style="display:none;background:#FCEAE8;border:1px solid var(--error);
+             border-radius:10px;padding:10px 14px;font-size:13px;color:var(--error);font-weight:600;">
+        </div>
+
+        <button id="auth-submit-btn" onclick="authSubmit()"
+          style="background:linear-gradient(135deg,#1B3A5C,#2A5280);color:white;border:none;
+                 border-radius:14px;padding:14px;font-size:15px;font-weight:900;
+                 font-family:'Fraunces',serif;cursor:pointer;box-shadow:0 4px 0 #0D1F35;
+                 width:100%;letter-spacing:0.04em;">
+          Entrar →
+        </button>
+
+        <button onclick="authSkip()"
+          style="background:none;border:none;color:var(--sand-400);font-size:13px;
+                 cursor:pointer;padding:6px;margin-top:4px;">
+          Continuar sin cuenta →
+        </button>
+      </div>
+    </div>
       <h1 style="font-family:'Fraunces',serif;font-size:1.75rem;font-weight:900;color:var(--navy-900);line-height:1.2;margin-bottom:8px;">¡Aprendé a leer<br><span style="color:var(--gold-500);">hebreo</span>!</h1>
       <p style="color:var(--sand-500);font-size:14px;margin-bottom:6px;max-width:260px;line-height:1.6;">Letra por letra, sílaba por sílaba — desde cero hasta leer palabras reales.</p>
       <p style="color:var(--sand-400);font-size:13px;margin-bottom:28px;">Sin memorizar nombres. Solo sonidos.</p>
@@ -1813,6 +1942,7 @@ function feedbackClick() {
 function feedbackCelebration() {
   playCelebrationSound();
   vibrate([50, 50, 50, 50, 100]);
+  if(typeof setMascotState === 'function') setMascotState('success', 3000);
 }
 
 // ── SPACED REPETITION SYSTEM (SRS) ────────────────────────────
@@ -2961,7 +3091,7 @@ function lessonDone(key,lessonIdx){
   return (state.progress[lessonKey(key,lessonIdx)]||0)>=(wordIdxs.length*modes);
 }
 function showView(v){
-  ["view-home","view-pre-training","view-training","view-game","view-intro","view-celebration","view-welcome","view-letra-quiz","view-vowel-present","view-onboarding","view-parasha-select","view-aliyah-select","view-parasha-read","view-shop","view-tefilot","view-tefila-read"].forEach(id=>{
+  ["view-home","view-pre-training","view-training","view-game","view-intro","view-celebration","view-welcome","view-letra-quiz","view-vowel-present","view-onboarding","view-parasha-select","view-aliyah-select","view-parasha-read","view-shop","view-tefilot","view-tefila-read","view-auth"].forEach(id=>{
     const el=document.getElementById(id);
     if(el){ el.classList.add("hidden"); el.style.display="none"; }
   });
@@ -2969,11 +3099,27 @@ function showView(v){
   if(target){ target.classList.remove("hidden"); target.style.display=""; }
   // Ocultar siempre los controles del onboarding (dots + siguiente)
   const obNav=document.getElementById("ob-nav");
-  if(obNav) obNav.style.display = v==="onboarding" ? "" : "none";
+  if(obNav) obNav.style.display = v==="onboarding" ? "flex" : "none";
   const homeBtn=document.getElementById("home-btn");
   if(homeBtn) homeBtn.style.visibility = (v==="home"||v==="welcome") ? "hidden" : "visible";
 }
-function showToast(t,color="green"){ const toast=document.getElementById("toast"), tt=document.getElementById("toast-text"); tt.innerText=t; toast.classList.remove("bg-green-600","bg-red-600","bg-cyan-600"); if(color==="red") toast.classList.add("bg-red-600"); else if(color==="cyan") toast.classList.add("bg-cyan-600"); else toast.classList.add("bg-green-600"); toast.style.bottom="30px"; setTimeout(()=>toast.style.bottom="-100px",2000); }
+function showToast(t,color="green"){
+  const toast=document.getElementById("toast");
+  const tt=document.getElementById("toast-text");
+  if(!toast||!tt) return;
+  tt.innerText=t;
+  // Resetear clases y estilos anteriores
+  toast.classList.remove("bg-green-600","bg-red-600","bg-cyan-600");
+  toast.style.background = '';
+  toast.style.color = '';
+  if(color==="red")       toast.classList.add("bg-red-600");
+  else if(color==="cyan") toast.classList.add("bg-cyan-600");
+  else if(color==="warm" || color==="warn")
+    toast.style.background = 'linear-gradient(135deg,#C4963C,#A67C28)';
+  else toast.classList.add("bg-green-600");
+  toast.style.bottom="30px";
+  setTimeout(()=>{ toast.style.bottom="-100px"; },2000);
+}
 function cleanHebrew(text){
   if(!text) return "";
   // Filtrar cantilación/trope (U+0591-U+05AF) — aparece en textos de Sefaria
@@ -8075,6 +8221,14 @@ function buildHebrewDistractors(correctHeb, count = 3){
     }
   }
 
+  // Fallback si el pool no tiene suficientes candidatos únicos
+  if(result.length < count){
+    const fallbackHeb = ['עוֹלָם','חַיִּים','אָבִינוּ','בָּרוּךְ','מֶלֶךְ','אֱלֹהִים','יִשְׂרָאֵל','אָמֵן','תּוֹרָה','יוֹם'];
+    for(const fb of fallbackHeb){
+      if(result.length >= count) break;
+      if(fb !== correctHeb && !result.includes(fb)) result.push(fb);
+    }
+  }
   return result;
 }
 
@@ -8404,6 +8558,8 @@ function renderDetectMode(word){
 
 function renderArrangeMode(word){
   const fonBlocks=mapBlocksToFon(word.heb,word.fon).filter(f=>f!=='');
+  // Fallback: monosílabos no tienen sentido en ARRANGE → usar SELECT
+  if(fonBlocks.length < 2){ renderSelectMode(word); return; }
   const indexed=fonBlocks.map((f,i)=>({fon:f,idx:i}));
   state.arrangeAnswer=[];
   state.arrangeBlocks=shuffle([...indexed],Date.now());
@@ -8439,6 +8595,13 @@ function renderArrangeTiles(){
       });
       feedbackError();
       state.arrangeAttempts=(state.arrangeAttempts||0)+1;
+      // Registrar error en el primer intento (igual que SELECT/LISTEN/COMPLETE)
+      if(state.arrangeAttempts===1){
+        state.lessonErrors = (state.lessonErrors||0) + 1;
+        state.challenge_first_try = false;
+        onWrongAnswer();
+        trackError(state.currentChallenge?.wordIdx);
+      }
       if(state.arrangeAttempts>=2){
         // show correct answer in green before resetting
         setTimeout(()=>{
@@ -9842,6 +10005,7 @@ function saveWithIDB(){
     // Auto-sync en background si hay conexión
     if(navigator.onLine && typeof syncProgress === 'function'){
       syncProgress().catch(() => {});
+      if(typeof syncProgressToSupabase === 'function') syncProgressToSupabase().catch(() => {});
     } else if(!navigator.onLine){
       // Sin conexión: encolar para retry
       if(typeof _enqueueSyncItem === 'function') _enqueueSyncItem(snap);
@@ -10179,6 +10343,272 @@ window.addEventListener('beforeunload', () => {
   flushAnalytics();
 });
 
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  SUPABASE AUTH — configuración                            ║
+// ╚═══════════════════════════════════════════════════════════╝
+
+// ── Completar con tu proyecto de Supabase ────────────────────
+const SUPABASE_URL  = '';  // ej: 'https://xxxx.supabase.co'
+const SUPABASE_ANON = '';  // ej: 'eyJhbGci...'
+
+// Inicializar solo si hay config
+let _sb = null;
+if(SUPABASE_URL && SUPABASE_ANON){
+  try {
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    dbg('[Auth] Supabase inicializado');
+  } catch(e){ dbg('[Auth] Error init Supabase:', e.message); }
+}
+
+// Estado de auth en memoria
+let _authUser    = null;  // objeto user de Supabase
+let _authProfile = null;  // { id, name, role, email }
+let _authRole    = 'student'; // 'student' | 'teacher' (default para UI)
+
+// ── Obtener usuario actual ────────────────────────────────────
+async function getAuthUser(){
+  if(!_sb) return null;
+  try {
+    const { data: { user } } = await _sb.auth.getUser();
+    return user;
+  } catch(e){ return null; }
+}
+
+// ── Login ─────────────────────────────────────────────────────
+async function authLogin(email, password){
+  if(!_sb) throw new Error('Supabase no configurado');
+  const { data, error } = await _sb.auth.signInWithPassword({ email, password });
+  if(error) throw error;
+  _authUser = data.user;
+  await _loadProfile(_authUser.id);
+  return data.user;
+}
+
+// ── Signup ────────────────────────────────────────────────────
+async function authSignup(email, password, name, role){
+  if(!_sb) throw new Error('Supabase no configurado');
+  const { data, error } = await _sb.auth.signUp({
+    email, password,
+    options: { data: { name, role } },
+  });
+  if(error) throw error;
+  _authUser = data.user;
+  // Crear perfil en tabla profiles
+  if(_authUser){
+    await _sb.from('profiles').upsert({
+      id:         _authUser.id,
+      email,
+      name:       name || '',
+      role:       role || 'student',
+      created_at: new Date().toISOString(),
+    });
+  }
+  return data.user;
+}
+
+// ── Logout ────────────────────────────────────────────────────
+async function authLogout(){
+  if(!_sb) return;
+  await _sb.auth.signOut();
+  _authUser    = null;
+  _authProfile = null;
+  dbg('[Auth] Sesión cerrada');
+  showToast('Sesión cerrada', 'warm');
+  renderHome();
+}
+
+// ── Cargar perfil del usuario ──────────────────────────────────
+async function _loadProfile(userId){
+  if(!_sb || !userId) return;
+  try {
+    const { data } = await _sb.from('profiles').select('*').eq('id', userId).single();
+    if(data) _authProfile = data;
+    dbg('[Auth] Perfil cargado:', _authProfile?.name, '/', _authProfile?.role);
+  } catch(e){ dbg('[Auth] _loadProfile error:', e.message); }
+}
+
+// ── Guardar progreso en Supabase (reemplaza syncProgress cuando hay auth) ──
+async function syncProgressToSupabase(){
+  if(!_sb || !_authUser) return false;
+  try {
+    const snap = await loadProgress();
+    if(!snap) return false;
+    const { error } = await _sb.from('user_progress').upsert({
+      user_id:    _authUser.id,
+      progress:   snap.progress  || state.progress,
+      shekels:    snap.shekels   || state.shekels,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+    if(error){ dbg('[Auth] syncProgress error:', error.message); return false; }
+    dbg('[Auth] ✓ Progreso guardado en Supabase');
+    trackEvent('sync_success', { backend: 'supabase' });
+    return true;
+  } catch(e){ dbg('[Auth] syncProgressToSupabase error:', e.message); return false; }
+}
+
+// ── Cargar progreso desde Supabase ────────────────────────────
+async function loadProgressFromSupabase(){
+  if(!_sb || !_authUser) return null;
+  try {
+    const { data } = await _sb
+      .from('user_progress')
+      .select('*')
+      .eq('user_id', _authUser.id)
+      .single();
+    return data;
+  } catch(e){ dbg('[Auth] loadProgress error:', e.message); return null; }
+}
+
+// ── Inicializar sesión al arrancar ────────────────────────────
+async function initAuth(){
+  if(!_sb) return;
+  try {
+    const { data: { session } } = await _sb.auth.getSession();
+    if(session?.user){
+      _authUser = session.user;
+      await _loadProfile(_authUser.id);
+      dbg('[Auth] Sesión restaurada:', _authUser.email);
+      // Intentar cargar progreso desde Supabase
+      const remote = await loadProgressFromSupabase();
+      if(remote && remote.updated_at){
+        const remoteTs = new Date(remote.updated_at).getTime();
+        const localTs  = (await loadProgress())?.savedAt || 0;
+        if(remoteTs > localTs){
+          dbg('[Auth] Progreso remoto más nuevo → cargando...');
+          if(remote.progress) state.progress = remote.progress;
+          if(remote.shekels)  state.shekels  = Number(remote.shekels) || 0;
+          await saveProgress({ progress: state.progress, shekels: state.shekels });
+          showToast('✓ Progreso sincronizado', 'green');
+        }
+      }
+    }
+    // Escuchar cambios de sesión (login/logout desde otra pestaña)
+    _sb.auth.onAuthStateChange(async (event, session) => {
+      dbg('[Auth] onAuthStateChange:', event);
+      if(event === 'SIGNED_IN' && session?.user){
+        _authUser = session.user;
+        await _loadProfile(_authUser.id);
+        _updateAuthHeader();
+      } else if(event === 'SIGNED_OUT'){
+        _authUser = null; _authProfile = null;
+        _updateAuthHeader();
+      }
+    });
+  } catch(e){ dbg('[Auth] initAuth error:', e.message); }
+}
+
+// ── UI del header — mostrar usuario o botón login ─────────────
+function _updateAuthHeader(){
+  const existing = document.getElementById('auth-header-btn');
+  if(!existing) return;
+  const _closeMenu = () => {
+    const m = document.getElementById('header-menu');
+    if(m) m.style.display = 'none';
+  };
+  if(_authUser){
+    const name  = _authProfile?.name || _authUser.email?.split('@')[0] || 'Usuario';
+    const role  = _authProfile?.role || 'student';
+    const emoji = role === 'teacher' ? '📚' : '🎓';
+    existing.innerHTML = `${emoji} ${name}`;
+    existing.title     = `${_authUser.email} · ${role === 'teacher' ? 'Profesor' : 'Alumno'}`;
+    existing.onclick   = () => {
+      _closeMenu();
+      if(confirm(`Cerrar sesión de ${_authUser.email}?`)) authLogout();
+    };
+  } else {
+    existing.innerHTML = '🔑 Entrar';
+    existing.onclick   = () => { _closeMenu(); showView('auth'); };
+  }
+}
+
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  UI AUTH — funciones de la pantalla de login             ║
+// ╚═══════════════════════════════════════════════════════════╝
+
+let _authMode    = 'login'; // 'login' | 'signup'
+
+function authSwitchTab(mode){
+  _authMode = mode;
+  const isSignup = mode === 'signup';
+  document.getElementById('auth-title').textContent    = isSignup ? 'Crear cuenta' : 'Ingresá';
+  document.getElementById('auth-subtitle').textContent = isSignup
+    ? 'Elegí tu rol y empezá a aprender' : 'Guardá tu progreso en la nube';
+  document.getElementById('auth-submit-btn').textContent = isSignup ? 'Crear cuenta →' : 'Entrar →';
+  document.getElementById('auth-name').style.display      = isSignup ? 'block' : 'none';
+  document.getElementById('auth-role-wrap').style.display = isSignup ? 'flex' : 'none';
+  // Tabs activo/inactivo
+  const tLogin  = document.getElementById('auth-tab-login');
+  const tSignup = document.getElementById('auth-tab-signup');
+  tLogin.style.background  = isSignup ? 'transparent' : 'white';
+  tLogin.style.color        = isSignup ? 'var(--sand-500)' : 'var(--navy-800)';
+  tLogin.style.boxShadow    = isSignup ? 'none' : '0 1px 4px rgba(13,31,53,0.1)';
+  tSignup.style.background  = isSignup ? 'white' : 'transparent';
+  tSignup.style.color        = isSignup ? 'var(--navy-800)' : 'var(--sand-500)';
+  tSignup.style.boxShadow    = isSignup ? '0 1px 4px rgba(13,31,53,0.1)' : 'none';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+function authSelectRole(role){
+  _authRole = role;
+  const s = document.getElementById('auth-role-student');
+  const t = document.getElementById('auth-role-teacher');
+  if(role === 'student'){
+    s.style.borderColor = 'var(--gold-500)'; s.style.background = '#FEF3C7';
+    t.style.borderColor = 'var(--sand-300)'; t.style.background = 'white';
+  } else {
+    t.style.borderColor = 'var(--navy-600)'; t.style.background = '#EFF6FF';
+    s.style.borderColor = 'var(--sand-300)'; s.style.background = 'white';
+  }
+}
+
+function _authShowError(msg){
+  const el = document.getElementById('auth-error');
+  el.textContent    = msg;
+  el.style.display  = 'block';
+  if(typeof setMascotState === 'function') setMascotState('error', 1500);
+}
+
+async function authSubmit(){
+  if(!_sb){
+    _authShowError('Supabase no configurado — completá SUPABASE_URL y SUPABASE_ANON en el código');
+    return;
+  }
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const name     = document.getElementById('auth-name').value.trim();
+  if(!email || !password){ _authShowError('Completá email y contraseña'); return; }
+  if(password.length < 6){ _authShowError('La contraseña debe tener al menos 6 caracteres'); return; }
+
+  const btn = document.getElementById('auth-submit-btn');
+  btn.textContent = '...';
+  btn.disabled = true;
+  if(typeof setMascotState === 'function') setMascotState('loading');
+
+  try {
+    if(_authMode === 'login'){
+      await authLogin(email, password);
+    } else {
+      await authSignup(email, password, name, _authRole);
+    }
+    document.getElementById('auth-error').style.display = 'none';
+    if(typeof setMascotState === 'function') setMascotState('happy', 2000);
+    _updateAuthHeader();
+    showToast(_authMode === 'login' ? '¡Bienvenido de vuelta! 👋' : '¡Cuenta creada! 🎉', 'green');
+    localStorage.setItem('heb_welcomed', '1');
+    renderHome();
+  } catch(e){
+    _authShowError(e.message || 'Error al iniciar sesión');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = _authMode === 'login' ? 'Entrar →' : 'Crear cuenta →';
+  }
+}
+
+function authSkip(){
+  localStorage.setItem('heb_welcomed', '1');
+  renderHome();
+}
+
 // ── APP INIT ──────────────────────────────────────────────────────
 function startApp(){
   localStorage.setItem("heb_welcomed","1");
@@ -10200,6 +10630,11 @@ initShopInventory();
 })();
 
 trackEvent('app_start', { isFirstVisit: !localStorage.getItem("heb_welcomed") });
+
+// Iniciar Supabase (no bloquea — la app funciona igual sin él)
+initAuth().then(() => {
+  _updateAuthHeader();
+}).catch(() => {});
 
 const isFirstVisit=!localStorage.getItem("heb_welcomed");
 if(isFirstVisit){ startOnboarding(); } else {
@@ -10461,10 +10896,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // Sincronizar progreso al reconectar
       if(typeof syncProgress === 'function'){
         syncProgress().catch(() => {});
-        // Retry de items encolados offline
         if(typeof _flushSyncQueue === 'function') _flushSyncQueue().catch(() => {});
       }
-      // Intentar enviar analytics acumulados offline
+      // Sync a Supabase si hay usuario autenticado
+      if(typeof syncProgressToSupabase === 'function') syncProgressToSupabase().catch(() => {});
       if(typeof flushAnalytics === 'function') flushAnalytics();
     });
 
@@ -10626,6 +11061,124 @@ document.querySelectorAll('.rashi-mascot').forEach(el => {
 
 // Iniciar en idle al cargar
 setMascotState('idle');
+
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  MASCOTA VIVA — parpadeo + follow cursor                  ║
+// ╚═══════════════════════════════════════════════════════════╝
+(function initMascotLife(){
+
+  const wrap = document.getElementById('mascot-wrap');
+  if(!wrap) return; // solo en la vista que tiene el wrapper
+
+  // ── 1. PARPADEO IRREGULAR ─────────────────────────────────
+  // Intervalo aleatorio entre 2 y 5 segundos
+  let _blinkTimer = null;
+
+  function scheduleBlink(){
+    const delay = 2000 + Math.random() * 3000; // 2–5 seg
+    _blinkTimer = setTimeout(() => {
+      // No parpadear durante animaciones activas (error/success)
+      const busy = ['error','success','excited'].includes(_mascotState);
+      if(!busy){
+        wrap.classList.add('is-blinking');
+        wrap.addEventListener('animationend', () => {
+          wrap.classList.remove('is-blinking');
+        }, { once: true });
+      }
+      scheduleBlink(); // reprogramar el próximo
+    }, delay);
+  }
+
+  scheduleBlink();
+
+  // ── 2. FOLLOW CURSOR / TOUCH (máx 5px, solo en desktop) ──
+  // Solo si no es touch-primary (evitar drain de batería en mobile)
+  const isTouch = window.matchMedia('(hover: none)').matches;
+  let _followRaf = null;
+  let _targetX = 0, _targetY = 0;
+  let _currentX = 0, _currentY = 0;
+
+  if(!isTouch){
+    document.addEventListener('mousemove', e => {
+      const rect = wrap.getBoundingClientRect();
+      if(!rect.width) return;
+      // Centro de la mascota
+      const cx = rect.left + rect.width  / 2;
+      const cy = rect.top  + rect.height / 2;
+      // Distancia normalizada — máx 5px de desplazamiento
+      const dx = (e.clientX - cx) / window.innerWidth;
+      const dy = (e.clientY - cy) / window.innerHeight;
+      _targetX = dx * 5;
+      _targetY = dy * 5;
+    }, { passive: true });
+
+    // Loop de lerp suave (no requestAnimationFrame constante — solo cuando hay diferencia)
+    function followLoop(){
+      const lerpFactor = 0.12;
+      _currentX += (_targetX - _currentX) * lerpFactor;
+      _currentY += (_targetY - _currentY) * lerpFactor;
+
+      // Solo aplicar si el estado no tiene animación propia en el wrapper
+      const busy = ['error','success','excited'].includes(_mascotState);
+      if(!busy){
+        wrap.style.transform = `translate(${_currentX.toFixed(2)}px, ${_currentY.toFixed(2)}px)`;
+      } else {
+        // Resetear suavemente durante animaciones
+        _currentX *= 0.85;
+        _currentY *= 0.85;
+        wrap.style.transform = `translate(${_currentX.toFixed(2)}px, ${_currentY.toFixed(2)}px)`;
+      }
+
+      // Continuar solo si hay movimiento relevante
+      if(Math.abs(_targetX - _currentX) > 0.05 || Math.abs(_targetY - _currentY) > 0.05){
+        _followRaf = requestAnimationFrame(followLoop);
+      } else {
+        _followRaf = null;
+      }
+    }
+
+    document.addEventListener('mousemove', () => {
+      if(!_followRaf) _followRaf = requestAnimationFrame(followLoop);
+    }, { passive: true });
+  }
+
+  // ── 3. MICRO DELAY EN REACCIONES ─────────────────────────
+  // Envolver setMascotState con delay opcional para estados específicos
+  // Los estados "reactivos" tienen un delay perceptual de 200–350ms
+  const _origSetMascotState = setMascotState;
+  const REACTION_DELAY = {
+    success:  220,
+    happy:    180,
+    error:    0,    // el error es inmediato (feedback negativo instantáneo)
+    thinking: 300,
+    excited:  200,
+    loading:  0,    // loading es inmediato también
+    idle:     0,
+  };
+
+  // Parche: solo aplica delay si se llama sin duration explícita
+  // (para no interferir con los setMascotState que ya tienen timing calibrado)
+  window._mascotReactionPending = null;
+  const _patchedSetMascotState = function(state, duration){
+    const delay = REACTION_DELAY[state] ?? 0;
+    if(delay > 0 && duration === undefined){
+      clearTimeout(window._mascotReactionPending);
+      window._mascotReactionPending = setTimeout(() => {
+        _origSetMascotState(state, duration);
+      }, delay);
+    } else {
+      _origSetMascotState(state, duration);
+    }
+  };
+
+  // Solo parchear si setMascotState es la función global (evitar doble patch)
+  if(typeof setMascotState === 'function' && setMascotState === _origSetMascotState){
+    // eslint-disable-next-line no-global-assign
+    setMascotState = _patchedSetMascotState;
+    dbg('[Mascota] Sistema de vida activo: parpadeo + follow + micro-delay');
+  }
+
+})();
 </script>
 </body>
 </html>
