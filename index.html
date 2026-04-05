@@ -1497,7 +1497,7 @@
     </div>
 
     <!-- ── TEACHER DASHBOARD ─────────────────────────────────── -->
-    <div id="view-teacher" class="hidden w-full max-w-lg mx-auto flex flex-col"
+    <div id="view-teacher","view-no-institution" class="hidden w-full max-w-lg mx-auto flex flex-col"
          style="display:none;min-height:calc(100vh - 60px);">
 
       <!-- Header fijo -->
@@ -1562,6 +1562,40 @@
               font-weight:900;color:var(--navy-800);margin:0;flex:1;"></h3>
         </div>
         <div id="td-detail-content" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;"></div>
+      </div>
+    </div>
+    <!-- ── SIN INSTITUCIÓN — pantalla dedicada ──────────────── -->
+    <div id="view-no-institution" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center text-center px-6 py-12"
+         style="display:none;min-height:calc(100vh - 60px);">
+      <div style="font-size:3rem;margin-bottom:16px;">🏫</div>
+      <h2 style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:900;
+                 color:var(--navy-800);margin-bottom:8px;">Necesitás una institución</h2>
+      <p style="font-size:14px;color:var(--sand-500);line-height:1.6;margin-bottom:28px;max-width:280px;">
+        Para acceder al panel docente y gestionar alumnos, primero asociá tu cuenta a una institución.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:280px;">
+        <button onclick="showNoInstFlow('create')"
+          style="padding:14px;border-radius:14px;border:none;background:var(--navy-800);
+                 color:white;font-size:15px;font-weight:700;cursor:pointer;
+                 box-shadow:0 4px 0 var(--navy-900);">
+          🏫 Crear institución
+        </button>
+        <button onclick="showNoInstFlow('join')"
+          style="padding:14px;border-radius:14px;border:1.5px solid var(--sand-300);
+                 background:white;color:var(--navy-700);font-size:15px;font-weight:700;cursor:pointer;">
+          🔗 Unirme a una
+        </button>
+        <button onclick="showView('home')"
+          style="padding:10px;border:none;background:none;color:var(--sand-400);
+                 font-size:13px;cursor:pointer;">
+          Volver al inicio
+        </button>
+      </div>
+
+      <!-- Sub-form dinámico -->
+      <div id="no-inst-form" style="display:none;width:100%;max-width:280px;margin-top:20px;
+           background:white;border:1.5px solid var(--sand-300);border-radius:16px;padding:16px;">
+        <div id="no-inst-form-content"></div>
       </div>
     </div>
   </main>
@@ -10681,9 +10715,46 @@ if(SUPABASE_URL && SUPABASE_ANON){
 }
 
 // Estado de auth en memoria
-let _authUser    = null;  // objeto user de Supabase
-let _authProfile = null;  // { id, name, role, email }
-let _authRole    = 'student'; // 'student' | 'teacher' (default para UI)
+let _authUser         = null;  // objeto user de Supabase
+let _authProfile      = null;  // { id, name, role, email, institution_id, _institution }
+let _authProfileCache = null;  // cache para evitar fetches repetidos
+let _authRole         = 'student'; // 'student' | 'teacher' (default para UI)
+let _authProfileLoading = false;   // guard anti race condition
+
+// ── getProfile() — cache + race condition safe ────────────────
+async function getProfile(){
+  if(_authProfileCache) return _authProfileCache;
+  if(_authProfileLoading) {
+    // Esperar hasta que termine la carga en curso
+    await new Promise(r => {
+      const check = setInterval(() => {
+        if(!_authProfileLoading){ clearInterval(check); r(); }
+      }, 50);
+    });
+    return _authProfileCache;
+  }
+  _authProfileLoading = true;
+  try {
+    await _loadProfile(_authUser?.id);
+    _authProfileCache = _authProfile;
+    // Debug: advertir si falta institución
+    if(_authProfile && !_authProfile.institution_id){
+      console.warn('[Auth] usuario sin institución:', _authProfile.role, _authProfile.email);
+    }
+    return _authProfileCache;
+  } finally {
+    _authProfileLoading = false;
+  }
+}
+
+// ── Guard: acción requiere institución ────────────────────────
+function _requireInstitution(action){
+  if(_authProfile?.institution_id) return true;
+  // Mostrar pantalla dedicada en vez de toast
+  showView('no-institution');
+  dbg('[Auth] Bloqueado por falta de institución:', action);
+  return false;
+}
 
 // ── Obtener usuario actual ────────────────────────────────────
 async function getAuthUser(){
@@ -10765,8 +10836,9 @@ async function findInstitution(query){
 async function authLogout(){
   if(!_sb) return;
   await _sb.auth.signOut();
-  _authUser    = null;
-  _authProfile = null;
+  _authUser         = null;
+  _authProfile      = null;
+  _authProfileCache = null;
   dbg('[Auth] Sesión cerrada');
   showToast('Sesión cerrada', 'warm');
   renderHome();
@@ -10832,9 +10904,10 @@ async function initAuth(){
     if(session?.user){
       _authUser = session.user;
       await _loadProfile(_authUser.id);
+      _authProfileCache = _authProfile; // poblar cache desde el inicio
       dbg('[Auth] Sesión restaurada:', _authUser.email,
           '| role:', _authProfile?.role,
-          '| inst:', _authProfile?.institution_id || 'ninguna');
+          '| inst:', _authProfile?._institution?.name || _authProfile?.institution_id || 'ninguna');
       // Mostrar notificaciones no leídas del backend
       showBackendNotifications().catch(() => {});
 
@@ -10856,11 +10929,13 @@ async function initAuth(){
     _sb.auth.onAuthStateChange(async (event, session) => {
       dbg('[Auth] onAuthStateChange:', event);
       if(event === 'SIGNED_IN' && session?.user){
-        _authUser = session.user;
+        _authUser         = session.user;
+        _authProfileCache = null; // invalidar cache en cada login
         await _loadProfile(_authUser.id);
+        _authProfileCache = _authProfile;
         _updateAuthHeader();
       } else if(event === 'SIGNED_OUT'){
-        _authUser = null; _authProfile = null;
+        _authUser = null; _authProfile = null; _authProfileCache = null;
         _updateAuthHeader();
       }
     });
@@ -11379,14 +11454,9 @@ function openTeacherPanel(){
   if(_authProfile?.role !== 'teacher'){
     showToast('Solo disponible para profesores', 'warn'); return;
   }
+  if(!_requireInstitution('panel docente')) return;
   showView('teacher');
   loadTeacherDashboard();
-  // Modo limitado: advertir si aún no tiene institución asignada
-  if(!_authProfile?.institution_id){
-    setTimeout(() => {
-      showToast('💡 Creá una clase para empezar a gestionar alumnos', 'warn');
-    }, 800);
-  }
 }
 
 // ── Carga principal del dashboard ────────────────────────────
@@ -11733,6 +11803,7 @@ function tdRenderClassSettings(){
 // ── Crear clase ───────────────────────────────────────────────
 async function tdCreateClass(){
   if(!_sb || !_authUser) return;
+  if(!_requireInstitution('crear clase')) return;
   const nameInput = document.getElementById('td-new-class-name');
   const name = nameInput?.value.trim();
   if(!name){ showToast('Escribí un nombre para la clase', 'warn'); return; }
@@ -11782,6 +11853,7 @@ async function tdSendToStudent(studentId, studentName, body){
 // ── Enviar a toda la clase (reemplaza sendTeacherMessage viejo) ──
 async function sendTeacherMessage(target){
   if(!_sb || !_authUser || _authProfile?.role !== 'teacher') return;
+  if(!_requireInstitution('enviar mensajes')) return;
 
   const title  = (document.getElementById('td-broadcast-title') || document.getElementById('tp-title'))?.value.trim();
   const body   = (document.getElementById('td-broadcast-body')  || document.getElementById('tp-body'))?.value.trim();
@@ -11811,6 +11883,128 @@ async function sendTeacherMessage(target){
       const el = document.getElementById(id); if(el) el.value = '';
     });
   } catch(e){ if(status) status.textContent = 'Error: ' + e.message; }
+}
+
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  FLUJO SIN INSTITUCIÓN — crear o unirse                   ║
+// ╚═══════════════════════════════════════════════════════════╝
+
+async function showNoInstFlow(mode){
+  const form        = document.getElementById('no-inst-form');
+  const formContent = document.getElementById('no-inst-form-content');
+  if(!form || !formContent) return;
+
+  form.style.display = 'block';
+  if(typeof setMascotState === 'function') setMascotState('thinking');
+
+  if(mode === 'create'){
+    formContent.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:var(--navy-700);margin-bottom:10px;">
+        Nombre de tu institución
+      </div>
+      <input id="ni-name" type="text" placeholder="ej: Colegio Hacoaj"
+        style="width:100%;padding:11px 14px;border:1.5px solid var(--sand-300);border-radius:10px;
+               font-size:14px;color:var(--navy-800);outline:none;box-sizing:border-box;margin-bottom:10px;"
+        onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
+      <button onclick="noInstCreate()"
+        style="width:100%;padding:11px;border-radius:10px;border:none;
+               background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">
+        Crear →
+      </button>
+      <div id="ni-status" style="font-size:12px;color:var(--sand-500);text-align:center;margin-top:8px;min-height:16px;"></div>`;
+  } else {
+    // Cargar lista de instituciones existentes
+    formContent.innerHTML = `<div style="font-size:12px;color:var(--sand-400);text-align:center;">Cargando instituciones...</div>`;
+    const insts = await fetchInstitutionList();
+    if(!insts.length){
+      formContent.innerHTML = `
+        <div style="font-size:13px;color:var(--sand-500);text-align:center;margin-bottom:10px;">
+          No hay instituciones aún.<br>¿Querés crear la primera?
+        </div>
+        <button onclick="showNoInstFlow('create')"
+          style="width:100%;padding:11px;border-radius:10px;border:none;
+                 background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">
+          Crear institución
+        </button>`;
+      return;
+    }
+    formContent.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:var(--navy-700);margin-bottom:10px;">
+        Seleccioná tu institución
+      </div>
+      <select id="ni-inst-select"
+        style="width:100%;padding:11px 14px;border:1.5px solid var(--sand-300);border-radius:10px;
+               font-size:14px;color:var(--navy-800);background:white;margin-bottom:10px;
+               box-sizing:border-box;outline:none;">
+        ${insts.map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
+      </select>
+      <button onclick="noInstJoin()"
+        style="width:100%;padding:11px;border-radius:10px;border:none;
+               background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">
+        Unirme →
+      </button>
+      <button onclick="showNoInstFlow('create')"
+        style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--sand-300);
+               background:white;color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
+        + Crear nueva institución
+      </button>
+      <div id="ni-status" style="font-size:12px;color:var(--sand-500);text-align:center;margin-top:8px;min-height:16px;"></div>`;
+  }
+}
+
+async function fetchInstitutionList(){
+  if(!_sb) return [];
+  try {
+    const { data } = await _sb.from('institutions')
+      .select('id, name')
+      .eq('active', true)
+      .order('name');
+    return data || [];
+  } catch(e){ return []; }
+}
+
+async function noInstCreate(){
+  const name   = document.getElementById('ni-name')?.value.trim();
+  const status = document.getElementById('ni-status');
+  if(!name){ if(status) status.textContent = 'Escribí un nombre'; return; }
+  if(status) status.textContent = 'Creando...';
+  if(typeof setMascotState === 'function') setMascotState('loading');
+
+  const inst = await createInstitution(name);
+  if(inst){
+    if(typeof setMascotState === 'function') setMascotState('happy', 2000);
+    showToast(`✓ Institución "${inst.name}" creada`, 'green');
+    _authProfileCache = null; // invalidar cache
+    await _loadProfile(_authUser?.id);
+    showView('teacher');
+    loadTeacherDashboard();
+  } else {
+    if(status) status.textContent = 'Error al crear. Intentá de nuevo.';
+    if(typeof setMascotState === 'function') setMascotState('error', 1500);
+  }
+}
+
+async function noInstJoin(){
+  const select = document.getElementById('ni-inst-select');
+  const instId = select?.value;
+  const status = document.getElementById('ni-status');
+  if(!instId){ if(status) status.textContent = 'Seleccioná una institución'; return; }
+  if(status) status.textContent = 'Uniéndose...';
+  if(typeof setMascotState === 'function') setMascotState('loading');
+
+  try {
+    await _sb.from('profiles').update({ institution_id: instId }).eq('id', _authUser.id);
+    if(_authProfile) _authProfile.institution_id = instId;
+    _authProfileCache = null;
+    await _loadProfile(_authUser?.id);
+    if(typeof setMascotState === 'function') setMascotState('happy', 2000);
+    showToast('✓ Te uniste a la institución', 'green');
+    showView('teacher');
+    loadTeacherDashboard();
+  } catch(e){
+    if(status) status.textContent = 'Error: ' + e.message;
+    if(typeof setMascotState === 'function') setMascotState('error', 1500);
+  }
 }
 
 // ── APP INIT ──────────────────────────────────────────────────────
