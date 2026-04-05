@@ -144,7 +144,13 @@ async function networkFirst(req){
     }
     return res;
   } catch {
-    return (await caches.match(req)) || caches.match('./index.html');
+    const cached = await caches.match(req);
+    if(cached) return cached;
+    // Solo usar fallback HTML para navigation requests
+    if(req.destination === 'document' || req.mode === 'navigate'){
+      return caches.match('./index.html');
+    }
+    return new Response('Sin conexión', { status: 503 });
   }
 }
 
@@ -159,9 +165,22 @@ async function cacheFirst(req, cacheName){
     }
     return res;
   } catch {
-    // Fallback real: devolver index.html desde cache en vez de error
-    const fallback = await caches.match('./index.html');
-    return fallback || new Response('Sin conexión', { status: 503 });
+    // Solo devolver index.html para navigation requests (documentos HTML)
+    // Para imágenes, audio, JS, CSS → devolver 503 limpio, no HTML
+    if(req.destination === 'document' || req.mode === 'navigate'){
+      const fallback = await caches.match('./index.html');
+      return fallback || new Response('Sin conexión', { status: 503 });
+    }
+    // Assets no-document: respuesta vacía con tipo correcto para no romper la UI
+    const emptyTypes = {
+      'image': 'image/gif',
+      'audio': 'audio/mpeg',
+      'style': 'text/css',
+      'script': 'text/javascript',
+      'font':  'font/woff2',
+    };
+    const ct = emptyTypes[req.destination] || 'application/octet-stream';
+    return new Response('', { status: 503, headers: { 'Content-Type': ct } });
   }
 }
 
