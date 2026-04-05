@@ -207,7 +207,7 @@
     /* ── LAYOUT ─────────────────────────────────────────────── */
     #app { display: flex; flex-direction: column; min-height: 100vh; }
     header {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
       height: 60px;
       background: var(--sand-100);
       border-bottom: 1.5px solid var(--sand-300);
@@ -812,7 +812,7 @@
       <!-- Menú desplegable — auth movido acá -->
       <div id="header-menu" style="display:none;position:absolute;top:58px;right:12px;
         background:white;border:1.5px solid var(--sand-300);border-radius:16px;
-        box-shadow:0 8px 24px rgba(13,31,53,0.12);z-index:500;min-width:200px;overflow:hidden;">
+        box-shadow:0 8px 24px rgba(13,31,53,0.12);z-index:1100;min-width:200px;overflow:hidden;">
         <!-- Auth — login/logout -->
         <button id="auth-header-btn"
           style="width:100%;padding:14px 16px;border:none;background:none;
@@ -11705,7 +11705,7 @@ function updateMissionProgress(eventName){
       const b = document.createElement('div');
       b.id = 'coach-banner';
       b.style.cssText = 'position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:800;width:calc(100% - 32px);max-width:400px;background:white;border:1.5px solid var(--gold-500);border-radius:16px;padding:12px 14px;box-shadow:0 4px 24px rgba(13,31,53,0.12);animation:fadeSlideUp .28s cubic-bezier(.34,1.56,.64,1) forwards;display:flex;align-items:center;gap:12px;';
-      b.innerHTML = `<span style="font-size:1.5rem">🏆</span><span style="flex:1;font-size:13px;color:var(--navy-800);font-weight:600;">${celebMsg}</span><button onclick="this.closest('[id]').remove()" style="background:none;border:none;color:var(--sand-400);font-size:16px;cursor:pointer;padding:0 2px;">✕</button>`;
+      b.innerHTML = `<span style="font-size:1.5rem;flex-shrink:0;">🏆</span><span style="flex:1;min-width:0;font-size:13px;color:var(--navy-800);font-weight:600;overflow:hidden;">${celebMsg}</span><button onclick="this.closest('[id]').remove()" style="background:none;border:none;color:var(--sand-400);font-size:16px;cursor:pointer;padding:0 2px;flex-shrink:0;">✕</button>`;
       document.body.appendChild(b);
       setTimeout(()=>{ if(b.parentNode){ b.style.transition='opacity .25s';b.style.opacity='0';setTimeout(()=>b.remove(),260); }},5000);
     }, 1500);
@@ -11808,7 +11808,8 @@ function showCoach(trigger){
 
     banner.innerHTML = `
       <span style="font-size:1.5rem;flex-shrink:0;">${EMOJI[decision.type]||'💬'}</span>
-      <span style="flex:1;font-size:13px;color:var(--navy-800);font-weight:600;line-height:1.4;">${msgText}</span>
+      <span style="flex:1;min-width:0;font-size:13px;color:var(--navy-800);font-weight:600;line-height:1.4;
+                   overflow:hidden;display:block;">${msgText}</span>
       <button onclick="this.closest('[id]').remove();trackEvent('coach_dismissed',{type:'${decision.type}'})"
         style="background:none;border:none;color:var(--sand-400);font-size:16px;cursor:pointer;
                padding:0 2px;flex-shrink:0;line-height:1;touch-action:manipulation;">✕</button>`;
