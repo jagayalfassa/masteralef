@@ -118,11 +118,18 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
+  const url = event.notification.data?.url || './';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(list => {
-        if(list.length) return list[0].focus();
-        return clients.openWindow(event.notification.data?.url || './');
+        // Si la app ya está abierta → hacer foco
+        for(const client of list){
+          if(client.url.includes('alefmaster') || client.url.includes('masteralef')){
+            return client.focus();
+          }
+        }
+        // Si no → abrir nueva ventana
+        return clients.openWindow(url);
       })
   );
 });

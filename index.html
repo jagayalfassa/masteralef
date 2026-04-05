@@ -751,8 +751,18 @@
         </button>
         <button id="analytics-menu-btn" style="width:100%;padding:14px 16px;border:none;background:none;
           text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);cursor:pointer;
-          display:flex;align-items:center;gap:10px;">
+          display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--sand-200);">
           📊 Ver estadísticas
+        </button>
+        <button id="notif-menu-btn" style="width:100%;padding:14px 16px;border:none;background:none;
+          text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);cursor:pointer;
+          display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--sand-200);">
+          🔔 Recordatorios
+        </button>
+        <button id="teacher-panel-btn" style="display:none;width:100%;padding:14px 16px;border:none;background:none;
+          text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);cursor:pointer;
+          align-items:center;gap:10px;">
+          📢 Panel Profesor
         </button>
       </div>
     </div>
@@ -1008,17 +1018,58 @@
           onblur="this.style.borderColor='var(--sand-300)'">
 
         <!-- Role selector — solo en signup -->
-        <div id="auth-role-wrap" style="display:none;gap:8px;flex-direction:row;">
-          <button id="auth-role-student" onclick="authSelectRole('student')"
-            style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--gold-500);
-                   background:#FEF3C7;color:var(--navy-800);font-size:13px;font-weight:700;cursor:pointer;">
-            🎓 Alumno
-          </button>
-          <button id="auth-role-teacher" onclick="authSelectRole('teacher')"
-            style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--sand-300);
-                   background:white;color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
-            📚 Profesor
-          </button>
+        <div id="auth-role-wrap" style="display:none;flex-direction:column;gap:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.08em;text-align:left;">
+            ¿Cómo vas a usar la app?
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button id="auth-role-student" onclick="authSelectRole('student')"
+              style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--gold-500);
+                     background:#FEF3C7;color:var(--navy-800);font-size:13px;font-weight:700;cursor:pointer;">
+              🎓 Alumno
+            </button>
+            <button id="auth-role-teacher" onclick="authSelectRole('teacher')"
+              style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--sand-300);
+                     background:white;color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
+              📚 Docente
+            </button>
+          </div>
+          <!-- Campo institución — visible según rol -->
+          <div id="auth-institution-wrap" style="display:none;flex-direction:column;gap:8px;">
+            <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;
+                        letter-spacing:0.08em;text-align:left;">Institución</div>
+            <!-- Para docentes: crear o buscar institución -->
+            <div id="auth-inst-teacher" style="display:none;flex-direction:column;gap:8px;">
+              <div style="display:flex;gap:6px;">
+                <button id="auth-inst-new-btn" onclick="authInstMode('new')"
+                  style="flex:1;padding:8px;border-radius:10px;border:2px solid var(--navy-700);
+                         background:var(--navy-800);color:white;font-size:12px;font-weight:700;cursor:pointer;">
+                  + Nueva
+                </button>
+                <button id="auth-inst-join-btn" onclick="authInstMode('join')"
+                  style="flex:1;padding:8px;border-radius:10px;border:2px solid var(--sand-300);
+                         background:white;color:var(--navy-700);font-size:12px;font-weight:700;cursor:pointer;">
+                  Unirse
+                </button>
+              </div>
+              <input id="auth-inst-name" type="text" placeholder="Nombre de la institución"
+                style="padding:11px 14px;border:1.5px solid var(--sand-300);border-radius:12px;
+                       font-size:14px;color:var(--navy-800);background:white;outline:none;width:100%;box-sizing:border-box;"
+                onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
+            </div>
+            <!-- Para alumnos: código de clase -->
+            <div id="auth-inst-student" style="display:none;">
+              <input id="auth-class-code" type="text" placeholder="Código de clase (ej: ALEF23)"
+                style="padding:11px 14px;border:1.5px solid var(--sand-300);border-radius:12px;
+                       font-size:14px;color:var(--navy-800);background:white;outline:none;width:100%;
+                       box-sizing:border-box;text-transform:uppercase;letter-spacing:0.1em;"
+                oninput="this.value=this.value.toUpperCase()"
+                onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
+              <div style="font-size:11px;color:var(--sand-500);margin-top:4px;text-align:left;">
+                Opcional — podés unirte después desde el menú
+              </div>
+            </div>
+          </div>
         </div>
 
         <input id="auth-email" type="email" placeholder="Email"
@@ -1445,6 +1496,74 @@
       </div>
     </div>
 
+    <!-- ── TEACHER DASHBOARD ─────────────────────────────────── -->
+    <div id="view-teacher" class="hidden w-full max-w-lg mx-auto flex flex-col"
+         style="display:none;min-height:calc(100vh - 60px);">
+
+      <!-- Header fijo -->
+      <div style="padding:14px 18px 10px;background:white;border-bottom:1.5px solid var(--sand-200);
+                  position:sticky;top:0;z-index:2;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;
+                        letter-spacing:0.1em;">Panel</div>
+            <h2 id="td-class-name" style="font-family:'Fraunces',serif;font-size:1.1rem;font-weight:900;
+                color:var(--navy-800);margin:0;">Mi clase</h2>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button id="td-msg-btn"
+              style="background:var(--navy-800);color:white;border:none;border-radius:10px;
+                     padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">
+              📢 Mensaje
+            </button>
+            <button onclick="showView('home')"
+              style="background:var(--sand-200);color:var(--navy-700);border:1.5px solid var(--sand-300);
+                     border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;">
+              ✕
+            </button>
+          </div>
+        </div>
+        <!-- Resumen rápido -->
+        <div id="td-summary" style="display:flex;gap:12px;margin-top:12px;"></div>
+      </div>
+
+      <!-- Tabs: Alumnos / Clase -->
+      <div style="display:flex;background:var(--sand-100);border-bottom:1.5px solid var(--sand-200);">
+        <button id="td-tab-students" onclick="tdSwitchTab('students')"
+          style="flex:1;padding:11px;border:none;background:white;color:var(--navy-800);
+                 font-size:13px;font-weight:700;cursor:pointer;border-bottom:2.5px solid var(--navy-800);">
+          👥 Alumnos
+        </button>
+        <button id="td-tab-class" onclick="tdSwitchTab('class')"
+          style="flex:1;padding:11px;border:none;background:transparent;color:var(--sand-500);
+                 font-size:13px;font-weight:700;cursor:pointer;border-bottom:2.5px solid transparent;">
+          ⚙️ Mi clase
+        </button>
+      </div>
+
+      <!-- Contenido scrolleable -->
+      <div id="td-content" style="flex:1;overflow-y:auto;padding:14px 16px 24px;
+                                   display:flex;flex-direction:column;gap:10px;">
+        <div style="text-align:center;padding:32px;color:var(--sand-400);">
+          <div style="font-size:2rem;margin-bottom:8px;">👨‍🏫</div>
+          <div style="font-size:13px;">Cargando alumnos...</div>
+        </div>
+      </div>
+
+      <!-- Panel de detalle de alumno (overlay dentro de la vista) -->
+      <div id="td-student-detail" style="display:none;position:absolute;inset:0;
+           background:white;z-index:3;overflow-y:auto;">
+        <div style="padding:16px 18px;border-bottom:1.5px solid var(--sand-200);
+                    display:flex;align-items:center;gap:12px;position:sticky;top:0;background:white;z-index:1;">
+          <button onclick="document.getElementById('td-student-detail').style.display='none'"
+            style="background:var(--sand-200);border:none;border-radius:10px;padding:8px 12px;
+                   font-size:13px;font-weight:700;cursor:pointer;color:var(--navy-700);">← Volver</button>
+          <h3 id="td-detail-name" style="font-family:'Fraunces',serif;font-size:1rem;
+              font-weight:900;color:var(--navy-800);margin:0;flex:1;"></h3>
+        </div>
+        <div id="td-detail-content" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;"></div>
+      </div>
+    </div>
   </main>
 
   <!-- Toast notification -->
@@ -1708,6 +1827,7 @@ function onLessonComplete(){
   trackWeeklyEvent('completeLesson', 1);
   updateHudShekels();
   trackEvent('lesson_complete', { series: state.activeSeries, lesson: state.activeLesson, errors: state.lessonErrors });
+  updateLastActivity();
 }
 
 function onSeriesComplete(){
@@ -1923,6 +2043,7 @@ function feedbackSuccess() {
   if(wordEl){ wordEl.classList.remove("word-shake"); void wordEl.offsetWidth; wordEl.classList.add("word-jump"); setTimeout(()=>wordEl.classList.remove("word-jump"),500); }
   if(typeof setMascotState === 'function') setMascotState('success', 1200);
   trackEvent('answer_correct', { series: state.activeSeries, mode: state.currentChallenge?.mode });
+  updateLastActivity();
 }
 
 function feedbackError() {
@@ -1943,6 +2064,8 @@ function feedbackCelebration() {
   playCelebrationSound();
   vibrate([50, 50, 50, 50, 100]);
   if(typeof setMascotState === 'function') setMascotState('success', 3000);
+  // Mostrar prompt de notificaciones la primera vez que completa una serie
+  setTimeout(() => showNotifPrompt(), 2000);
 }
 
 // ── SPACED REPETITION SYSTEM (SRS) ────────────────────────────
@@ -3259,7 +3382,7 @@ function lessonDone(key,lessonIdx){
   return (state.progress[lessonKey(key,lessonIdx)]||0)>=(wordIdxs.length*modes);
 }
 function showView(v){
-  ["view-home","view-pre-training","view-training","view-game","view-intro","view-celebration","view-welcome","view-letra-quiz","view-vowel-present","view-onboarding","view-parasha-select","view-aliyah-select","view-parasha-read","view-shop","view-tefilot","view-tefila-read","view-auth"].forEach(id=>{
+  ["view-home","view-pre-training","view-training","view-game","view-intro","view-celebration","view-welcome","view-letra-quiz","view-vowel-present","view-onboarding","view-parasha-select","view-aliyah-select","view-parasha-read","view-shop","view-tefilot","view-tefila-read","view-auth","view-teacher"].forEach(id=>{
     const el=document.getElementById(id);
     if(el){ el.classList.add("hidden"); el.style.display="none"; }
   });
@@ -7026,7 +7149,23 @@ function runVowelPresent(sounds, nextFn){
 
     const shvaText=document.createElement('div');
     shvaText.style.cssText='font-size:12px;color:var(--navy-700);line-height:1.5;';
-    shvaText.innerHTML='Este signo es el <strong style="color:var(--navy-800);">Shva</strong>. Puede sonar <strong style="color:var(--gold-500);">E</strong> o ser <strong style="color:var(--sand-500);">silencioso</strong>.<br><br>Es <strong style="color:var(--sand-500);">silencioso</strong> cuando aparece:<br>&bull; Al <strong style="color:var(--navy-800);">final</strong> de una palabra<br>&bull; Después de una <strong style="color:var(--navy-800);">vocal larga</strong><br><br>En el juego lo verás en <strong style="color:var(--sand-400);">gris</strong> cuando es silencioso.';
+    shvaText.innerHTML=''+
+      '<strong style="color:var(--navy-800);">El Shva (ְ)</strong> puede sonar E o ser silencioso (mudo).'+
+      '<br><br>'+
+      '<strong style="color:var(--navy-800);">Suena E cuando:</strong><br>'+
+      '&bull; Está al inicio de una palabra<br>'+
+      '&bull; Es el primero de dos Shvas seguidos'+
+      '<br><br>'+
+      '<strong style="color:var(--navy-800);">No se pronuncia cuando:</strong><br>'+
+      '&bull; Está al final de una palabra &mdash; '+
+      '<span style="font-family:\'Noto Serif Hebrew\',serif;font-size:1.1rem;vertical-align:middle;">מֶלֶךְ</span> '+
+      '&rarr; <em>"melej"</em><br>'+
+      '&bull; Cierra una sílaba (va después de la vocal) &mdash; '+
+      '<span style="font-family:\'Noto Serif Hebrew\',serif;font-size:1.1rem;vertical-align:middle;">יִמְלֹךְ</span> '+
+      '&rarr; <em>"imloj"</em><br>'+
+      '&bull; Es el primero de dos Shvas consecutivos'+
+      '<br><br>'+
+      '<span style="font-size:10px;color:var(--sand-400);">En el juego aparece en gris cuando es silencioso.</span>';
     shvaBody.appendChild(shvaText);
     shvaCard.appendChild(shvaBody);
 
@@ -10216,6 +10355,18 @@ async function subscribeUserToPush(){
   }
 }
 
+/**
+ * subscribeAndSave()
+ * Suscribir + guardar en Supabase si el usuario está logueado.
+ */
+async function subscribeAndSave(){
+  const sub = await subscribeUserToPush();
+  if(sub && sub.endpoint && typeof savePushSubscription === 'function'){
+    await savePushSubscription(sub);
+  }
+  return sub;
+}
+
 function urlBase64ToUint8Array(base64String){
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64  = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
@@ -10270,14 +10421,15 @@ let   _lastToastSync    = 0;     // evitar toast duplicado de sync
  */
 function trackEvent(name, data){
   if(!name) return;
+  // Filtrar eventos de alta frecuencia que llenan el array sin valor analítico
+  if(name === 'mascot_state') return;
   try {
     const events = JSON.parse(localStorage.getItem(ANALYTICS_KEY) || '[]');
     events.push({ name, data: data || {}, ts: Date.now() });
     // Rotar: mantener solo los últimos ANALYTICS_MAX eventos
     if(events.length > ANALYTICS_MAX) events.splice(0, events.length - ANALYTICS_MAX);
-    (requestIdleCallback || (fn => setTimeout(fn, 0)))(() => {
-      localStorage.setItem(ANALYTICS_KEY, JSON.stringify(events));
-    });
+    // Guardar sincrónicamente — evita que el dashboard muestre 0 por race condition
+    localStorage.setItem(ANALYTICS_KEY, JSON.stringify(events));
     dbg('[Analytics]', name, data || '');
   } catch(e){ dbg('[Analytics] Error:', e.message); }
 }
@@ -10553,7 +10705,7 @@ async function authLogin(email, password){
 }
 
 // ── Signup ────────────────────────────────────────────────────
-async function authSignup(email, password, name, role){
+async function authSignup(email, password, name, role, institutionId){
   if(!_sb) throw new Error('Supabase no configurado');
   const { data, error } = await _sb.auth.signUp({
     email, password,
@@ -10561,17 +10713,52 @@ async function authSignup(email, password, name, role){
   });
   if(error) throw error;
   _authUser = data.user;
-  // Crear perfil en tabla profiles
   if(_authUser){
     await _sb.from('profiles').upsert({
-      id:         _authUser.id,
+      id:             _authUser.id,
       email,
-      name:       name || '',
-      role:       role || 'student',
-      created_at: new Date().toISOString(),
+      name:           name || '',
+      role:           role || 'student',
+      institution_id: institutionId || null,
+      created_at:     new Date().toISOString(),
     });
   }
   return data.user;
+}
+
+// ── Crear institución nueva ────────────────────────────────────
+async function createInstitution(name){
+  if(!_sb || !_authUser) return null;
+  try {
+    const { data, error } = await _sb.from('institutions').insert({
+      name,
+      active:     true,
+      plan:       'free',
+      created_at: new Date().toISOString(),
+    }).select().single();
+    if(error){ dbg('[Auth] createInstitution error:', error.message); return null; }
+    // Asignar como admin de la institución
+    await _sb.from('profiles').update({
+      institution_id: data.id,
+      role: 'teacher',
+    }).eq('id', _authUser.id);
+    _authProfile = { ..._authProfile, institution_id: data.id, role: 'teacher' };
+    dbg('[Auth] Institución creada:', data.name, data.id);
+    return data;
+  } catch(e){ dbg('[Auth] createInstitution error:', e.message); return null; }
+}
+
+// ── Buscar institución por código/nombre ──────────────────────
+async function findInstitution(query){
+  if(!_sb) return null;
+  try {
+    const { data } = await _sb.from('institutions')
+      .select('*')
+      .ilike('name', `%${query}%`)
+      .eq('active', true)
+      .limit(5);
+    return data || [];
+  } catch(e){ return []; }
 }
 
 // ── Logout ────────────────────────────────────────────────────
@@ -10636,6 +10823,9 @@ async function initAuth(){
       _authUser = session.user;
       await _loadProfile(_authUser.id);
       dbg('[Auth] Sesión restaurada:', _authUser.email);
+      // Mostrar notificaciones no leídas del backend
+      showBackendNotifications().catch(() => {});
+
       // Intentar cargar progreso desde Supabase
       const remote = await loadProgressFromSupabase();
       if(remote && remote.updated_at){
@@ -10665,6 +10855,142 @@ async function initAuth(){
   } catch(e){ dbg('[Auth] initAuth error:', e.message); }
 }
 
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  NOTIFICACIONES — Backend Supabase                        ║
+// ╚═══════════════════════════════════════════════════════════╝
+
+/**
+ * fetchNotifications()
+ * Trae notificaciones no leídas del usuario desde Supabase.
+ * Requiere que _sb y _authUser estén inicializados.
+ */
+async function fetchNotifications(){
+  if(!_sb || !_authUser) return [];
+  try {
+    const { data, error } = await _sb
+      .from('notifications')
+      .select('*')
+      .eq('user_id', _authUser.id)
+      .eq('read', false)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if(error){ dbg('[Notif] fetch error:', error.message); return []; }
+    return data || [];
+  } catch(e){ dbg('[Notif] fetchNotifications error:', e.message); return []; }
+}
+
+/**
+ * markNotificationRead(id)
+ * Marca una notificación como leída en Supabase.
+ */
+async function markNotificationRead(notifId){
+  if(!_sb || !_authUser || !notifId) return;
+  try {
+    await _sb.from('notifications').update({ read: true }).eq('id', notifId);
+  } catch(e){ dbg('[Notif] markRead error:', e.message); }
+}
+
+/**
+ * showBackendNotifications()
+ * Muestra las notificaciones del backend como toasts y popups.
+ * Llamar al abrir la app si el usuario está logueado.
+ */
+async function showBackendNotifications(){
+  const notifs = await fetchNotifications();
+  if(!notifs.length) return;
+
+  // Mostrar las primeras 3, con delay entre ellas
+  notifs.slice(0, 3).forEach((notif, i) => {
+    setTimeout(() => {
+      // Toast diferenciado por tipo
+      const color = notif.type === 'teacher' ? 'cyan'
+                  : notif.type === 'streak'  ? 'warn'
+                  : 'green';
+      showToast(`${notif.title}: ${notif.body}`, color);
+      trackEvent('notification_shown', { type: notif.type, id: notif.id });
+      markNotificationRead(notif.id);
+    }, i * 2500);
+  });
+
+  // Si hay mensajes de profesor → mostrar badge especial
+  const teacherMsgs = notifs.filter(n => n.type === 'teacher');
+  if(teacherMsgs.length){
+    setTimeout(() => _showTeacherMessage(teacherMsgs[0]), 500);
+  }
+}
+
+/** Popup especial para mensajes del profesor */
+function _showTeacherMessage(notif){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9200;background:rgba(13,31,53,0.75);display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease;';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:20px;width:100%;max-width:360px;padding:24px;box-shadow:0 8px 32px rgba(13,31,53,0.25);">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:2rem;margin-bottom:6px;">📢</div>
+        <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Mensaje de tu profesor</div>
+        <h3 style="font-family:'Fraunces',serif;font-size:1.1rem;font-weight:900;color:var(--navy-800);margin-bottom:8px;">${notif.title}</h3>
+        <p style="font-size:14px;color:var(--navy-700);line-height:1.5;">${notif.body}</p>
+      </div>
+      <button onclick="this.closest('div[style]').remove(); trackEvent('teacher_notif_dismissed', {});"
+        style="width:100%;padding:12px;border-radius:12px;border:none;background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">
+        Entendido ✓
+      </button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+}
+
+/**
+ * savePushSubscription(subscription)
+ * Guarda la suscripción VAPID del usuario en Supabase para push remoto.
+ * Se llama después de subscribeUserToPush() cuando hay backend.
+ */
+async function savePushSubscription(subscription){
+  if(!_sb || !_authUser || !subscription) return;
+  try {
+    await _sb.from('push_subscriptions').upsert({
+      user_id:      _authUser.id,
+      endpoint:     subscription.endpoint,
+      p256dh:       btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')))),
+      auth:         btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')))),
+      updated_at:   new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+    dbg('[Notif] Push subscription guardada en Supabase');
+  } catch(e){ dbg('[Notif] savePushSubscription error:', e.message); }
+}
+
+// ── Unirse a clase por código ─────────────────────────────────
+async function joinClassByCode(code){
+  if(!_sb || !_authUser || !code) return false;
+  try {
+    // Buscar la clase
+    const { data: cls } = await _sb
+      .from('classes')
+      .select('id, institution_id')
+      .eq('code', code.toUpperCase())
+      .single();
+    if(!cls){ showToast('Código de clase inválido', 'warn'); return false; }
+
+    // Unirse a la clase
+    await _sb.from('class_members').upsert({
+      class_id:   cls.id,
+      student_id: _authUser.id,
+      joined_at:  new Date().toISOString(),
+    }, { onConflict: 'class_id,student_id' });
+
+    // Heredar institution_id de la clase
+    if(cls.institution_id){
+      await _sb.from('profiles').update({
+        institution_id: cls.institution_id,
+      }).eq('id', _authUser.id);
+      if(_authProfile) _authProfile.institution_id = cls.institution_id;
+    }
+
+    showToast('✓ Te uniste a la clase', 'green');
+    return true;
+  } catch(e){ dbg('[Auth] joinClassByCode error:', e.message); return false; }
+}
+
 // ── UI del header — mostrar usuario o botón login ─────────────
 function _updateAuthHeader(){
   const existing = document.getElementById('auth-header-btn');
@@ -10686,6 +11012,11 @@ function _updateAuthHeader(){
   } else {
     existing.innerHTML = '🔑 Entrar';
     existing.onclick   = () => { _closeMenu(); showView('auth'); };
+  }
+  // Mostrar/ocultar botón de panel profesor según rol
+  const teacherBtn = document.getElementById('teacher-panel-btn');
+  if(teacherBtn){
+    teacherBtn.style.display = (_authProfile?.role === 'teacher') ? 'flex' : 'none';
   }
 }
 
@@ -10713,6 +11044,9 @@ function authSwitchTab(mode){
   tSignup.style.background  = isSignup ? 'white' : 'transparent';
   tSignup.style.color        = isSignup ? 'var(--navy-800)' : 'var(--sand-500)';
   tSignup.style.boxShadow    = isSignup ? '0 1px 4px rgba(13,31,53,0.1)' : 'none';
+  // Ocultar campos de institución en modo login
+  const instWrap = document.getElementById('auth-institution-wrap');
+  if(instWrap) instWrap.style.display = 'none';
   document.getElementById('auth-error').style.display = 'none';
 }
 
@@ -10720,13 +11054,42 @@ function authSelectRole(role){
   _authRole = role;
   const s = document.getElementById('auth-role-student');
   const t = document.getElementById('auth-role-teacher');
+  const instWrap    = document.getElementById('auth-institution-wrap');
+  const instTeacher = document.getElementById('auth-inst-teacher');
+  const instStudent = document.getElementById('auth-inst-student');
+
   if(role === 'student'){
     s.style.borderColor = 'var(--gold-500)'; s.style.background = '#FEF3C7';
     t.style.borderColor = 'var(--sand-300)'; t.style.background = 'white';
+    if(instWrap)    instWrap.style.display    = 'flex';
+    if(instTeacher) instTeacher.style.display = 'none';
+    if(instStudent) instStudent.style.display = 'block';
   } else {
     t.style.borderColor = 'var(--navy-600)'; t.style.background = '#EFF6FF';
     s.style.borderColor = 'var(--sand-300)'; s.style.background = 'white';
+    if(instWrap)    instWrap.style.display    = 'flex';
+    if(instTeacher) instTeacher.style.display = 'flex';
+    if(instStudent) instStudent.style.display = 'none';
+    authInstMode('new'); // default: crear nueva
   }
+}
+
+// Modo institución: 'new' = crear, 'join' = unirse con código
+let _authInstMode = 'new';
+function authInstMode(mode){
+  _authInstMode = mode;
+  const nb = document.getElementById('auth-inst-new-btn');
+  const jb = document.getElementById('auth-inst-join-btn');
+  const ni = document.getElementById('auth-inst-name');
+  if(nb){ nb.style.background = mode==='new' ? 'var(--navy-800)' : 'white';
+          nb.style.color       = mode==='new' ? 'white' : 'var(--navy-700)';
+          nb.style.borderColor = mode==='new' ? 'var(--navy-700)' : 'var(--sand-300)'; }
+  if(jb){ jb.style.background = mode==='join' ? 'var(--navy-800)' : 'white';
+          jb.style.color       = mode==='join' ? 'white' : 'var(--navy-700)';
+          jb.style.borderColor = mode==='join' ? 'var(--navy-700)' : 'var(--sand-300)'; }
+  if(ni){ ni.placeholder = mode==='new'
+    ? 'Nombre de la institución'
+    : 'Código de institución (pedíselo al admin)'; }
 }
 
 function _authShowError(msg){
@@ -10756,7 +11119,42 @@ async function authSubmit(){
     if(_authMode === 'login'){
       await authLogin(email, password);
     } else {
-      await authSignup(email, password, name, _authRole);
+      // Resolver institution_id antes de crear la cuenta
+      let institutionId = null;
+
+      if(_authRole === 'teacher'){
+        const instName = document.getElementById('auth-inst-name')?.value.trim();
+        if(instName){
+          if(_authInstMode === 'new'){
+            // Se crea después del signup (necesitamos el user_id primero)
+            window._pendingInstName = instName;
+          } else {
+            // Buscar institución existente por nombre/código
+            const found = await findInstitution(instName);
+            if(found.length) institutionId = found[0].id;
+            else { _authShowError('Institución no encontrada'); btn.disabled=false; btn.textContent='Crear cuenta →'; return; }
+          }
+        }
+      } else if(_authRole === 'student'){
+        // Alumno: código de clase (institution_id se hereda de la clase)
+        const classCode = document.getElementById('auth-class-code')?.value.trim();
+        if(classCode) window._pendingClassCode = classCode;
+      }
+
+      await authSignup(email, password, name, _authRole, institutionId);
+
+      // Post-signup: crear institución si era docente con nueva institución
+      if(_authRole === 'teacher' && window._pendingInstName && _authUser){
+        const inst = await createInstitution(window._pendingInstName);
+        window._pendingInstName = null;
+        if(inst) showToast(`✓ Institución "${inst.name}" creada`, 'green');
+      }
+
+      // Post-signup: unirse a clase si era alumno con código
+      if(_authRole === 'student' && window._pendingClassCode){
+        await joinClassByCode(window._pendingClassCode);
+        window._pendingClassCode = null;
+      }
     }
     document.getElementById('auth-error').style.display = 'none';
     if(typeof setMascotState === 'function') setMascotState('happy', 2000);
@@ -10775,6 +11173,623 @@ async function authSubmit(){
 function authSkip(){
   localStorage.setItem('heb_welcomed', '1');
   renderHome();
+}
+
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  NOTIFICACIONES — sistema tipo Duolingo                   ║
+// ╚═══════════════════════════════════════════════════════════╝
+
+const NOTIF_COOLDOWN_KEY = 'heb_last_notif';
+const NOTIF_PERM_KEY     = 'heb_notif_asked';
+const NOTIF_COOLDOWN_MS  = 4 * 60 * 60 * 1000; // 4 horas entre notificaciones
+const NOTIF_INACTIVITY   = 22 * 60 * 60 * 1000; // 22 horas = "hace 1 día"
+
+// ── Construir mensaje contextual según estado del usuario ────
+function getSmartNotification(){
+  const progress    = state.progress || {};
+  const shekels     = state.shekels  || 0;
+  const streakData  = (() => { try { return JSON.parse(localStorage.getItem('heb_streak') || '{}'); } catch{ return {}; } })();
+  const streak      = Number(streakData.count || 0);
+
+  // Calcular palabras dominadas y progreso total
+  let totalWords = 0, masteredWords = 0;
+  Object.entries(ALL_DATA).forEach(([key, serie]) => {
+    if(serie.type !== 'BASE') return;
+    (serie.words || []).forEach(w => {
+      totalWords++;
+      const ws = progress[w.fon];
+      if(ws && ws.correct >= 3) masteredWords++;
+    });
+  });
+
+  const pct = totalWords > 0 ? Math.round(masteredWords / totalWords * 100) : 0;
+
+  // Inactividad
+  const lastActivity = parseInt(localStorage.getItem('heb_last_activity') || '0');
+  const inactividad  = Date.now() - lastActivity;
+  const inactive24h  = inactividad > NOTIF_INACTIVITY;
+
+  // ── Mensajes según contexto ───────────────────────────────
+  if(streak >= 7 && inactive24h){
+    return { title:'¡No pierdas tu racha! 🔥', body:`Llevás ${streak} días seguidos. No pares ahora — entrá y practicá.` };
+  }
+  if(streak >= 3 && inactive24h){
+    return { title:`Racha de ${streak} días 🔥`, body:'Hace más de 20 horas que no practicás. ¡Un minuto alcanza!' };
+  }
+  if(inactive24h){
+    return { title:'AlefMaster te extraña 📖', body:'Hace más de un día que no practicás hebreo. ¿Empezamos?' };
+  }
+  if(pct >= 80){
+    return { title:'¡Casi terminás! 🌟', body:`Dominaste el ${pct}% del vocabulario. Estás muy cerca de completar todo.` };
+  }
+  if(pct >= 50 && pct < 80){
+    return { title:'Buen progreso 📈', body:`Ya dominás más de la mitad del vocabulario (${pct}%). ¡Seguí así!` };
+  }
+  if(shekels >= 100){
+    return { title:'Shékels acumulados 💰', body:`Tenés ${shekels}₪ para gastar en la Tienda. ¡Entrá y elegí!` };
+  }
+  // Default motivacional
+  const msgs = [
+    { title:'Un minuto de práctica 🎯',  body:'Leer hebreo se aprende con constancia. ¿Practicamos una palabra?' },
+    { title:'Tu Bar Mitzvá se acerca 📅', body:'Cada práctica cuenta. ¡Entrá y avanzá un poco más hoy!' },
+    { title:'Practicar hebreo hoy 🌟',    body:'5 minutos de práctica hacen la diferencia. ¡Te esperamos!' },
+  ];
+  return msgs[Math.floor(Date.now() / 86400000) % msgs.length];
+}
+
+// ── Guardar timestamp de última actividad ─────────────────────
+function updateLastActivity(){
+  localStorage.setItem('heb_last_activity', String(Date.now()));
+}
+
+// ── Verificar cooldown ─────────────────────────────────────────
+function canSendNotification(){
+  if(!('Notification' in window)) return false;
+  if(Notification.permission !== 'granted') return false;
+  const last = parseInt(localStorage.getItem(NOTIF_COOLDOWN_KEY) || '0');
+  return Date.now() - last > NOTIF_COOLDOWN_MS;
+}
+
+// ── Enviar notificación local ─────────────────────────────────
+function sendLocalNotification(notif){
+  if(!canSendNotification()) return false;
+  try {
+    const n = new Notification(notif.title, {
+      body:  notif.body,
+      icon:  'icons/icon-192.png',
+      badge: 'icons/icon-192.png',
+      tag:   'alefmaster-smart',
+      renotify: true,
+    });
+    n.onclick = () => { window.focus(); n.close(); trackEvent('notification_clicked', { type: notif.title }); };
+    localStorage.setItem(NOTIF_COOLDOWN_KEY, String(Date.now()));
+    trackEvent('notification_sent', { title: notif.title });
+    dbg('[Notif] Enviada:', notif.title);
+    return true;
+  } catch(e){ dbg('[Notif] Error:', e.message); return false; }
+}
+
+// ── Verificar y enviar notificación según contexto ────────────
+function checkAndNotify(){
+  if(!canSendNotification()) return;
+  const notif = getSmartNotification();
+  sendLocalNotification(notif);
+}
+
+// ── Pedir permiso — flujo amigable (solo después de interacción) ─
+async function requestNotifPermission(){
+  if(!('Notification' in window)) return false;
+  if(Notification.permission === 'granted') return true;
+  if(Notification.permission === 'denied') return false;
+
+  // Marcar que ya se preguntó
+  localStorage.setItem(NOTIF_PERM_KEY, '1');
+
+  const perm = await Notification.requestPermission();
+  if(perm === 'granted'){
+    trackEvent('notification_permission', { granted: true });
+    showToast('🔔 Recordatorios activados', 'green');
+    // Primera notificación de bienvenida en 3 segundos
+    setTimeout(() => {
+      sendLocalNotification({ title:'¡Recordatorios activados! 🔔', body:'Te avisaremos cuando sea hora de practicar hebreo.' });
+    }, 3000);
+    return true;
+  } else {
+    trackEvent('notification_permission', { granted: false });
+    return false;
+  }
+}
+
+// ── Modal amigable antes de pedir permiso ─────────────────────
+function showNotifPrompt(){
+  if(localStorage.getItem(NOTIF_PERM_KEY)) return; // ya se preguntó
+  if(!('Notification' in window)) return;
+  if(Notification.permission !== 'default') return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'notif-prompt';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9100;background:rgba(13,31,53,0.7);display:flex;align-items:flex-end;justify-content:center;padding:20px;animation:fadeIn .2s ease;';
+
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:24px 24px 20px 20px;width:100%;max-width:420px;padding:24px;box-shadow:0 -4px 32px rgba(13,31,53,0.2);">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:2.5rem;margin-bottom:8px;">🔔</div>
+        <h3 style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:var(--navy-800);margin-bottom:6px;">¿Activar recordatorios?</h3>
+        <p style="font-size:13px;color:var(--sand-500);line-height:1.5;">Te avisamos cuando es hora de practicar para que no pierdas tu racha 🔥</p>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button id="notif-no" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--sand-300);background:var(--sand-100);color:var(--sand-500);font-size:13px;font-weight:700;cursor:pointer;">
+          Ahora no
+        </button>
+        <button id="notif-yes" style="flex:2;padding:12px;border-radius:12px;border:none;background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 0 var(--navy-900);">
+          Sí, activar 🔔
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('notif-yes').onclick = async () => {
+    overlay.remove();
+    await requestNotifPermission();
+  };
+  document.getElementById('notif-no').onclick = () => {
+    overlay.remove();
+    localStorage.setItem(NOTIF_PERM_KEY, 'asked'); // no volver a preguntar en esta sesión
+  };
+}
+
+// ── Verificación periódica (cada 30 min si la app está abierta) ──
+let _notifInterval = null;
+function startNotifScheduler(){
+  if(_notifInterval) return;
+  _notifInterval = setInterval(() => {
+    checkAndNotify();
+  }, 30 * 60 * 1000); // cada 30 minutos
+}
+
+/**
+ * openTeacherPanel()
+ * Permite al profesor enviar mensajes/notificaciones a sus alumnos.
+ * Requiere estar logueado como teacher y tener Supabase configurado.
+ */
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  TEACHER DASHBOARD — Sistema completo                     ║
+// ╚═══════════════════════════════════════════════════════════╝
+
+let _tdStudents  = [];   // cache de alumnos cargados
+let _tdClassData = null; // datos de la clase
+let _tdTab       = 'students';
+
+// ── Abrir el panel del docente ────────────────────────────────
+function openTeacherPanel(){
+  if(_authProfile?.role !== 'teacher'){
+    showToast('Solo disponible para profesores', 'warn'); return;
+  }
+  showView('teacher');
+  loadTeacherDashboard();
+}
+
+// ── Carga principal del dashboard ────────────────────────────
+async function loadTeacherDashboard(){
+  if(!_sb || !_authUser) return;
+  try {
+    // Cargar clase del teacher
+    const { data: cls } = await _sb
+      .from('classes')
+      .select('*')
+      .eq('teacher_id', _authUser.id)
+      .maybeSingle();
+    _tdClassData = cls;
+
+    const nameEl = document.getElementById('td-class-name');
+    if(nameEl) nameEl.textContent = cls?.name || 'Mi clase';
+
+    // Cargar alumnos vinculados a esta clase
+    let students = [];
+    if(cls){
+      const { data: members } = await _sb
+        .from('class_members')
+        .select('student_id, profiles!inner(id, email, name)')
+        .eq('class_id', cls.id);
+      students = (members || []).map(m => m.profiles);
+    } else {
+      // Sin clase creada: mostrar alumnos de la misma institución
+      const instId = _authProfile?.institution_id;
+      let query = _sb.from('profiles').select('*').eq('role','student');
+      if(instId) query = query.eq('institution_id', instId);
+      const { data } = await query;
+      students = data || [];
+    }
+
+    // Cargar progreso de cada alumno
+    const ids = students.map(s => s.id);
+    let progressMap = {};
+    if(ids.length){
+      const { data: progs } = await _sb
+        .from('user_progress')
+        .select('user_id, progress, shekels, updated_at')
+        .in('user_id', ids);
+      (progs || []).forEach(p => { progressMap[p.user_id] = p; });
+    }
+
+    _tdStudents = students.map(s => ({
+      ...s,
+      prog: progressMap[s.id] || null,
+    }));
+
+    tdRenderSummary();
+    tdSwitchTab(_tdTab);
+
+  } catch(e){
+    dbg('[Teacher] loadDashboard error:', e.message);
+    document.getElementById('td-content').innerHTML =
+      '<div style="text-align:center;padding:32px;color:var(--sand-400);">Error al cargar datos.<br>Verificá la conexión.</div>';
+  }
+}
+
+// ── Resumen rápido (tarjetas numéricas) ───────────────────────
+function tdRenderSummary(){
+  const total    = _tdStudents.length;
+  const active   = _tdStudents.filter(s => tdActivityStatus(s) === 'active').length;
+  const warning  = _tdStudents.filter(s => tdActivityStatus(s) === 'warning').length;
+  const inactive = _tdStudents.filter(s => tdActivityStatus(s) === 'inactive').length;
+
+  const summary = document.getElementById('td-summary');
+  if(!summary) return;
+  summary.innerHTML = [
+    { n: total,    label: 'alumnos',  bg: 'var(--sand-200)', color: 'var(--navy-800)' },
+    { n: active,   label: 'activos',  bg: '#D1FAE5',         color: '#065F46' },
+    { n: warning,  label: 'alertas',  bg: '#FEF3C7',         color: '#92400E' },
+    { n: inactive, label: 'inactivos',bg: '#FEE2E2',         color: '#991B1B' },
+  ].map(x => `
+    <div style="flex:1;background:${x.bg};border-radius:10px;padding:8px 6px;text-align:center;">
+      <div style="font-size:1.3rem;font-weight:900;color:${x.color};font-family:'Fraunces',serif;">${x.n}</div>
+      <div style="font-size:10px;font-weight:700;color:${x.color};opacity:0.8;text-transform:uppercase;">${x.label}</div>
+    </div>`).join('');
+}
+
+// ── Estado de actividad de un alumno ─────────────────────────
+function tdActivityStatus(student){
+  const lastRaw = student.prog?.updated_at;
+  if(!lastRaw) return 'inactive';
+  const hours = (Date.now() - new Date(lastRaw).getTime()) / 3600000;
+  if(hours < 28)  return 'active';
+  if(hours < 96)  return 'warning';
+  return 'inactive';
+}
+
+// ── Calcular % de progreso ────────────────────────────────────
+function tdCalcProgress(student){
+  const progress = student.prog?.progress || {};
+  if(!Object.keys(progress).length) return 0;
+  let total = 0, mastered = 0;
+  Object.values(ALL_DATA).forEach(serie => {
+    if(serie.type !== 'BASE') return;
+    (serie.words || []).forEach(w => {
+      total++;
+      const ws = progress[w.fon];
+      if(ws && ws.correct >= 3) mastered++;
+    });
+  });
+  return total > 0 ? Math.round(mastered / total * 100) : 0;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────
+function tdSwitchTab(tab){
+  _tdTab = tab;
+  const tabs = { students: 'td-tab-students', class: 'td-tab-class' };
+  Object.entries(tabs).forEach(([key, id]) => {
+    const btn = document.getElementById(id);
+    if(!btn) return;
+    const active = key === tab;
+    btn.style.background     = active ? 'white' : 'transparent';
+    btn.style.color           = active ? 'var(--navy-800)' : 'var(--sand-500)';
+    btn.style.borderBottom    = active ? '2.5px solid var(--navy-800)' : '2.5px solid transparent';
+  });
+  if(tab === 'students') tdRenderStudentList();
+  else                   tdRenderClassSettings();
+}
+
+// ── Lista de alumnos ──────────────────────────────────────────
+function tdRenderStudentList(){
+  const container = document.getElementById('td-content');
+  if(!container) return;
+
+  if(!_tdStudents.length){
+    container.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;">
+        <div style="font-size:2.5rem;margin-bottom:12px;">👥</div>
+        <div style="font-size:14px;color:var(--navy-700);font-weight:700;margin-bottom:6px;">Sin alumnos todavía</div>
+        <div style="font-size:12px;color:var(--sand-500);">Creá una clase y compartí el código para que se unan.</div>
+      </div>`;
+    return;
+  }
+
+  const STATUS_CONFIG = {
+    active:   { icon:'✅', label:'Activo hoy',  color:'#065F46', bg:'#D1FAE5' },
+    warning:  { icon:'⚠️', label:'2-3 días',    color:'#92400E', bg:'#FEF3C7' },
+    inactive: { icon:'❌', label:'+5 días',      color:'#991B1B', bg:'#FEE2E2' },
+  };
+
+  // Ordenar: inactivos primero (los que más necesitan atención)
+  const sorted = [..._tdStudents].sort((a, b) => {
+    const order = { inactive: 0, warning: 1, active: 2 };
+    return order[tdActivityStatus(a)] - order[tdActivityStatus(b)];
+  });
+
+  container.innerHTML = sorted.map(s => {
+    const status   = tdActivityStatus(s);
+    const cfg      = STATUS_CONFIG[status];
+    const pct      = tdCalcProgress(s);
+    const name     = s.name || s.email?.split('@')[0] || 'Alumno';
+    const lastDate = s.prog?.updated_at
+      ? new Date(s.prog.updated_at).toLocaleDateString('es', { day:'numeric', month:'short' })
+      : 'Nunca';
+
+    return `
+      <div onclick="tdOpenStudent('${s.id}')"
+        style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;
+               padding:14px 16px;cursor:pointer;transition:box-shadow .15s;display:flex;align-items:center;gap:12px;"
+        onmouseenter="this.style.boxShadow='var(--shadow-2)'"
+        onmouseleave="this.style.boxShadow=''">
+        <!-- Avatar -->
+        <div style="width:40px;height:40px;border-radius:50%;background:${cfg.bg};
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:1.1rem;flex-shrink:0;">${cfg.icon}</div>
+        <!-- Info -->
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;color:var(--navy-800);font-size:14px;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+          <div style="font-size:11px;color:var(--sand-500);margin-top:2px;">
+            Última sesión: ${lastDate}
+          </div>
+          <!-- Barra de progreso -->
+          <div style="margin-top:6px;background:var(--sand-200);height:5px;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${pct >= 70 ? 'var(--success)' : pct >= 30 ? 'var(--gold-500)' : 'var(--sand-400)'};border-radius:99px;transition:width .4s;"></div>
+          </div>
+        </div>
+        <!-- % y estado -->
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:1rem;font-weight:900;color:var(--navy-800);font-family:'Fraunces',serif;">${pct}%</div>
+          <div style="font-size:10px;font-weight:700;color:${cfg.color};
+                      background:${cfg.bg};padding:2px 7px;border-radius:99px;margin-top:3px;">${cfg.label}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Detalle de alumno ─────────────────────────────────────────
+function tdOpenStudent(studentId){
+  const student = _tdStudents.find(s => s.id === studentId);
+  if(!student) return;
+
+  const detail  = document.getElementById('td-student-detail');
+  const nameEl  = document.getElementById('td-detail-name');
+  const content = document.getElementById('td-detail-content');
+  if(!detail || !content) return;
+
+  const name     = student.name || student.email?.split('@')[0] || 'Alumno';
+  const progress = student.prog?.progress || {};
+  const pct      = tdCalcProgress(student);
+  const status   = tdActivityStatus(student);
+  const lastDate = student.prog?.updated_at
+    ? new Date(student.prog.updated_at).toLocaleString('es', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })
+    : 'Nunca';
+
+  // Calcular errores frecuentes
+  const errors = [];
+  Object.entries(progress).forEach(([fon, data]) => {
+    if((data.wrong || 0) >= 2 && data.wrong > (data.correct || 0)){
+      errors.push({ fon, wrong: data.wrong, correct: data.correct || 0 });
+    }
+  });
+  errors.sort((a,b) => b.wrong - a.wrong);
+
+  // Lecciones completadas
+  let lessonsOk = 0;
+  Object.values(ALL_DATA).forEach(serie => {
+    if(serie.type !== 'BASE') return;
+    const done = (serie.words || []).filter(w => {
+      const ws = progress[w.fon];
+      return ws && ws.correct >= 3;
+    }).length;
+    if(done === serie.words?.length) lessonsOk++;
+  });
+
+  nameEl.textContent = name;
+  content.innerHTML = `
+    <!-- Métricas -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      ${[
+        { v: pct+'%',      l: 'Progreso' },
+        { v: lessonsOk,    l: 'Series' },
+        { v: status === 'active' ? 'Hoy' : lastDate.split(',')[0], l: 'Última sesión' },
+      ].map(x => `
+        <div style="background:var(--sand-100);border:1.5px solid var(--sand-200);border-radius:12px;padding:12px;text-align:center;">
+          <div style="font-family:'Fraunces',serif;font-size:1.3rem;font-weight:900;color:var(--navy-800);">${x.v}</div>
+          <div style="font-size:10px;color:var(--sand-500);text-transform:uppercase;font-weight:700;margin-top:2px;">${x.l}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Última sesión -->
+    <div style="background:var(--sand-100);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--navy-700);">
+      🕐 Última actividad: <strong>${lastDate}</strong>
+    </div>
+
+    ${errors.length ? `
+    <!-- Errores frecuentes -->
+    <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:12px;padding:12px 14px;">
+      <div style="font-size:12px;font-weight:700;color:#991B1B;margin-bottom:8px;">⚠️ Palabras con dificultad</div>
+      ${errors.slice(0,5).map(e => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;
+                    border-bottom:1px solid #FECACA;font-size:13px;">
+          <span style="font-weight:600;color:var(--navy-800);">${e.fon}</span>
+          <span style="font-size:11px;color:#991B1B;">${e.wrong} errores / ${e.correct} correctas</span>
+        </div>`).join('')}
+    </div>` : `
+    <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:12px;padding:12px 14px;
+                font-size:13px;color:#065F46;">
+      ✅ Sin errores frecuentes — ¡va muy bien!
+    </div>`}
+
+    <!-- Acción: enviar mensaje -->
+    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:12px;padding:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📩 Enviar mensaje a ${name}</div>
+      <textarea id="td-msg-student-${studentId}" placeholder="Escribe un mensaje de aliento..."
+        style="width:100%;padding:10px;border:1.5px solid var(--sand-300);border-radius:10px;
+               font-size:13px;min-height:72px;resize:none;font-family:inherit;color:var(--navy-800);outline:none;box-sizing:border-box;"></textarea>
+      <button onclick="tdSendToStudent('${studentId}', '${name.replace(/'/g,"\\'")}', document.getElementById('td-msg-student-${studentId}').value)"
+        style="margin-top:8px;width:100%;padding:10px;border-radius:10px;border:none;
+               background:var(--navy-800);color:white;font-size:13px;font-weight:700;cursor:pointer;">
+        Enviar mensaje
+      </button>
+    </div>`;
+
+  detail.style.display = 'block';
+}
+
+// ── Configuración de la clase ─────────────────────────────────
+function tdRenderClassSettings(){
+  const container = document.getElementById('td-content');
+  if(!container) return;
+
+  const cls  = _tdClassData;
+  const code = cls?.code || '—';
+
+  container.innerHTML = `
+    ${cls ? `
+    <!-- Clase existente -->
+    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
+      <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;margin-bottom:4px;">Clase activa</div>
+      <div style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:var(--navy-800);margin-bottom:12px;">${cls.name}</div>
+      <div style="font-size:12px;color:var(--sand-500);margin-bottom:6px;">Código para que se unan:</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;background:var(--sand-100);border:2px dashed var(--sand-400);border-radius:10px;
+                    padding:12px;text-align:center;font-size:1.5rem;font-weight:900;
+                    color:var(--navy-800);letter-spacing:0.15em;font-family:'Fraunces',serif;">${code}</div>
+        <button onclick="navigator.clipboard?.writeText('${code}').then(()=>showToast('Código copiado','green'))"
+          style="padding:12px 16px;border:none;border-radius:10px;background:var(--sand-200);
+                 color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
+          Copiar
+        </button>
+      </div>
+    </div>` : `
+    <!-- Sin clase — crear -->
+    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
+      <div style="font-size:14px;font-weight:700;color:var(--navy-800);margin-bottom:12px;">📋 Crear mi clase</div>
+      <input id="td-new-class-name" type="text" placeholder="Nombre de la clase (ej: Bar Mitzvá 2026)"
+        style="width:100%;padding:12px 14px;border:1.5px solid var(--sand-300);border-radius:10px;
+               font-size:14px;color:var(--navy-800);outline:none;box-sizing:border-box;margin-bottom:10px;"
+        onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
+      <button onclick="tdCreateClass()"
+        style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--navy-800);
+               color:white;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 0 var(--navy-900);">
+        Crear clase
+      </button>
+    </div>`}
+
+    <!-- Mensaje a toda la clase -->
+    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📢 Mensaje a toda la clase</div>
+      <input id="td-broadcast-title" type="text" placeholder="Título del mensaje"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--sand-300);border-radius:10px;
+               font-size:13px;margin-bottom:8px;box-sizing:border-box;outline:none;color:var(--navy-800);"
+        onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
+      <textarea id="td-broadcast-body" placeholder="Escribí el mensaje..."
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--sand-300);border-radius:10px;
+               font-size:13px;min-height:80px;resize:none;font-family:inherit;box-sizing:border-box;
+               outline:none;color:var(--navy-800);"
+        onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'"></textarea>
+      <button onclick="sendTeacherMessage('all')"
+        style="margin-top:8px;width:100%;padding:11px;border-radius:10px;border:none;
+               background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">
+        Enviar a todos los alumnos
+      </button>
+      <div id="td-broadcast-status" style="font-size:12px;color:var(--sand-500);text-align:center;min-height:16px;margin-top:6px;"></div>
+    </div>`;
+}
+
+// ── Crear clase ───────────────────────────────────────────────
+async function tdCreateClass(){
+  if(!_sb || !_authUser) return;
+  const nameInput = document.getElementById('td-new-class-name');
+  const name = nameInput?.value.trim();
+  if(!name){ showToast('Escribí un nombre para la clase', 'warn'); return; }
+
+  // Generar código único 6 caracteres
+  const code = (Math.random().toString(36).substring(2,8)).toUpperCase();
+
+  try {
+    const { data, error } = await _sb.from('classes').insert({
+      teacher_id: _authUser.id,
+      name,
+      code,
+      created_at: new Date().toISOString(),
+    }).select().single();
+
+    if(error){ showToast('Error al crear: ' + error.message, 'warn'); return; }
+    _tdClassData = data;
+    showToast('✓ Clase creada — código: ' + code, 'green');
+    tdSwitchTab('class');
+    loadTeacherDashboard();
+  } catch(e){ showToast('Error: ' + e.message, 'warn'); }
+}
+
+// ── Enviar mensaje a un alumno individual ─────────────────────
+async function tdSendToStudent(studentId, studentName, body){
+  if(!_sb || !_authUser || !body?.trim()){
+    showToast('Escribí un mensaje', 'warn'); return;
+  }
+  try {
+    const { error } = await _sb.from('notifications').insert({
+      user_id:    studentId,
+      title:      '📢 Mensaje de tu profesor',
+      body:       body.trim(),
+      type:       'teacher',
+      read:       false,
+      created_at: new Date().toISOString(),
+    });
+    if(error){ showToast('Error: ' + error.message, 'warn'); return; }
+    showToast(`✓ Mensaje enviado a ${studentName}`, 'green');
+    const textarea = document.getElementById(`td-msg-student-${studentId}`);
+    if(textarea) textarea.value = '';
+    trackEvent('teacher_message_sent', { target: 'individual' });
+  } catch(e){ showToast('Error: ' + e.message, 'warn'); }
+}
+
+// ── Enviar a toda la clase (reemplaza sendTeacherMessage viejo) ──
+async function sendTeacherMessage(target){
+  if(!_sb || !_authUser || _authProfile?.role !== 'teacher') return;
+
+  const title  = (document.getElementById('td-broadcast-title') || document.getElementById('tp-title'))?.value.trim();
+  const body   = (document.getElementById('td-broadcast-body')  || document.getElementById('tp-body'))?.value.trim();
+  const status = document.getElementById('td-broadcast-status') || document.getElementById('tp-status');
+
+  if(!title || !body){ if(status) status.textContent = 'Completá título y mensaje'; return; }
+  if(status) status.textContent = 'Enviando...';
+
+  try {
+    // Filtrar alumnos por institución del docente (aislamiento de datos)
+    const instId = _authProfile?.institution_id;
+    let studQ = _sb.from('profiles').select('id').eq('role','student');
+    if(instId) studQ = studQ.eq('institution_id', instId);
+    const { data: students } = await studQ;
+    if(!students?.length){ if(status) status.textContent = 'No hay alumnos registrados'; return; }
+
+    const rows = students.map(s => ({
+      user_id: s.id, title, body, type: 'teacher', read: false,
+      created_at: new Date().toISOString(),
+    }));
+    const { error } = await _sb.from('notifications').insert(rows);
+
+    if(error){ if(status) status.textContent = 'Error: ' + error.message; return; }
+    if(status) status.textContent = `✓ Enviado a ${students.length} alumno${students.length > 1 ? 's' : ''}`;
+    trackEvent('teacher_message_sent', { count: students.length, target: 'all' });
+    ['td-broadcast-title','td-broadcast-body','tp-title','tp-body'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.value = '';
+    });
+  } catch(e){ if(status) status.textContent = 'Error: ' + e.message; }
 }
 
 // ── APP INIT ──────────────────────────────────────────────────────
@@ -10813,6 +11828,10 @@ if(isFirstVisit){ startOnboarding(); } else {
 // Recordatorios diarios (locales)
 scheduleDailyReminder();
 
+// Arrancar scheduler de notificaciones
+updateLastActivity(); // marcar que abrió la app
+startNotifScheduler();
+
 // Cargar snapshot de IndexedDB si localStorage está vacío (recuperación)
 loadProgress().then(snap => {
   if(snap && snap.savedAt && !state.shekels){
@@ -10836,6 +11855,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const menu = document.getElementById('header-menu');
     if(menu) menu.style.display = 'none';
     openAnalyticsDashboard();
+  });
+  $('teacher-panel-btn')     ?.addEventListener('click', () => {
+    const menu = document.getElementById('header-menu');
+    if(menu) menu.style.display = 'none';
+    openTeacherPanel();
+  });
+  // Botón "Mensaje" dentro del header del dashboard teacher
+  $('td-msg-btn')            ?.addEventListener('click', () => {
+    tdSwitchTab('class');
+    setTimeout(() => document.getElementById('td-broadcast-title')?.focus(), 100);
+  });
+  $('notif-menu-btn')        ?.addEventListener('click', () => {
+    const menu = document.getElementById('header-menu');
+    if(menu) menu.style.display = 'none';
+    if(!('Notification' in window)){
+      showToast('Tu navegador no soporta notificaciones', 'warn'); return;
+    }
+    if(Notification.permission === 'granted'){
+      showToast('🔔 Recordatorios ya activos', 'green');
+      checkAndNotify(); // enviar una notificación de prueba
+    } else if(Notification.permission === 'denied'){
+      showToast('Notificaciones bloqueadas — habilitá en ajustes del navegador', 'warn');
+    } else {
+      localStorage.removeItem(NOTIF_PERM_KEY); // forzar que muestre el modal
+      showNotifPrompt();
+    }
   });
   $('help-close-btn')        ?.addEventListener('click', toggleHelp);
   $('flash-header-btn')?.addEventListener('click', startFlashRecall);
