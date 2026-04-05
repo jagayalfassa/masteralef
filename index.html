@@ -10668,8 +10668,8 @@ window.addEventListener('beforeunload', () => {
 // ╚═══════════════════════════════════════════════════════════╝
 
 // ── Completar con tu proyecto de Supabase ────────────────────
-const SUPABASE_URL  = '';  // ej: 'https://xxxx.supabase.co'
-const SUPABASE_ANON = '';  // ej: 'eyJhbGci...'
+const SUPABASE_URL  = 'https://gxofwhomnjjffhmoffgl.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4b2Z3aG9tbmpqZmZobW9mZmdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNDQ4NTEsImV4cCI6MjA5MDkyMDg1MX0.SPWJZFPMDNHmifet9TyS-QCPbuR_Eo9pkST6jN0wLcI';
 
 // Inicializar solo si hay config
 let _sb = null;
@@ -10776,9 +10776,19 @@ async function authLogout(){
 async function _loadProfile(userId){
   if(!_sb || !userId) return;
   try {
-    const { data } = await _sb.from('profiles').select('*').eq('id', userId).single();
-    if(data) _authProfile = data;
-    dbg('[Auth] Perfil cargado:', _authProfile?.name, '/', _authProfile?.role);
+    // Cargar perfil con datos de institución en un solo query
+    const { data } = await _sb
+      .from('profiles')
+      .select('*, institutions(id, name, plan, active)')
+      .eq('id', userId)
+      .single();
+    if(data){
+      _authProfile = data;
+      // Exponer institución como campo de fácil acceso
+      _authProfile._institution = data.institutions || null;
+    }
+    dbg('[Auth] Perfil:', _authProfile?.name, '/', _authProfile?.role,
+        '/ inst:', _authProfile?._institution?.name || 'sin institución');
   } catch(e){ dbg('[Auth] _loadProfile error:', e.message); }
 }
 
@@ -10822,7 +10832,9 @@ async function initAuth(){
     if(session?.user){
       _authUser = session.user;
       await _loadProfile(_authUser.id);
-      dbg('[Auth] Sesión restaurada:', _authUser.email);
+      dbg('[Auth] Sesión restaurada:', _authUser.email,
+          '| role:', _authProfile?.role,
+          '| inst:', _authProfile?.institution_id || 'ninguna');
       // Mostrar notificaciones no leídas del backend
       showBackendNotifications().catch(() => {});
 
@@ -11003,8 +11015,9 @@ function _updateAuthHeader(){
     const name  = _authProfile?.name || _authUser.email?.split('@')[0] || 'Usuario';
     const role  = _authProfile?.role || 'student';
     const emoji = role === 'teacher' ? '📚' : '🎓';
+    const instName = _authProfile?._institution?.name || '';
     existing.innerHTML = `${emoji} ${name}`;
-    existing.title     = `${_authUser.email} · ${role === 'teacher' ? 'Profesor' : 'Alumno'}`;
+    existing.title = `${_authUser.email} · ${role === 'teacher' ? 'Profesor' : 'Alumno'}${instName ? ' · ' + instName : ''}`;
     existing.onclick   = () => {
       _closeMenu();
       if(confirm(`Cerrar sesión de ${_authUser.email}?`)) authLogout();
@@ -11368,6 +11381,12 @@ function openTeacherPanel(){
   }
   showView('teacher');
   loadTeacherDashboard();
+  // Modo limitado: advertir si aún no tiene institución asignada
+  if(!_authProfile?.institution_id){
+    setTimeout(() => {
+      showToast('💡 Creá una clase para empezar a gestionar alumnos', 'warn');
+    }, 800);
+  }
 }
 
 // ── Carga principal del dashboard ────────────────────────────
@@ -11383,7 +11402,8 @@ async function loadTeacherDashboard(){
     _tdClassData = cls;
 
     const nameEl = document.getElementById('td-class-name');
-    if(nameEl) nameEl.textContent = cls?.name || 'Mi clase';
+    const instLabel = _authProfile?._institution?.name;
+    if(nameEl) nameEl.textContent = cls?.name || (instLabel ? instLabel : 'Mi clase');
 
     // Cargar alumnos vinculados a esta clase
     let students = [];
@@ -11722,7 +11742,8 @@ async function tdCreateClass(){
 
   try {
     const { data, error } = await _sb.from('classes').insert({
-      teacher_id: _authUser.id,
+      teacher_id:     _authUser.id,
+      institution_id: _authProfile?.institution_id || null,
       name,
       code,
       created_at: new Date().toISOString(),
