@@ -1211,6 +1211,9 @@
 
     <!-- HOME VIEW -->
     <div id="view-home" class="w-full max-w-lg mx-auto overflow-y-auto custom-scroll pb-safe" style="min-height:100%;">
+      <!-- Misión del día -->
+      <div id="mission-badge" style="margin:12px 16px 0;background:white;border:1.5px solid var(--sand-300);
+           border-radius:14px;padding:12px 14px;"></div>
       <div id="base-series-container"></div>
       <div id="mix-series-container"></div>
     </div>
@@ -1971,6 +1974,9 @@ function onLessonComplete(){
   updateHudShekels();
   trackEvent('lesson_complete', { series: state.activeSeries, lesson: state.activeLesson, errors: state.lessonErrors });
   updateLastActivity();
+  if(typeof updateMissionProgress === 'function') updateMissionProgress('lesson_complete');
+  // Coach después de lección completa (timing diferente a home)
+  if(typeof showCoach === 'function') setTimeout(() => showCoach('lesson_end'), 800);
 }
 
 function onSeriesComplete(){
@@ -2187,6 +2193,7 @@ function feedbackSuccess() {
   if(typeof setMascotState === 'function') setMascotState('success', 1200);
   trackEvent('answer_correct', { series: state.activeSeries, mode: state.currentChallenge?.mode });
   updateLastActivity();
+  if(typeof updateMissionProgress === 'function') updateMissionProgress('answer_correct');
 }
 
 function feedbackError() {
@@ -4010,6 +4017,8 @@ function renderHome(){
   if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
   // Coach check — no bloqueante, después de que el home cargue
   runCoachCheck();
+  // Misión del día — renderizar badge si existe el contenedor
+  if(typeof renderMissionBadge === 'function') renderMissionBadge();
 
   // ── SVG coin images (base64 inline) ───────────────────────
   const SVG_AMARILLO='img/shekel-amarillo.svg';
@@ -11391,189 +11400,439 @@ function authSkip(){
 }
 
 // ╔═══════════════════════════════════════════════════════════╗
-// ║  COACH INTELIGENTE — basado en patrones del usuario       ║
+// ║  COACH v2 — Contexto + Memoria + Decisión + Dificultad   ║
 // ╚═══════════════════════════════════════════════════════════╝
 
-/**
- * analyzeUserBehavior()
- * Lee los eventos de analytics existentes y devuelve un perfil
- * de comportamiento sin llamadas externas ni APIs.
- */
-function analyzeUserBehavior(){
+// ── Memoria persistente del coach ────────────────────────────
+let _coachMemory = (()=>{
   try {
-    const events = JSON.parse(localStorage.getItem(ANALYTICS_KEY) || '[]');
-    if(!events.length) return null;
+    const saved = JSON.parse(localStorage.getItem('heb_coach_memory') || 'null');
+    return saved || { lastType:null, lastMsg:null, shownAt:0, lastMood:'neutral', lastPerformance:'neutral' };
+  }
+  catch{ return { lastType:null, lastMsg:null, shownAt:0, lastMood:'neutral', lastPerformance:'neutral' }; }
+})();
 
-    const now       = Date.now();
-    const last24h   = events.filter(e => now - e.ts < 86400000);
-    const last7d    = events.filter(e => now - e.ts < 604800000);
+function _saveCoachMemory(){
+  try { localStorage.setItem('heb_coach_memory', JSON.stringify(_coachMemory)); } catch(e){}
+}
 
-    const correct   = events.filter(e => e.name === 'answer_correct').length;
-    const wrong     = events.filter(e => e.name === 'answer_wrong').length;
-    const exits     = events.filter(e => e.name === 'exercise_exit').length;
-    const lessons   = events.filter(e => e.name === 'lesson_complete').length;
+// ── Nivel de usuario (1-10, persistido) ──────────────────────
+let _userLevel = Math.min(10, Math.max(1, parseInt(localStorage.getItem('heb_user_level') || '1')));
 
-    const errorRate = (correct + wrong) > 0 ? wrong / (correct + wrong) : 0;
-    const exitRate  = (lessons + exits) > 0 ? exits / (lessons + exits) : 0;
+function _saveUserLevel(){
+  localStorage.setItem('heb_user_level', String(_userLevel));
+}
 
-    // Tiempos de respuesta
-    const times     = events.filter(e => e.name === 'answer_time' && e.data?.ms > 0).map(e => e.data.ms);
-    const avgTime   = times.length ? times.reduce((a,b) => a+b, 0) / times.length : 0;
+// ── getUserContext — contexto completo ────────────────────────
+function getUserContext(){
+  try {
+    const events     = JSON.parse(localStorage.getItem(ANALYTICS_KEY) || '[]');
+    const now        = Date.now();
+    const last24h    = events.filter(e => now - e.ts < 86400000);
+    const last30min  = events.filter(e => now - e.ts < 1800000);
 
-    // Actividad reciente
-    const recentCorrect = last24h.filter(e => e.name === 'answer_correct').length;
-    const recentWrong   = last24h.filter(e => e.name === 'answer_wrong').length;
-    const improving     = recentCorrect > correct * 0.4; // >40% de aciertos son de hoy
+    const correct    = events.filter(e => e.name === 'answer_correct').length;
+    const wrong      = events.filter(e => e.name === 'answer_wrong').length;
+    const exits      = events.filter(e => e.name === 'exercise_exit').length;
+    const lessons    = events.filter(e => e.name === 'lesson_complete').length;
+    const errorRate  = (correct + wrong) > 0 ? wrong / (correct + wrong) : 0;
+    const exitRate   = (lessons + exits) > 0 ? exits / (lessons + exits) : 0;
+
+    const times      = events.filter(e => e.name==='answer_time' && e.data?.ms>0).map(e=>e.data.ms);
+    const avgTime    = times.length ? times.reduce((a,b)=>a+b,0)/times.length : 0;
+
+    const todayC     = last24h.filter(e=>e.name==='answer_correct').length;
+    const improving  = correct > 0 && todayC > correct * 0.35;
+
+    const streakData = (()=>{ try{ return JSON.parse(localStorage.getItem('heb_streak')||'{}'); }catch{ return {}; }})();
+    const streak     = Number(streakData.count || 0);
+
+    // Errores consecutivos recientes (últimos 5 eventos de respuesta)
+    const lastAnswers = events.filter(e=>e.name==='answer_correct'||e.name==='answer_wrong').slice(-5);
+    const consecErrors= lastAnswers.reduceRight((acc,e)=> e.name==='answer_wrong' ? acc+1 : (acc > 0 ? -99 : 0), 0);
+
+    // Última actividad (minutos)
+    const lastEventTs   = events.length ? events[events.length-1].ts : 0;
+    const lastActiveMin = lastEventTs ? Math.round((now - lastEventTs) / 60000) : 9999;
+
+    // ── Señales predictivas — últimos 10 eventos de respuesta ──────
+    const recent10   = events.filter(e=>e.name==='answer_correct'||e.name==='answer_wrong'||e.name==='answer_time').slice(-10);
+    const recentTimes= recent10.filter(e=>e.name==='answer_time'&&e.data?.ms>0).map(e=>e.data.ms);
+    const avgRecentT = recentTimes.length ? recentTimes.reduce((a,b)=>a+b,0)/recentTimes.length : avgTime;
+    // Fatiga: tiempo reciente >40% más lento que promedio histórico
+    const fatigueSignal = avgTime > 0 && avgRecentT > avgTime * 1.4 && recentTimes.length >= 3;
+    // Pendiente negativa: últimas 3 vs anteriores 3
+    const halfT = Math.floor(recentTimes.length / 2);
+    const avgOld = halfT > 0 ? recentTimes.slice(0,halfT).reduce((a,b)=>a+b,0)/halfT : 0;
+    const avgNew = halfT > 0 ? recentTimes.slice(halfT).reduce((a,b)=>a+b,0)/halfT : 0;
+    const slowingDown = avgOld > 0 && avgNew > avgOld * 1.3;
+
+    // ── Estado emocional derivado ────────────────────────────────
+    let mood = 'neutral';
+    if(consecErrors >= 2 || errorRate > 0.45) mood = 'frustrated';
+    else if(improving && errorRate < 0.2)      mood = 'confident';
+
+    const performance = errorRate < 0.2 ? 'good' : errorRate > 0.45 ? 'bad' : 'neutral';
+
+    // ── Progreso de misión actual ────────────────────────────────
+    const activeMission = (typeof _getActiveMission === 'function') ? _getActiveMission() : null;
+    const missionPct    = activeMission && _missionState
+      ? _missionState.progress / activeMission.goal : 0;
 
     return {
-      errorRate:     Math.round(errorRate * 100) / 100,
-      exitRate:      Math.round(exitRate * 100) / 100,
-      avgTimeMs:     Math.round(avgTime),
-      totalLessons:  lessons,
+      errorRate:      Math.round(errorRate*100)/100,
+      exitRate:       Math.round(exitRate*100)/100,
+      avgTimeMs:      Math.round(avgTime),
+      avgRecentMs:    Math.round(avgRecentT),
+      totalLessons:   lessons,
       improving,
-      activeToday:   last24h.length > 0,
-      activeThisWeek: last7d.length > 0,
+      streak,
+      activeToday:    last24h.length > 0,
+      activeNow:      last30min.length > 0,
+      lastActiveMin,
+      consecErrors:   Math.max(0, consecErrors),
+      level:          _userLevel,
+      // Nuevos campos v3
+      mood,
+      performance,
+      fatigueSignal,
+      slowingDown,
+      missionPct,
+      missionActive:  !!activeMission,
     };
   } catch(e){ return null; }
 }
 
+// ── Mensajes con variación — evita repetición ─────────────────
+const COACH_MSGS = {
+  // mensajes base
+  help:          ['Practiquemos más despacio 💪','Vamos paso a paso — sin apuro','Estoy con vos en esto 🤝','Cada error enseña algo'],
+  hint:          ['Tomáte tu tiempo 🤔','No hay apuro — pensalo bien','Mirá la guía de letras en el menú ↗'],
+  engage:        ['Una más y terminamos 💫','Ya casi llegás 🌟','No te vayas — quedan muy pocas','¡Aguantá un poco más!'],
+  reward:        ['¡Excelente! ✨','¡Muy bien! Eso es 🔥','¡Seguís mejorando!','¡Impresionante precisión!'],
+  streak:        ['🔥 Racha increíble','Imparable — seguí así','Nadie te para 🏆','Sos constante y eso vale todo'],
+  level_up:      ['¡Subiste de nivel! 🎉','¡Sos cada vez más experto!','Nivel nuevo desbloqueado ⬆️'],
+  // variantes por mood
+  frustrated:    ['Tranquilo, vamos de a uno 🤝','No pasa nada — cada error es parte del proceso','Respirá, lo estás haciendo bien 💙','Vamos juntos, sin presión'],
+  confident:     ['¡Estás imparable! 🚀','Vamos por más — ¡podés!','¡Qué nivel! Seguí así 🔥','Estás en tu mejor momento'],
+  // señales predictivas
+  fatigue:       ['¿Todo bien? Podés tomar un descanso 😌','Si sentís que tardás más, no hay problema — seguí a tu ritmo','Una pausa corta ayuda a recordar mejor'],
+  slowing:       ['Notás que tardás un poco más — es normal 👍','Tu cerebro está procesando — dale tiempo'],
+  // integración con misiones
+  mission_push:  ['Estás muy cerca de terminar la misión 🎯','Te falta poco para completarla — ¡dale!'],
+  mission_done:  ['🎯 ¡Misión del día completada! Excelente trabajo','¡Lo lograste! Misión cumplida 🏆'],
+  // cambios de dificultad
+  diff_down:     ['Vamos a hacerlo un poco más simple por ahora 👌','Bajamos el ritmo para afianzar bien','Paso a paso — primero sólido, después rápido'],
+  diff_up:       ['¡Subimos el nivel! ¿Lo sentís? 💪','Estás listo para el siguiente desafío','Nivel nuevo — ¡vamos!'],
+};
+
+// Obtener mensaje según mood del usuario
+function _pickMsgWithMood(type, mood, avoidLast){
+  // Si frustrated y tipo help/hint → usar mensajes suaves especiales
+  const useMoodMsg = (mood === 'frustrated' && ['help','hint'].includes(type))
+                  || (mood === 'confident'  && ['reward','streak'].includes(type));
+  const moodKey = mood === 'frustrated' ? 'frustrated' : mood === 'confident' ? 'confident' : null;
+  const pool    = (useMoodMsg && moodKey && COACH_MSGS[moodKey]) ? COACH_MSGS[moodKey] : (COACH_MSGS[type] || ['¡Bien!']);
+  const filtered= pool.filter(m => m !== avoidLast);
+  const src     = filtered.length ? filtered : pool;
+  return src[Math.floor(Math.random() * src.length)];
+}
+
+function _pickMsg(type, avoidLast){
+  // Compatibilidad — usa mood neutral por defecto
+  return _pickMsgWithMood(type, 'neutral', avoidLast);
+}
+
+// ── Motor de decisión ─────────────────────────────────────────
 /**
- * getCoachMessage()
- * Reglas simples que producen mensajes contextuales.
- * Llama a esto después de cada lección o al abrir home.
+ * getPredictiveSignals(ctx) — detecta problemas ANTES de que ocurran
  */
-function getCoachMessage(){
-  const data = analyzeUserBehavior();
-  if(!data) return null;
-
-  const streakData = (() => { try { return JSON.parse(localStorage.getItem('heb_streak') || '{}'); } catch{ return {}; } })();
-  const streak = Number(streakData.count || 0);
-
-  // Reglas ordenadas por prioridad
-  if(data.errorRate > 0.5 && data.totalLessons >= 3){
-    return {
-      type:    'help',
-      title:   'Practiquemos juntos 💪',
-      body:    'Estás cometiendo varios errores. ¿Querés repasar las letras que más te cuestan?',
-      mascot:  'thinking',
-      action:  null,
-    };
-  }
-  if(data.avgTimeMs > 8000 && data.totalLessons >= 2){
-    return {
-      type:    'hint',
-      title:   '¿Necesitás una pista? 🤔',
-      body:    'Estás tardando más de lo usual. Recordá que podés ver la guía de letras en el menú.',
-      mascot:  'thinking',
-      action:  null,
-    };
-  }
-  if(data.exitRate > 0.4 && data.totalLessons >= 3){
-    return {
-      type:    'encourage',
-      title:   '¡Casi llegás! 🌟',
-      body:    'Notamos que a veces salís antes de terminar. ¡Cada lección completa vale el doble!',
-      mascot:  'happy',
-      action:  null,
-    };
-  }
-  if(data.improving && streak >= 3){
-    return {
-      type:    'positive',
-      title:   `¡Increíble progreso! 🔥`,
-      body:    `Llevás ${streak} días seguidos y hoy estás respondiendo mejor que nunca.`,
-      mascot:  'excited',
-      action:  null,
-    };
-  }
-  if(streak >= 7){
-    return {
-      type:    'milestone',
-      title:   `¡${streak} días de racha! 🏆`,
-      body:    'Eso te pone en el top de estudiantes constantes. ¡Seguí así!',
-      mascot:  'success',
-      action:  null,
-    };
-  }
-  if(data.errorRate < 0.15 && data.totalLessons >= 5){
-    return {
-      type:    'mastery',
-      title:   '¡Excelente precisión! ✨',
-      body:    `Solo ${Math.round(data.errorRate * 100)}% de errores. ¡Estás dominando el hebreo!`,
-      mascot:  'happy',
-      action:  null,
-    };
-  }
-  return null; // Sin mensaje — no saturar al usuario
+function getPredictiveSignals(ctx){
+  if(!ctx) return null;
+  // Fatiga: el usuario está tardando más de lo normal
+  if(ctx.fatigueSignal)
+    return { type:'fatigue', mascot:'idle', priority: 10 };
+  // Desaceleración: velocidad bajando aunque no haya errores
+  if(ctx.slowingDown && ctx.errorRate < 0.3)
+    return { type:'slowing', mascot:'idle', priority: 8 };
+  // Combinación peligrosa: errores + lentitud juntos (antes de que se frustre)
+  if(ctx.errorRate > 0.35 && ctx.avgRecentMs > 5000 && ctx.totalLessons >= 2)
+    return { type:'hint', mascot:'thinking', priority: 9 };
+  return null;
 }
 
 /**
- * showCoachMessage()
- * Muestra el mensaje del coach como un banner suave en la home.
- * NO bloquea la UI. Se puede descartar.
+ * getCoachDecision(ctx) — motor de decisión avanzado
+ * Combina señales predictivas + estado emocional + métricas + misión
  */
-function showCoachMessage(){
-  const msg = getCoachMessage();
-  if(!msg) return;
+function getCoachDecision(ctx){
+  if(!ctx) return null;
 
-  // Cooldown: no mostrar más de 1x cada 2 horas
-  const lastCoach = parseInt(localStorage.getItem('heb_last_coach') || '0');
-  if(Date.now() - lastCoach < 7200000) return;
-  localStorage.setItem('heb_last_coach', String(Date.now()));
+  // ── 1. Señales predictivas (máxima prioridad) ─────────────────
+  const predictive = getPredictiveSignals(ctx);
+  if(predictive) return predictive;
 
-  // Mascota reacciona al tipo de mensaje
-  if(msg.mascot && typeof setMascotState === 'function'){
-    setTimeout(() => setMascotState(msg.mascot, 3000), 400);
+  // ── 2. Errores consecutivos (reacción inmediata) ──────────────
+  if(ctx.consecErrors >= 3)
+    return { type: ctx.mood==='frustrated' ? 'frustrated' : 'help', mascot:'thinking' };
+
+  // ── 3. Estado emocional + métricas combinados ─────────────────
+  if(ctx.mood === 'frustrated' && ctx.errorRate > 0.35)
+    return { type:'frustrated', mascot:'thinking' };
+
+  if(ctx.errorRate > 0.4 && ctx.totalLessons >= 2)
+    return { type:'help', mascot:'thinking' };
+
+  if(ctx.avgTimeMs > 6000 && ctx.totalLessons >= 2)
+    return { type:'hint', mascot:'idle' };
+
+  // ── 4. Integración con misión activa ──────────────────────────
+  if(ctx.missionActive && ctx.missionPct >= 0.5 && ctx.missionPct < 1)
+    return { type:'mission_push', mascot:'excited' };
+
+  if(ctx.exitRate > 0.3 && ctx.totalLessons >= 2)
+    return { type:'engage', mascot:'excited' };
+
+  // ── 5. Positivos — verificar coherencia (no celebrar si hay errores) ──
+  if(ctx.improving && ctx.streak >= 3 && ctx.errorRate < 0.35)
+    return { type: ctx.mood==='confident' ? 'confident' : 'reward', mascot:'happy' };
+
+  if(ctx.streak >= 5 && ctx.errorRate < 0.4)
+    return { type:'streak', mascot:'excited' };
+
+  if(ctx.errorRate < 0.15 && ctx.totalLessons >= 5)
+    return { type: ctx.mood==='confident' ? 'confident' : 'reward', mascot:'happy' };
+
+  return null;
+}
+
+// ── Dificultad dinámica ───────────────────────────────────────
+let _difficultyLevel = Math.min(3, Math.max(1, parseInt(localStorage.getItem('heb_difficulty') || '2')));
+
+function getDynamicDifficulty(ctx){
+  if(!ctx) return _difficultyLevel;
+  const prev = _difficultyLevel;
+  // Bajar dificultad
+  if(ctx.errorRate > 0.5 || ctx.exitRate > 0.4)
+    _difficultyLevel = Math.max(1, _difficultyLevel - 1);
+  // Subir dificultad
+  else if(ctx.errorRate < 0.15 && ctx.avgTimeMs < 3000 && ctx.totalLessons >= 3)
+    _difficultyLevel = Math.min(3, _difficultyLevel + 1);
+  localStorage.setItem('heb_difficulty', String(_difficultyLevel));
+
+  // Notificar cambio al usuario (solo cuando hay diferencia real)
+  if(_difficultyLevel !== prev){
+    const msgType = _difficultyLevel < prev ? 'diff_down' : 'diff_up';
+    const pool    = COACH_MSGS[msgType] || [];
+    const msg     = pool[Math.floor(Math.random() * pool.length)] || '';
+    if(msg && typeof showToast === 'function') setTimeout(()=>showToast(msg, 'warn'), 500);
+    trackEvent('difficulty_change', { from: prev, to: _difficultyLevel });
   }
+  return _difficultyLevel;
+}
 
-  // Crear banner no intrusivo debajo del header
-  const existing = document.getElementById('coach-banner');
-  if(existing) existing.remove();
+// Usar en buildFoneticaDistractors: más distractores = más difícil
+function getDistractorCount(){
+  switch(_difficultyLevel){
+    case 1: return 2;  // fácil: 2 opciones más la correcta
+    case 3: return 4;  // difícil: 4 opciones más la correcta
+    default: return 3; // normal
+  }
+}
 
-  const banner = document.createElement('div');
-  banner.id = 'coach-banner';
-  banner.style.cssText = [
-    'position:fixed;bottom:80px;left:50%;transform:translateX(-50%)',
-    'z-index:800;width:calc(100% - 32px);max-width:420px',
-    'background:white;border:1.5px solid var(--sand-300)',
-    'border-radius:16px;padding:14px 16px',
-    'box-shadow:0 4px 20px rgba(13,31,53,0.12)',
-    'animation:fadeSlideUp .3s cubic-bezier(.34,1.56,.64,1)',
-    'display:flex;align-items:flex-start;gap:12px',
-  ].join(';');
+// ── Nivel de usuario ──────────────────────────────────────────
+function updateUserLevel(ctx){
+  if(!ctx) return;
+  const prev = _userLevel;
 
-  const typeEmoji = { help:'💡', hint:'🤔', encourage:'⭐', positive:'🔥', milestone:'🏆', mastery:'✨' };
-  banner.innerHTML = `
-    <div style="font-size:1.6rem;flex-shrink:0;margin-top:2px;">${typeEmoji[msg.type] || '💬'}</div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-family:'Fraunces',serif;font-size:14px;font-weight:900;
-                  color:var(--navy-800);margin-bottom:3px;">${msg.title}</div>
-      <div style="font-size:12px;color:var(--sand-500);line-height:1.5;">${msg.body}</div>
+  if(ctx.errorRate < 0.2 && ctx.streak >= 3 && ctx.totalLessons >= 5)
+    _userLevel = Math.min(10, _userLevel + 1);
+  else if(ctx.errorRate > 0.6 && ctx.totalLessons >= 5)
+    _userLevel = Math.max(1, _userLevel - 1);
+
+  _saveUserLevel();
+
+  // Notificar si subió de nivel
+  if(_userLevel > prev){
+    showToast(`⬆️ ¡Subiste al nivel ${_userLevel}!`, 'green');
+    if(typeof setMascotState === 'function') setTimeout(()=>setMascotState('excited',2500), 300);
+    trackEvent('level_up', { level: _userLevel });
+  }
+}
+
+// ── Sistema de misiones diarias ───────────────────────────────
+const MISSIONS = [
+  { id:'m1', text:'Completá 3 ejercicios',     event:'lesson_complete', goal:3 },
+  { id:'m2', text:'Respondé 10 correctas',      event:'answer_correct',  goal:10 },
+  { id:'m3', text:'Completá 1 serie sin salir', event:'lesson_complete', goal:1, noExit:true },
+];
+
+let _missionState = (()=>{
+  try { return JSON.parse(localStorage.getItem('heb_mission_state') || 'null') || { id:null, progress:0, date:'' }; }
+  catch{ return { id:null, progress:0, date:'' }; }
+})();
+
+function _getActiveMission(){
+  const today = new Date().toDateString();
+  // Rotar misión diaria según día del año
+  if(_missionState.date !== today){
+    const idx = Math.floor(Date.now() / 86400000) % MISSIONS.length;
+    _missionState = { id: MISSIONS[idx].id, progress: 0, date: today };
+    localStorage.setItem('heb_mission_state', JSON.stringify(_missionState));
+  }
+  return MISSIONS.find(m => m.id === _missionState.id) || MISSIONS[0];
+}
+
+function updateMissionProgress(eventName){
+  const mission = _getActiveMission();
+  if(mission.event !== eventName) return;
+  _missionState.progress = Math.min(mission.goal, _missionState.progress + 1);
+  localStorage.setItem('heb_mission_state', JSON.stringify(_missionState));
+
+  if(_missionState.progress >= mission.goal && _missionState.progress - 1 < mission.goal){
+    // Asegurarse de celebrar solo una vez (primera vez que alcanza el goal)
+    showToast('🎯 ¡Misión del día completada! +50₪', 'green');
+    if(typeof setMascotState === 'function') setTimeout(()=>setMascotState('success',2500), 200);
+    trackEvent('mission_complete', { id: mission.id });
+    // Bonus de shékels
+    if(typeof state !== 'undefined') state.shekels = (state.shekels||0) + 50;
+    if(typeof save === 'function') save();
+    // Coach celebra la misión con mensaje específico
+    const celebMsg = _pickMsgWithMood('mission_done', 'confident', _coachMemory.lastMsg);
+    setTimeout(() => {
+      const existing = document.getElementById('coach-banner');
+      if(existing) existing.remove();
+      const b = document.createElement('div');
+      b.id = 'coach-banner';
+      b.style.cssText = 'position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:800;width:calc(100% - 32px);max-width:400px;background:white;border:1.5px solid var(--gold-500);border-radius:16px;padding:12px 14px;box-shadow:0 4px 24px rgba(13,31,53,0.12);animation:fadeSlideUp .28s cubic-bezier(.34,1.56,.64,1) forwards;display:flex;align-items:center;gap:12px;';
+      b.innerHTML = `<span style="font-size:1.5rem">🏆</span><span style="flex:1;font-size:13px;color:var(--navy-800);font-weight:600;">${celebMsg}</span><button onclick="this.closest('[id]').remove()" style="background:none;border:none;color:var(--sand-400);font-size:16px;cursor:pointer;padding:0 2px;">✕</button>`;
+      document.body.appendChild(b);
+      setTimeout(()=>{ if(b.parentNode){ b.style.transition='opacity .25s';b.style.opacity='0';setTimeout(()=>b.remove(),260); }},5000);
+    }, 1500);
+  }
+}
+
+function renderMissionBadge(){
+  const mission = _getActiveMission();
+  const pct     = mission ? Math.round(_missionState.progress / mission.goal * 100) : 0;
+  const done    = _missionState.progress >= mission.goal;
+  const el      = document.getElementById('mission-badge');
+  if(!el) return;
+  el.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:${done?'var(--success)':'var(--navy-700)'};
+                text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">
+      🎯 ${done ? '¡Completada!' : 'Misión del día'}
     </div>
-    <button onclick="document.getElementById('coach-banner').remove();trackEvent('coach_dismissed',{type:'${msg.type}'})"
-      style="background:none;border:none;color:var(--sand-400);font-size:18px;
-             cursor:pointer;padding:0;flex-shrink:0;line-height:1;">✕</button>`;
+    <div style="font-size:12px;color:var(--navy-800);margin-bottom:6px;">${mission.text}</div>
+    <div style="background:var(--sand-200);height:6px;border-radius:99px;overflow:hidden;">
+      <div style="height:100%;width:${pct}%;background:${done?'var(--success)':'var(--gold-500)'};
+                  border-radius:99px;transition:width .4s ease;"></div>
+    </div>
+    <div style="font-size:10px;color:var(--sand-500);text-align:right;margin-top:3px;">
+      ${_missionState.progress}/${mission.goal}
+    </div>`;
+}
 
-  document.body.appendChild(banner);
-  trackEvent('coach_shown', { type: msg.type });
+// ── showCoach() — flujo unificado ─────────────────────────────
+function showCoach(trigger){
+  // No interrumpir durante estados críticos
+  const blockStates = ['loading','error'];
+  if(typeof _mascotState !== 'undefined' && blockStates.includes(_mascotState)) return;
 
-  // Auto-dismiss después de 8 segundos
+  const ctx      = getUserContext();
+  const decision = getCoachDecision(ctx);
+  if(!decision) return;
+
+  // Cooldown: mínimo 2 minutos, salvo errores consecutivos (urgente)
+  const cooldown  = ctx.consecErrors >= 3 ? 30000 : 120000;
+  if(Date.now() - _coachMemory.shownAt < cooldown) return;
+
+  // Coherencia: no celebrar si el usuario está frustrado
+  const isPositive = ['reward','streak','confident','level_up'].includes(decision.type);
+  if(isPositive && ctx.mood === 'frustrated') return;
+
+  // Mensaje con variación según mood (usa _pickMsgWithMood)
+  const msgText = _pickMsgWithMood(decision.type, ctx.mood, _coachMemory.lastMsg);
+  if(msgText === _coachMemory.lastMsg) return;
+
+  // Persistir memoria con mood y performance actuales
+  _coachMemory = {
+    lastType:        decision.type,
+    lastMsg:         msgText,
+    shownAt:         Date.now(),
+    lastMood:        ctx.mood,
+    lastPerformance: ctx.performance,
+  };
+  _saveCoachMemory();
+
+  // Timing humano — delay aleatorio para evitar sensación robótica
+  const humanDelay = 300 + Math.random() * 400;
+
   setTimeout(() => {
-    const el = document.getElementById('coach-banner');
-    if(el){ el.style.animation = 'none'; el.style.opacity = '0';
-            el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }
-  }, 8000);
+    // Mascota reacciona con micro-delay emocional
+    if(decision.mascot && typeof setMascotState === 'function')
+      setTimeout(() => setMascotState(decision.mascot, 3000), 350);
+
+    // Actualizar nivel y dificultad (solo en triggers de fin de acción)
+    if(['lesson_end','home','visibility'].includes(trigger)){
+      updateUserLevel(ctx);
+      getDynamicDifficulty(ctx);
+    }
+
+    // UI del banner
+    const existing = document.getElementById('coach-banner');
+    if(existing) existing.remove();
+
+    const EMOJI = {
+      help:'💡', hint:'🤔', engage:'⭐', reward:'✨', streak:'🔥', level_up:'⬆️',
+      frustrated:'💙', confident:'🚀', fatigue:'😌', slowing:'⏱️',
+      mission_push:'🎯', mission_done:'🏆', diff_down:'👌', diff_up:'💪',
+    };
+
+    // Color del borde según mood — feedback visual sutil
+    const borderColor = ctx.mood === 'frustrated' ? '#93C5FD'   // azul suave
+                      : ctx.mood === 'confident'  ? 'var(--gold-500)'
+                      : 'var(--sand-300)';
+
+    const banner = document.createElement('div');
+    banner.id = 'coach-banner';
+    banner.style.cssText = [
+      'position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(16px)',
+      'z-index:800;width:calc(100% - 32px);max-width:400px',
+      `background:white;border:1.5px solid ${borderColor}`,
+      'border-radius:16px;padding:12px 14px',
+      'box-shadow:0 4px 24px rgba(13,31,53,0.10)',
+      'animation:fadeSlideUp .28s cubic-bezier(.34,1.56,.64,1) forwards',
+      'display:flex;align-items:center;gap:12px',
+    ].join(';');
+
+    banner.innerHTML = `
+      <span style="font-size:1.5rem;flex-shrink:0;">${EMOJI[decision.type]||'💬'}</span>
+      <span style="flex:1;font-size:13px;color:var(--navy-800);font-weight:600;line-height:1.4;">${msgText}</span>
+      <button onclick="this.closest('[id]').remove();trackEvent('coach_dismissed',{type:'${decision.type}'})"
+        style="background:none;border:none;color:var(--sand-400);font-size:16px;cursor:pointer;
+               padding:0 2px;flex-shrink:0;line-height:1;touch-action:manipulation;">✕</button>`;
+
+    document.body.appendChild(banner);
+    trackEvent('coach_shown', { type: decision.type, trigger: trigger||'auto', mood: ctx.mood });
+
+    // Auto-dismiss suave a los 6 segundos
+    setTimeout(() => {
+      const el = document.getElementById('coach-banner');
+      if(!el) return;
+      el.style.transition = 'opacity .25s, transform .25s';
+      el.style.opacity    = '0';
+      el.style.transform  = 'translateX(-50%) translateY(8px)';
+      setTimeout(() => el.remove(), 260);
+    }, 6000);
+
+  }, humanDelay);
 }
 
-/**
- * runCoachCheck()
- * Punto de entrada. Llamar en renderHome después de 1.5s
- * para no interferir con la carga inicial.
- */
-function runCoachCheck(){
-  setTimeout(showCoachMessage, 1500);
-}
-
+// Alias para compatibilidad con código anterior
+function showCoachMessage(){ showCoach('home'); }
+function runCoachCheck(){    setTimeout(() => showCoach('home'), 1500); }
+function analyzeUserBehavior(){ return getUserContext(); }
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  NOTIFICACIONES — sistema tipo Duolingo                   ║
 // ╚═══════════════════════════════════════════════════════════╝
@@ -12173,6 +12432,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if(document.hidden){
         setMascotState('idle');
       } else {
+        // Coach al volver a la app (después de 5+ minutos)
+        const ctx2 = typeof getUserContext === 'function' ? getUserContext() : null;
+        if(ctx2 && ctx2.lastActiveMin >= 5 && typeof showCoach === 'function'){
+          setTimeout(() => showCoach('visibility'), 1200);
+        }
         // Solo cambiar a happy si no hay estado activo importante
         const _busy = ['loading','success','error'];
         const _cur  = typeof _mascotState !== 'undefined' ? _mascotState : 'idle';
@@ -12300,6 +12564,12 @@ function setMascotState(state, duration){
  */
 function celebrate(){
   setMascotState('success', 2000);
+  // Actualizar nivel y dificultad al completar serie completa
+  if(typeof updateUserLevel === 'function'){
+    const ctx = typeof getUserContext === 'function' ? getUserContext() : null;
+    updateUserLevel(ctx);
+    getDynamicDifficulty(ctx);
+  }
   if(typeof confetti === 'function'){
     confetti({
       particleCount: 60,
