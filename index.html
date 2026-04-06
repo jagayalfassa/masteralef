@@ -1136,9 +1136,6 @@
 
     <!-- HOME VIEW -->
     <div id="view-home" class="w-full max-w-lg mx-auto overflow-y-auto custom-scroll pb-safe" style="min-height:100%;">
-      <!-- Misión del día -->
-      <div id="mission-badge" style="margin:12px 16px 0;background:white;border:1.5px solid var(--sand-300);
-           border-radius:14px;padding:12px 14px;"></div>
       <div id="base-series-container"></div>
       <div id="mix-series-container"></div>
     </div>
@@ -4074,8 +4071,7 @@ function renderHome(){
   if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
   // Coach check — no bloqueante, después de que el home cargue
   runCoachCheck();
-  // Misión del día — renderizar badge si existe el contenedor
-  if(typeof renderMissionBadge === 'function') renderMissionBadge();
+  // Misión del día visible en el panel 'Desafíos' (botón unificado)
 
   // ── SVG coin images (base64 inline) ───────────────────────
   const SVG_AMARILLO='img/shekel-amarillo.svg';
@@ -4353,24 +4349,6 @@ function renderHome(){
 
   baseC.appendChild(header);
 
-  // ── BOTÓN TEFILOT ────────────────────────────────────────────
-  const tefilotBtn = document.createElement('div');
-  tefilotBtn.style.cssText = 'padding:0 14px 10px;';
-  tefilotBtn.innerHTML =
-    '<button id="goto-tefilot-btn" style="width:100%;padding:14px 16px;background:white;' +
-    'border:1.5px solid var(--sand-300);border-radius:16px;cursor:pointer;' +
-    'display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(13,31,53,0.05);">' +
-      '<div style="width:40px;height:40px;border-radius:12px;background:var(--navy-800);' +
-      'display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🙏</div>' +
-      '<div style="flex:1;text-align:left;">' +
-        '<div style="font-size:14px;font-weight:900;color:var(--navy-800);">Tefilot</div>' +
-        '<div style="font-size:11px;color:var(--sand-500);">Amidá, Shemá, Kidush y más</div>' +
-      '</div>' +
-      '<span style="font-size:1rem;color:var(--sand-400);">›</span>' +
-    '</button>';
-  tefilotBtn.querySelector('#goto-tefilot-btn').addEventListener('click', showTefilotView);
-  baseC.appendChild(tefilotBtn);
-
   // ── BANNER DE BAR/BAT MITZVÁ ──────────────────────────────────
   // Solo aparece si el alumno guardó una fecha en el onboarding
   const bmDate    = localStorage.getItem('heb_bm_date');
@@ -4499,25 +4477,7 @@ function renderHome(){
 
   // Flash Recall accesible desde el botón ⚡ en el header
 
-  // ── COMENZAR button (only if no progress yet) ────────────
-  const hasAnyProgress=Object.keys(ALL_DATA).some(k=>
-    getLessons(k).some((_,i)=>(state.progress[lessonKey(k,i)]||0)>0)
-  );
-  if(!hasAnyProgress){
-    const startBtn=document.createElement('div');
-    startBtn.style.cssText='padding:0 18px 0;display:flex;justify-content:center;margin-bottom:-20px;';
-    // El CTA principal ya muestra la acción para nuevos usuarios.
-    // Este botón alternativo solo se muestra si no existe el bloque continuar (getNextStep() === null).
-    // Lo hacemos sutil para no competir con la jerarquía.
-    startBtn.innerHTML =
-    '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:4px 0 0;">' +
-    '<button style="background:linear-gradient(135deg,#D4A843,#C4963C,#A67C28);color:white;border:none;' +
-    'border-radius:14px;padding:14px 40px;font-size:15px;font-weight:900;' +
-    'font-family:Fraunces,serif;letter-spacing:0.05em;box-shadow:0 4px 0 #8a6420;cursor:pointer;" id="comenzar-btn">Empezar ahora →</button>' +
-    '</div>';
-  startBtn.querySelector('#comenzar-btn').addEventListener('click', function(){ startSeries('A'); });
-    baseC.appendChild(startBtn);
-  }
+  // El CTA del banner azul ya cubre el primer acceso — botón redundante eliminado
 
   // ── COIN PATH MAP ─────────────────────────────────────────
   const W=Math.min(document.getElementById('base-series-container')?.offsetWidth||340, 420);
@@ -4824,111 +4784,153 @@ function renderHome(){
       });
     }
     parashaSection.appendChild(lockCard);
-  } else {
-    // Parashot — desplegable por libro
-    // Agrupar por libro
-    const books = {};
-    PARASHA_CATALOG.forEach(p => {
-      if(!books[p.book]) books[p.book] = [];
-      books[p.book].push(p);
-    });
-
-    const parashaAccordion = document.createElement('div');
-    parashaAccordion.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
-
-    Object.entries(books).forEach(([book, parashot]) => {
-      // Progreso del libro
-      let bookMastered = 0, bookTotal = 0;
-      parashot.forEach(p => {
-        const pData = parashaProgress[p.id] || {};
-        bookMastered += Object.values(pData).filter(w => w.mastered).length;
-        bookTotal    += Object.keys(pData).length;
-      });
-      const bookPct = bookTotal > 0 ? Math.round((bookMastered / bookTotal) * 100) : 0;
-
-      const section = document.createElement('div');
-      section.style.cssText = 'border:1.5px solid var(--sand-300);border-radius:16px;overflow:hidden;background:white;box-shadow:0 2px 8px rgba(13,31,53,0.05);';
-
-      // Header del libro — clickeable para abrir/cerrar
-      const header = document.createElement('button');
-      header.style.cssText = 'width:100%;padding:14px 16px;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:12px;text-align:left;';
-      header.innerHTML =
-        '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:14px;font-weight:900;color:var(--navy-800);">' + book + '</div>' +
-          '<div style="font-size:11px;color:var(--sand-500);margin-top:1px;">' + parashot.length + ' parashot' +
-            (bookTotal > 0 ? ' · ' + bookPct + '% dominado' : '') +
-          '</div>' +
-          (bookTotal > 0 ?
-            '<div style="margin-top:5px;height:3px;background:var(--sand-200);border-radius:99px;overflow:hidden;">' +
-              '<div style="height:100%;width:' + bookPct + '%;background:var(--gold-500);border-radius:99px;"></div>' +
-            '</div>' : '') +
-        '</div>' +
-        '<span class="book-chevron" style="font-size:12px;color:var(--sand-400);transition:transform .2s;font-weight:900;">▼</span>';
-
-      // Lista de parashot (colapsada por defecto)
-      const list = document.createElement('div');
-      list.style.cssText = 'overflow:hidden;max-height:0;transition:max-height .3s ease;border-top:0px solid var(--sand-200);';
-
-      let isOpen = false;
-      header.addEventListener('click', function() {
-        isOpen = !isOpen;
-        const chevron = header.querySelector('.book-chevron');
-        if(isOpen) {
-          list.style.maxHeight = list.scrollHeight + 'px';
-          list.style.borderTopWidth = '1px';
-          chevron.style.transform = 'rotate(180deg)';
-        } else {
-          list.style.maxHeight = '0';
-          list.style.borderTopWidth = '0';
-          chevron.style.transform = '';
-        }
-      });
-
-      // Cards de cada parashá dentro del libro
-      parashot.forEach(function(p, idx) {
-        const pData = parashaProgress[p.id] || {};
-        const masteredCount = Object.values(pData).filter(w => w.mastered).length;
-        const totalCount    = Object.keys(pData).length;
-        const pct           = totalCount > 0 ? Math.round((masteredCount / totalCount) * 100) : 0;
-        const hasProgress   = totalCount > 0;
-
-        const row = document.createElement('button');
-        row.style.cssText = 'width:100%;padding:12px 16px;background:none;border:none;border-bottom:' +
-          (idx < parashot.length - 1 ? '1px solid var(--sand-200)' : 'none') +
-          ';cursor:pointer;display:flex;align-items:center;gap:12px;text-align:left;';
-
-        row.innerHTML =
-          '<div style="flex-shrink:0;width:38px;height:38px;border-radius:10px;background:' +
-            (hasProgress ? 'var(--navy-800)' : 'var(--sand-100)') +
-            ';display:flex;align-items:center;justify-content:center;">' +
-            '<span style="font-family:\'Noto Serif Hebrew\',serif;font-size:1rem;font-weight:900;color:' +
-              (hasProgress ? 'white' : 'var(--sand-400)') + ';">' + p.name.slice(0,2) + '</span>' +
-          '</div>' +
-          '<div style="flex:1;min-width:0;">' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-family:\'Noto Serif Hebrew\',serif;font-size:0.95rem;font-weight:900;color:var(--navy-800);">' + p.name + '</span>' +
-            '</div>' +
-            '<div style="font-size:11px;color:var(--sand-500);">' + p.esp + '</div>' +
-            (hasProgress ?
-              '<div style="margin-top:3px;height:2px;background:var(--sand-200);border-radius:99px;overflow:hidden;">' +
-                '<div style="height:100%;width:' + pct + '%;background:var(--gold-500);border-radius:99px;"></div>' +
-              '</div>' : '') +
-          '</div>' +
-          '<span style="font-size:1rem;color:var(--sand-400);">›</span>';
-
-        row.addEventListener('click', function() { showAliyahSelect(p.id); });
-        list.appendChild(row);
-      });
-
-      section.appendChild(header);
-      section.appendChild(list);
-      parashaAccordion.appendChild(section);
-    });
-
-    parashaSection.appendChild(parashaAccordion);
   }
+  // Los 5 libros están disponibles en el botón 'Lectura de la Torá' al final del home
 
   mixC.appendChild(parashaSection);
+
+  // ── BOTONES AL FINAL: TEFILOT + TORÁ ─────────────────────────
+  const bottomBtns = document.createElement('div');
+  bottomBtns.style.cssText = 'padding:0 14px 40px;display:flex;flex-direction:column;gap:10px;margin-top:4px;';
+
+  // Botón Tefilot
+  const tefilotBtn = document.createElement('button');
+  tefilotBtn.id = 'goto-tefilot-btn';
+  tefilotBtn.style.cssText = 'width:100%;padding:14px 16px;background:white;' +
+    'border:1.5px solid var(--sand-300);border-radius:16px;cursor:pointer;' +
+    'display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(13,31,53,0.05);';
+  tefilotBtn.innerHTML =
+    '<div style="width:40px;height:40px;border-radius:12px;background:var(--navy-800);' +
+    'display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🙏</div>' +
+    '<div style="flex:1;text-align:left;">' +
+      '<div style="font-size:14px;font-weight:900;color:var(--navy-800);">Tefilot</div>' +
+      '<div style="font-size:11px;color:var(--sand-500);">Amidá, Shemá, Kidush y más</div>' +
+    '</div>' +
+    '<span style="font-size:1rem;color:var(--sand-400);">›</span>';
+  tefilotBtn.addEventListener('click', showTefilotView);
+  bottomBtns.appendChild(tefilotBtn);
+
+  // Botón Torá (despliega los 5 libros)
+  const toraWrap = document.createElement('div');
+  toraWrap.style.cssText = 'background:white;border:1.5px solid var(--sand-300);' +
+    'border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(13,31,53,0.05);';
+
+  // Cabecera del botón Torá
+  const toraBtn = document.createElement('button');
+  toraBtn.id = 'tora-toggle-btn';
+  toraBtn.style.cssText = 'width:100%;padding:14px 16px;background:white;border:none;cursor:pointer;' +
+    'display:flex;align-items:center;gap:12px;';
+  toraBtn.innerHTML =
+    '<div style="width:40px;height:40px;border-radius:12px;background:var(--navy-800);' +
+    'display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📖</div>' +
+    '<div style="flex:1;text-align:left;">' +
+      '<div style="font-size:14px;font-weight:900;color:var(--navy-800);">Lectura de la Torá</div>' +
+      '<div style="font-size:11px;color:var(--sand-500);">Los 5 libros · Parashot</div>' +
+    '</div>' +
+    '<span id="tora-chevron" style="font-size:12px;color:var(--sand-400);' +
+    'transition:transform .2s;font-weight:900;">▼</span>';
+
+  // Panel colapsable con los 5 libros
+  const toraPanel = document.createElement('div');
+  toraPanel.id = 'tora-books-panel';
+  toraPanel.style.cssText = 'overflow:hidden;max-height:0;transition:max-height .3s ease;' +
+    'border-top:0px solid var(--sand-200);';
+
+  // Agrupar parashot por libro (igual que en la sección parashá)
+  const _toraBooks = {};
+  PARASHA_CATALOG.forEach(p => {
+    if(!_toraBooks[p.book]) _toraBooks[p.book] = [];
+    _toraBooks[p.book].push(p);
+  });
+
+  const _toraLocked = !isParashaUnlocked();
+
+  Object.entries(_toraBooks).forEach(([book, parashot], bookIdx) => {
+    const bookRow = document.createElement('div');
+    bookRow.style.cssText = 'border-top:1px solid var(--sand-200);';
+
+    // Header del libro
+    const bookHeader = document.createElement('button');
+    bookHeader.style.cssText = 'width:100%;padding:12px 16px;background:none;border:none;' +
+      'cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left;';
+    bookHeader.innerHTML =
+      '<span style="font-size:1.1rem;flex-shrink:0;">📜</span>' +
+      '<span style="flex:1;font-size:13px;font-weight:800;color:var(--navy-800);">' + book + '</span>' +
+      '<span style="font-size:11px;color:var(--sand-400);">' + parashot.length + ' parashot</span>' +
+      '<span class="book-chev" style="font-size:11px;color:var(--sand-400);' +
+      'transition:transform .2s;margin-left:4px;">▶</span>';
+
+    // Lista de parashot (colapsada)
+    const bookList = document.createElement('div');
+    bookList.style.cssText = 'overflow:hidden;max-height:0;transition:max-height .25s ease;';
+
+    let _bookOpen = false;
+    bookHeader.addEventListener('click', () => {
+      _bookOpen = !_bookOpen;
+      const chev = bookHeader.querySelector('.book-chev');
+      if(_bookOpen){
+        bookList.style.maxHeight = bookList.scrollHeight + 'px';
+        if(chev) chev.style.transform = 'rotate(90deg)';
+      } else {
+        bookList.style.maxHeight = '0';
+        if(chev) chev.style.transform = '';
+      }
+      // Recalcular panel padre
+      setTimeout(() => {
+        if(toraPanel.style.maxHeight !== '0px')
+          toraPanel.style.maxHeight = toraPanel.scrollHeight + 200 + 'px';
+      }, 260);
+    });
+
+    parashot.forEach((p, pi) => {
+      const row = document.createElement('button');
+      row.style.cssText = 'width:100%;padding:10px 16px 10px 44px;background:none;border:none;' +
+        'border-top:1px solid var(--sand-100);cursor:pointer;display:flex;align-items:center;' +
+        'gap:10px;text-align:left;';
+      row.innerHTML =
+        '<span style="font-family:\'Noto Serif Hebrew\',serif;font-size:0.95rem;font-weight:900;' +
+        'color:var(--navy-800);flex-shrink:0;">' + p.name.slice(0,4) + '</span>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:700;color:var(--navy-800);">' + p.esp + '</div>' +
+        '</div>' +
+        '<span style="font-size:1rem;color:var(--sand-400);">›</span>';
+
+      row.addEventListener('click', () => {
+        if(_toraLocked){
+          showToast('Completá las 5 series para desbloquear la Torá', 'warm');
+        } else {
+          showAliyahSelect(p.id);
+        }
+      });
+      bookList.appendChild(row);
+    });
+
+    bookRow.appendChild(bookHeader);
+    bookRow.appendChild(bookList);
+    toraPanel.appendChild(bookRow);
+  });
+
+  // Toggle del panel Torá
+  let _toraOpen = false;
+  toraBtn.addEventListener('click', () => {
+    _toraOpen = !_toraOpen;
+    const chev = document.getElementById('tora-chevron');
+    if(_toraOpen){
+      toraPanel.style.borderTopWidth = '1px';
+      toraPanel.style.maxHeight = toraPanel.scrollHeight + 400 + 'px';
+      if(chev) chev.style.transform = 'rotate(180deg)';
+    } else {
+      toraPanel.style.maxHeight = '0';
+      toraPanel.style.borderTopWidth = '0';
+      if(chev) chev.style.transform = '';
+    }
+  });
+
+  toraWrap.appendChild(toraBtn);
+  toraWrap.appendChild(toraPanel);
+  bottomBtns.appendChild(toraWrap);
+
+  mixC.appendChild(bottomBtns);
 }
 
 
