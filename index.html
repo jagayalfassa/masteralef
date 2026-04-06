@@ -1114,131 +1114,6 @@
         </div>
       </div>
 
-    <!-- ── AUTH VIEW ─────────────────────────────────────────── -->
-    <div id="view-auth" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center text-center px-4 py-8"
-         style="display:none;min-height:calc(100vh - 60px);">
-
-      <div style="margin-bottom:24px;">
-        <img src="img/rashi-idle.png" alt="Rashi" class="rashi-mascot"
-             style="width:100px;height:auto;object-fit:contain;">
-      </div>
-
-      <h2 style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:900;color:var(--navy-800);margin-bottom:6px;">
-        <span id="auth-title">Ingresá</span>
-      </h2>
-      <p id="auth-subtitle" style="font-size:13px;color:var(--sand-500);margin-bottom:24px;">
-        Guardá tu progreso y accedé desde cualquier dispositivo
-      </p>
-
-      <!-- Tabs login / signup -->
-      <div style="display:flex;gap:4px;background:var(--sand-200);border-radius:12px;padding:4px;margin-bottom:20px;width:100%;max-width:280px;">
-        <button id="auth-tab-login" onclick="authSwitchTab('login')"
-          style="flex:1;padding:8px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;
-                 background:white;color:var(--navy-800);box-shadow:0 1px 4px rgba(13,31,53,0.1);">
-          Entrar
-        </button>
-        <button id="auth-tab-signup" onclick="authSwitchTab('signup')"
-          style="flex:1;padding:8px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;
-                 background:transparent;color:var(--sand-500);">
-          Registrarse
-        </button>
-      </div>
-
-      <!-- Formulario -->
-      <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
-
-        <input id="auth-name" type="text" placeholder="Nombre (opcional)"
-          style="display:none;padding:13px 16px;border:1.5px solid var(--sand-300);border-radius:14px;
-                 font-size:15px;color:var(--navy-800);background:white;outline:none;width:100%;"
-          onfocus="this.style.borderColor='var(--navy-600)'"
-          onblur="this.style.borderColor='var(--sand-300)'">
-
-        <!-- Role selector — solo en signup -->
-        <div id="auth-role-wrap" style="display:none;flex-direction:column;gap:8px;">
-          <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.08em;text-align:left;">
-            ¿Cómo vas a usar la app?
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button id="auth-role-student" onclick="authSelectRole('student')"
-              style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--gold-500);
-                     background:#FEF3C7;color:var(--navy-800);font-size:13px;font-weight:700;cursor:pointer;">
-              🎓 Alumno
-            </button>
-            <button id="auth-role-teacher" onclick="authSelectRole('teacher')"
-              style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--sand-300);
-                     background:white;color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
-              📚 Docente
-            </button>
-          </div>
-          <!-- Campo institución — visible según rol -->
-          <div id="auth-institution-wrap" style="display:none;flex-direction:column;gap:8px;">
-            <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;
-                        letter-spacing:0.08em;text-align:left;">Institución</div>
-            <!-- Para docentes: crear o buscar institución -->
-            <div id="auth-inst-teacher" style="display:none;flex-direction:column;gap:8px;">
-              <div style="display:flex;gap:6px;">
-                <button id="auth-inst-new-btn" onclick="authInstMode('new')"
-                  style="flex:1;padding:8px;border-radius:10px;border:2px solid var(--navy-700);
-                         background:var(--navy-800);color:white;font-size:12px;font-weight:700;cursor:pointer;">
-                  + Nueva
-                </button>
-                <button id="auth-inst-join-btn" onclick="authInstMode('join')"
-                  style="flex:1;padding:8px;border-radius:10px;border:2px solid var(--sand-300);
-                         background:white;color:var(--navy-700);font-size:12px;font-weight:700;cursor:pointer;">
-                  Unirse
-                </button>
-              </div>
-              <input id="auth-inst-name" type="text" placeholder="Nombre de la institución"
-                style="padding:11px 14px;border:1.5px solid var(--sand-300);border-radius:12px;
-                       font-size:14px;color:var(--navy-800);background:white;outline:none;width:100%;box-sizing:border-box;"
-                onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
-            </div>
-            <!-- Para alumnos: código de clase -->
-            <div id="auth-inst-student" style="display:none;">
-              <input id="auth-class-code" type="text" placeholder="Código de clase (ej: ALEF23)"
-                style="padding:11px 14px;border:1.5px solid var(--sand-300);border-radius:12px;
-                       font-size:14px;color:var(--navy-800);background:white;outline:none;width:100%;
-                       box-sizing:border-box;text-transform:uppercase;letter-spacing:0.1em;"
-                oninput="this.value=this.value.toUpperCase()"
-                onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
-              <div style="font-size:11px;color:var(--sand-500);margin-top:4px;text-align:left;">
-                Opcional — podés unirte después desde el menú
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <input id="auth-email" type="email" placeholder="Email"
-          style="padding:13px 16px;border:1.5px solid var(--sand-300);border-radius:14px;
-                 font-size:15px;color:var(--navy-800);background:white;outline:none;width:100%;"
-          onfocus="this.style.borderColor='var(--navy-600)'"
-          onblur="this.style.borderColor='var(--sand-300)'">
-
-        <input id="auth-password" type="password" placeholder="Contraseña"
-          style="padding:13px 16px;border:1.5px solid var(--sand-300);border-radius:14px;
-                 font-size:15px;color:var(--navy-800);background:white;outline:none;width:100%;"
-          onfocus="this.style.borderColor='var(--navy-600)'"
-          onblur="this.style.borderColor='var(--sand-300)'">
-
-        <div id="auth-error" style="display:none;background:#FCEAE8;border:1px solid var(--error);
-             border-radius:10px;padding:10px 14px;font-size:13px;color:var(--error);font-weight:600;">
-        </div>
-
-        <button id="auth-submit-btn" onclick="authSubmit()"
-          style="background:linear-gradient(135deg,#1B3A5C,#2A5280);color:white;border:none;
-                 border-radius:14px;padding:14px;font-size:15px;font-weight:900;
-                 font-family:'Fraunces',serif;cursor:pointer;box-shadow:0 4px 0 #0D1F35;
-                 width:100%;letter-spacing:0.04em;">
-          Entrar →
-        </button>
-
-        <button onclick="authSkip()"
-          style="background:none;border:none;color:var(--sand-400);font-size:13px;
-                 cursor:pointer;padding:6px;margin-top:4px;">
-          Continuar sin cuenta →
-        </button>
-      </div>
-    </div>
       <h1 style="font-family:'Fraunces',serif;font-size:1.75rem;font-weight:900;color:var(--navy-900);line-height:1.2;margin-bottom:8px;">¡Aprendé a leer<br><span style="color:var(--gold-500);">hebreo</span>!</h1>
       <p style="color:var(--sand-500);font-size:14px;margin-bottom:6px;max-width:260px;line-height:1.6;">Letra por letra, sílaba por sílaba — desde cero hasta leer palabras reales.</p>
       <p style="color:var(--sand-400);font-size:13px;margin-bottom:28px;">Sin memorizar nombres. Solo sonidos.</p>
@@ -1738,6 +1613,133 @@
         <div id="no-inst-form-content"></div>
       </div>
     </div>
+
+    <!-- ── AUTH VIEW ─────────────────────────────────────────── -->
+    <div id="view-auth" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center text-center px-4 py-8"
+         style="display:none;min-height:calc(100vh - 60px);">
+
+      <div style="margin-bottom:24px;">
+        <img src="img/rashi-idle.png" alt="Rashi" class="rashi-mascot"
+             style="width:100px;height:auto;object-fit:contain;">
+      </div>
+
+      <h2 style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:900;color:var(--navy-800);margin-bottom:6px;">
+        <span id="auth-title">Ingresá</span>
+      </h2>
+      <p id="auth-subtitle" style="font-size:13px;color:var(--sand-500);margin-bottom:24px;">
+        Guardá tu progreso y accedé desde cualquier dispositivo
+      </p>
+
+      <!-- Tabs login / signup -->
+      <div style="display:flex;gap:4px;background:var(--sand-200);border-radius:12px;padding:4px;margin-bottom:20px;width:100%;max-width:280px;">
+        <button id="auth-tab-login" onclick="authSwitchTab('login')"
+          style="flex:1;padding:8px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;
+                 background:white;color:var(--navy-800);box-shadow:0 1px 4px rgba(13,31,53,0.1);">
+          Entrar
+        </button>
+        <button id="auth-tab-signup" onclick="authSwitchTab('signup')"
+          style="flex:1;padding:8px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;
+                 background:transparent;color:var(--sand-500);">
+          Registrarse
+        </button>
+      </div>
+
+      <!-- Formulario -->
+      <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
+
+        <input id="auth-name" type="text" placeholder="Nombre (opcional)"
+          style="display:none;padding:13px 16px;border:1.5px solid var(--sand-300);border-radius:14px;
+                 font-size:15px;color:var(--navy-800);background:white;outline:none;width:100%;"
+          onfocus="this.style.borderColor='var(--navy-600)'"
+          onblur="this.style.borderColor='var(--sand-300)'">
+
+        <!-- Role selector — solo en signup -->
+        <div id="auth-role-wrap" style="display:none;flex-direction:column;gap:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.08em;text-align:left;">
+            ¿Cómo vas a usar la app?
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button id="auth-role-student" onclick="authSelectRole('student')"
+              style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--gold-500);
+                     background:#FEF3C7;color:var(--navy-800);font-size:13px;font-weight:700;cursor:pointer;">
+              🎓 Alumno
+            </button>
+            <button id="auth-role-teacher" onclick="authSelectRole('teacher')"
+              style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--sand-300);
+                     background:white;color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
+              📚 Docente
+            </button>
+          </div>
+          <!-- Campo institución — visible según rol -->
+          <div id="auth-institution-wrap" style="display:none;flex-direction:column;gap:8px;">
+            <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;
+                        letter-spacing:0.08em;text-align:left;">Institución</div>
+            <!-- Para docentes: crear o buscar institución -->
+            <div id="auth-inst-teacher" style="display:none;flex-direction:column;gap:8px;">
+              <div style="display:flex;gap:6px;">
+                <button id="auth-inst-new-btn" onclick="authInstMode('new')"
+                  style="flex:1;padding:8px;border-radius:10px;border:2px solid var(--navy-700);
+                         background:var(--navy-800);color:white;font-size:12px;font-weight:700;cursor:pointer;">
+                  + Nueva
+                </button>
+                <button id="auth-inst-join-btn" onclick="authInstMode('join')"
+                  style="flex:1;padding:8px;border-radius:10px;border:2px solid var(--sand-300);
+                         background:white;color:var(--navy-700);font-size:12px;font-weight:700;cursor:pointer;">
+                  Unirse
+                </button>
+              </div>
+              <input id="auth-inst-name" type="text" placeholder="Nombre de la institución"
+                style="padding:11px 14px;border:1.5px solid var(--sand-300);border-radius:12px;
+                       font-size:14px;color:var(--navy-800);background:white;outline:none;width:100%;box-sizing:border-box;"
+                onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
+            </div>
+            <!-- Para alumnos: código de clase -->
+            <div id="auth-inst-student" style="display:none;">
+              <input id="auth-class-code" type="text" placeholder="Código de clase (ej: ALEF23)"
+                style="padding:11px 14px;border:1.5px solid var(--sand-300);border-radius:12px;
+                       font-size:14px;color:var(--navy-800);background:white;outline:none;width:100%;
+                       box-sizing:border-box;text-transform:uppercase;letter-spacing:0.1em;"
+                oninput="this.value=this.value.toUpperCase()"
+                onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
+              <div style="font-size:11px;color:var(--sand-500);margin-top:4px;text-align:left;">
+                Opcional — podés unirte después desde el menú
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <input id="auth-email" type="email" placeholder="Email"
+          style="padding:13px 16px;border:1.5px solid var(--sand-300);border-radius:14px;
+                 font-size:15px;color:var(--navy-800);background:white;outline:none;width:100%;"
+          onfocus="this.style.borderColor='var(--navy-600)'"
+          onblur="this.style.borderColor='var(--sand-300)'">
+
+        <input id="auth-password" type="password" placeholder="Contraseña"
+          style="padding:13px 16px;border:1.5px solid var(--sand-300);border-radius:14px;
+                 font-size:15px;color:var(--navy-800);background:white;outline:none;width:100%;"
+          onfocus="this.style.borderColor='var(--navy-600)'"
+          onblur="this.style.borderColor='var(--sand-300)'">
+
+        <div id="auth-error" style="display:none;background:#FCEAE8;border:1px solid var(--error);
+             border-radius:10px;padding:10px 14px;font-size:13px;color:var(--error);font-weight:600;">
+        </div>
+
+        <button id="auth-submit-btn" onclick="authSubmit()"
+          style="background:linear-gradient(135deg,#1B3A5C,#2A5280);color:white;border:none;
+                 border-radius:14px;padding:14px;font-size:15px;font-weight:900;
+                 font-family:'Fraunces',serif;cursor:pointer;box-shadow:0 4px 0 #0D1F35;
+                 width:100%;letter-spacing:0.04em;">
+          Entrar →
+        </button>
+
+        <button onclick="authSkip()"
+          style="background:none;border:none;color:var(--sand-400);font-size:13px;
+                 cursor:pointer;padding:6px;margin-top:4px;">
+          Continuar sin cuenta →
+        </button>
+      </div>
+    </div>
+
   </main>
 
   <!-- Toast notification -->
@@ -2027,6 +2029,11 @@ function onLessonComplete(){
   if(typeof updateMissionProgress === 'function') updateMissionProgress('lesson_complete');
   // Coach después de lección completa (timing diferente a home)
   if(typeof showCoach === 'function') setTimeout(() => showCoach('lesson_end'), 800);
+  // Estilo Duolingo: ofrecer registro DESPUÉS de la primera lección, no al entrar
+  if(!_authUser && !localStorage.getItem('heb_auth_prompt_shown')){
+    localStorage.setItem('heb_auth_prompt_shown', '1');
+    setTimeout(_showAuthPrompt, 2500); // después de la celebración
+  }
 }
 
 function onSeriesComplete(){
@@ -4138,7 +4145,7 @@ function renderHome(){
       <span style="font-size:1.4rem;font-weight:900;color:#C4963C;font-family:'Fraunces',serif;">₪ ${state.shekels.toLocaleString()}</span>
       ${buildLevelWidget(state.shekels)}
       <div style="margin-top:10px;display:flex;gap:8px;">
-        <!-- Botón Tienda — secundario, menor jerarquía -->
+        <!-- Botón Tienda -->
         <button id="coin-display" onclick="showShopView()" title="Tienda 🛒"
           style="flex:1;background:var(--sand-100);color:var(--navy-700);
           border:1.5px solid var(--sand-300);border-radius:12px;
@@ -4155,52 +4162,26 @@ function renderHome(){
             <span style="font-size:9px;font-weight:600;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">Tienda</span>
           </div>
         </button>
-        <!-- Botón Desafíos semanales -->
-        <button id="weekly-toggle-btn" onclick="toggleWeeklyPanel()"
+        <!-- Botón Desafíos unificado (misiones + semana) -->
+        <button id="challenges-toggle-btn" onclick="toggleChallengesPanel()"
           style="flex:1;background:var(--sand-100);color:var(--navy-700);
           border:1.5px solid var(--sand-300);border-radius:12px;
           padding:8px 10px;cursor:pointer;
           display:flex;align-items:center;justify-content:center;gap:6px;
           font-size:12px;font-weight:700;
-          transition:transform .1s;"
+          transition:transform .1s,background .1s;"
           onmousedown="this.style.transform='translateY(1px)'"
           onmouseup="this.style.transform=''"
           ontouchstart="this.style.transform='translateY(1px)'"
           ontouchend="this.style.transform=''">
           <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-            <span style="font-size:13px;">🗓️ <span id="weekly-btn-label">0/5</span></span>
-            <span style="font-size:9px;font-weight:600;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">Semana</span>
-          </div>
-        </button>
-        <!-- Botón Misiones del día -->
-        <button id="quest-toggle-btn" onclick="toggleDailyQuestPanel()"
-          style="flex:1;background:var(--sand-100);color:var(--navy-700);
-          border:1.5px solid var(--sand-300);border-radius:12px;
-          padding:8px 10px;cursor:pointer;
-          display:flex;align-items:center;justify-content:center;gap:6px;
-          font-size:12px;font-weight:700;
-          transition:transform .1s;"
-          onmousedown="this.style.transform='translateY(1px)'"
-          onmouseup="this.style.transform=''"
-          ontouchstart="this.style.transform='translateY(1px)'"
-          ontouchend="this.style.transform=''">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-            <span style="font-size:13px;">🎯 <span id="quest-btn-label">0/0</span></span>
-            <span style="font-size:9px;font-weight:600;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">Misiones</span>
+            <span style="font-size:13px;">🎯 <span id="challenges-btn-label">0</span></span>
+            <span style="font-size:9px;font-weight:600;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">Desafíos</span>
           </div>
         </button>
       </div>
     </div>
-    <div style="background:white;border:1.5px solid #E8D5B7;border-radius:16px;padding:12px 18px;display:inline-flex;align-items:center;gap:12px;min-width:180px;box-shadow:0 2px 8px rgba(13,31,53,0.06);">
-      <span style="font-size:1.8rem;font-weight:900;color:#1B3A5C;font-family:'Fraunces',serif;">${overallPct}%</span>
-      <div style="flex:1;">
-        <div style="font-size:11px;color:#B89A74;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;font-weight:600;">Progreso total</div>
-        <div style="height:6px;background:#F5E6D3;border-radius:99px;overflow:hidden;">
-          <div style="height:100%;width:${overallPct}%;background:linear-gradient(90deg,#C4963C,#D4A843);border-radius:99px;"></div>
-        </div>
-      </div>
-    </div>
-    ${reviewCount>0?`<div style="margin-top:10px;display:inline-block;background:#FEF3C7;border:1px solid #D4A843;border-radius:10px;padding:6px 14px;font-size:12px;color:#92400E;font-weight:700;">⏰ ${reviewCount} ${reviewCount===1?"serie necesita":"series necesitan"} repaso</div>`:""}
+    ${reviewCount>0?`<div style="margin-top:6px;display:inline-block;background:#FEF3C7;border:1px solid #D4A843;border-radius:10px;padding:5px 12px;font-size:11px;color:#92400E;font-weight:700;">⏰ ${reviewCount} serie${reviewCount===1?"":"s"} con repaso</div>`:""}
   `;
   // ── SALUDO CON AVATAR Y MASCOTA ─────────────────────────────────
   // (header de stats se agrega después del CTA)
@@ -4358,6 +4339,18 @@ function renderHome(){
   }
 
   // Stats / datos secundarios — aparecen DESPUÉS del CTA
+  // Agregar contenedores de panel desplegable DENTRO del header
+  // para que se abran justo debajo de los botones
+  // Panel único de desafíos (misiones del día + desafíos semanales)
+  const _challengesPanel = document.createElement('div');
+  _challengesPanel.id = 'challenges-panel';
+  _challengesPanel.style.cssText = 'overflow:hidden;max-height:0;transition:max-height .35s cubic-bezier(.4,0,.2,1);';
+  header.appendChild(_challengesPanel);
+
+  // Alias para compatibilidad con código que busque quest-panel o weekly-panel
+  const _inlineQuestPanel  = _challengesPanel;
+  const _inlineWeeklyPanel = _challengesPanel;
+
   baseC.appendChild(header);
 
   // ── BOTÓN TEFILOT ────────────────────────────────────────────
@@ -4479,25 +4472,30 @@ function renderHome(){
     baseC.appendChild(bmSetupCard);
   }
 
-  // ── MISIONES DEL DÍA ─────────────────────────────────────────
-  const questCard = renderDailyQuestCard();
-  // Envolver en contenedor colapsable
-  const questWrap = document.createElement('div');
-  questWrap.id = 'quest-panel';
-  questWrap.style.cssText = 'overflow:hidden;max-height:0;transition:max-height .35s ease;';
-  questWrap.appendChild(questCard);
-  baseC.appendChild(questWrap);
-  // Actualizar labels de botones
-  _updateQuestBtnLabel();
-  _updateWeeklyBtnLabel();
+  // ── DESAFÍOS — misiones + semana en el mismo panel
+  const _cPanel = document.getElementById('challenges-panel');
+  if(_cPanel){
+    // Título misiones del día
+    const _mTitle = document.createElement('div');
+    _mTitle.style.cssText = 'padding:12px 16px 0;font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.08em;';
+    _mTitle.textContent = '🎯 Misiones del día';
+    _cPanel.appendChild(_mTitle);
+    _cPanel.appendChild(renderDailyQuestCard());
 
-  // ── DESAFÍOS SEMANALES ────────────────────────────────────────
-  // Solo mostrar si el panel está expandido (similar a misiones)
-  const weeklyWrap = document.createElement('div');
-  weeklyWrap.id = 'weekly-panel';
-  weeklyWrap.style.cssText = 'overflow:hidden;max-height:0;transition:max-height .35s ease;';
-  weeklyWrap.appendChild(renderWeeklyChallengesCard());
-  baseC.appendChild(weeklyWrap);
+    // Separador
+    const _sep = document.createElement('div');
+    _sep.style.cssText = 'height:1px;background:var(--sand-200);margin:8px 16px;';
+    _cPanel.appendChild(_sep);
+
+    // Título desafíos semanales
+    const _wTitle = document.createElement('div');
+    _wTitle.style.cssText = 'padding:4px 16px 0;font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.08em;';
+    _wTitle.textContent = '🗓️ Desafíos de la semana';
+    _cPanel.appendChild(_wTitle);
+    _cPanel.appendChild(renderWeeklyChallengesCard());
+  }
+  // Actualizar label del botón unificado
+  _updateChallengesBtnLabel();
 
   // Flash Recall accesible desde el botón ⚡ en el header
 
@@ -9807,19 +9805,7 @@ function checkWeeklyMilestone(){
 }
 
 
-function _updateWeeklyBtnLabel(){
-  const data      = getWeeklyChallenges();
-  const doneCount = data.completed.length;
-  const total     = WEEKLY_CHALLENGES.length;
-  const btn       = document.getElementById('weekly-btn-label');
-  if(btn) btn.textContent = doneCount + '/' + total;
-  const btn2 = document.getElementById('weekly-toggle-btn');
-  if(btn2){
-    const allDone = doneCount === total;
-    btn2.style.background = allDone ? 'var(--success)' : 'var(--navy-700)';
-    btn2.style.boxShadow  = allDone ? '0 3px 0 #2d8a55' : '0 3px 0 var(--navy-900)';
-  }
-}
+function _updateWeeklyBtnLabel(){ _updateChallengesBtnLabel(); }
 
 // ╔═══════════════════════════════════════════════════════════════╗
 // ║  LOGROS SEMANALES REPETIBLES                                  ║
@@ -9913,18 +9899,40 @@ function renderWeeklyChallengesCard(){
   return card;
 }
 
-function toggleWeeklyPanel(){
-  const panel = document.getElementById('weekly-panel');
+// ── Panel unificado de desafíos (misiones del día + semana) ──────
+function toggleChallengesPanel(){
+  const panel = document.getElementById('challenges-panel');
+  const btn   = document.getElementById('challenges-toggle-btn');
   if(!panel) return;
   const isOpen = panel.style.maxHeight !== '0px' && panel.style.maxHeight !== '';
   if(isOpen){
     panel.style.maxHeight = '0';
-    panel.style.overflow  = 'hidden';
+    if(btn){ btn.style.borderColor='var(--sand-300)'; btn.style.color='var(--navy-700)'; }
   } else {
-    panel.style.overflow  = 'visible';
     panel.style.maxHeight = panel.scrollHeight + 200 + 'px';
+    setTimeout(() => { if(panel) panel.style.maxHeight = panel.scrollHeight + 60 + 'px'; }, 50);
+    if(btn){ btn.style.borderColor='var(--navy-600)'; btn.style.color='var(--navy-800)'; }
   }
 }
+
+function _updateChallengesBtnLabel(){
+  const btn = document.getElementById('challenges-btn-label');
+  if(!btn) return;
+  const qDone  = (typeof _missionState !== 'undefined' && _missionState) ? _missionState.progress : 0;
+  const wData  = typeof getWeeklyChallenges === 'function' ? getWeeklyChallenges() : { completed:[] };
+  const wDone  = wData.completed.length;
+  const wTotal = typeof WEEKLY_CHALLENGES !== 'undefined' ? WEEKLY_CHALLENGES.length : 5;
+  const total  = qDone + wDone;
+  const max    = 1 + wTotal; // 1 misión diaria + N semanales
+  btn.textContent = total + '/' + max;
+  const allDone = total >= max;
+  const toggleBtn = document.getElementById('challenges-toggle-btn');
+  if(toggleBtn) toggleBtn.style.borderColor = allDone ? 'var(--success)' : 'var(--sand-300)';
+}
+
+function _updateQuestBtnLabel(){ _updateChallengesBtnLabel(); }
+
+function toggleWeeklyPanel(){ toggleChallengesPanel(); }
 // ── DAILY QUEST PANEL TOGGLE ──────────────────────────────────────
 function _updateQuestBtnLabel(){
   const quests = getDailyQuests();
@@ -9940,21 +9948,7 @@ function _updateQuestBtnLabel(){
   }
 }
 
-function toggleDailyQuestPanel(){
-  const panel = document.getElementById('quest-panel');
-  const btn   = document.getElementById('quest-toggle-btn');
-  if(!panel) return;
-  const isOpen = panel.style.maxHeight !== '0px' && panel.style.maxHeight !== '';
-  if(isOpen){
-    panel.style.maxHeight = '0';
-    panel.style.overflow  = 'hidden';
-  } else {
-    panel.style.overflow  = 'visible';
-    panel.style.maxHeight = panel.scrollHeight + 'px';
-    // Recalcular después de render
-    setTimeout(() => { panel.style.maxHeight = panel.scrollHeight + 100 + 'px'; }, 50);
-  }
-}
+function toggleDailyQuestPanel(){ toggleChallengesPanel(); }
 
 function getParashaForDate(dateStr){
   if(!dateStr || !DATE_PARASHA_MAP) return null;
@@ -12368,6 +12362,55 @@ function resetOnboarding(){
   if(_obEl){ _obEl.remove(); _obEl = null; }
   startOnboardingFlow();
   console.log('[Onboarding] Reset completo — reiniciando flujo');
+}
+
+// ── Prompt de cuenta estilo Duolingo ─────────────────────────
+// Se muestra DESPUÉS de la primera lección, no al entrar
+function _showAuthPrompt(){
+  if(_authUser) return; // ya logueado
+  const existing = document.getElementById('auth-prompt-banner');
+  if(existing) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'auth-prompt-banner';
+  banner.style.cssText = [
+    'position:fixed;bottom:0;left:0;right:0;z-index:8800',
+    'background:white;border-top:1.5px solid var(--sand-300)',
+    'padding:20px 20px max(env(safe-area-inset-bottom,0px),20px)',
+    'box-shadow:0 -4px 24px rgba(13,31,53,0.12)',
+    'animation:fadeSlideUp .3s cubic-bezier(.34,1.56,.64,1)',
+  ].join(';');
+
+  banner.innerHTML = `
+    <div style="max-width:420px;margin:0 auto;text-align:center;">
+      <p style="font-size:13px;color:var(--sand-500);margin-bottom:12px;">
+        ¡Guardá tu progreso para no perderlo!
+      </p>
+      <div style="display:flex;gap:10px;">
+        <button onclick="document.getElementById('auth-prompt-banner').remove();authSwitchTab('signup');showView('auth');"
+          style="flex:2;padding:13px;border-radius:14px;border:none;
+                 background:linear-gradient(135deg,#1B3A5C,#2A5280);
+                 color:white;font-size:14px;font-weight:900;
+                 font-family:'Fraunces',serif;cursor:pointer;
+                 box-shadow:0 3px 0 #0D1F35;">
+          Crear cuenta gratis
+        </button>
+        <button onclick="document.getElementById('auth-prompt-banner').remove();authSwitchTab('login');showView('auth');"
+          style="flex:1;padding:13px;border-radius:14px;
+                 border:1.5px solid var(--sand-300);background:white;
+                 color:var(--navy-700);font-size:14px;font-weight:700;cursor:pointer;">
+          Entrar
+        </button>
+      </div>
+      <button onclick="document.getElementById('auth-prompt-banner').remove()"
+        style="background:none;border:none;color:var(--sand-400);font-size:12px;
+               cursor:pointer;margin-top:10px;padding:4px;">
+        Ahora no
+      </button>
+    </div>`;
+
+  document.body.appendChild(banner);
+  trackEvent('auth_prompt_shown', {});
 }
 
 // ── APP INIT ──────────────────────────────────────────────────────
