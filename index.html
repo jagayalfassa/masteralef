@@ -89,6 +89,56 @@
   /* Animaciones pausables con JS (IntersectionObserver) */
   .anim-paused * { animation-play-state: paused !important; }
 
+  /* ── Onboarding de bienvenida (welcome + pasos con imagen) ─── */
+  .ob-screen {
+    position: fixed; inset: 0; z-index: 8500;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+    overflow: hidden;
+  }
+  .ob-screen__bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center top;
+    background-repeat: no-repeat;
+    transition: opacity .25s ease;
+  }
+  .ob-screen__ui {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 420px;
+    padding: 0 20px 8px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 12px;
+  }
+  .ob-btn-primary {
+    width: 85%; max-width: 360px; height: 60px;
+    border-radius: 16px; border: none; cursor: pointer;
+    background: linear-gradient(180deg, #D4A843 0%, #A67C28 100%);
+    color: white; font-size: 17px; font-weight: 900;
+    font-family: 'Fraunces', serif; letter-spacing: 0.03em;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.28);
+    transition: transform .08s ease, box-shadow .08s ease;
+    touch-action: manipulation;
+  }
+  .ob-btn-primary:active { transform: scale(0.96); box-shadow: 0 3px 8px rgba(0,0,0,0.22); }
+  .ob-btn-secondary {
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.75); font-size: 14px; font-weight: 600;
+    padding: 8px 16px; touch-action: manipulation;
+  }
+  .ob-btn-secondary:active { opacity: .6; }
+  .ob-dots {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 4px;
+  }
+  .ob-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    transition: width .2s ease, background .2s ease;
+  }
+  .ob-dot.active { width: 22px; border-radius: 4px; background: white; }
+  @keyframes ob-fadein { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
+
   /* Respetar preferencia de movimiento reducido */
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
@@ -4059,7 +4109,7 @@ function renderHome(){
 
   // ── HEADER ────────────────────────────────────────────────
   const header=document.createElement("div");
-  header.style.cssText="padding:14px 18px 10px;text-align:center;";
+  header.style.cssText="padding:10px 16px 8px;text-align:center;border-top:1px solid var(--sand-200);margin-top:4px;";
   header.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
       ${streak>0
@@ -4088,55 +4138,55 @@ function renderHome(){
       <span style="font-size:1.4rem;font-weight:900;color:#C4963C;font-family:'Fraunces',serif;">₪ ${state.shekels.toLocaleString()}</span>
       ${buildLevelWidget(state.shekels)}
       <div style="margin-top:10px;display:flex;gap:8px;">
-        <!-- Botón Tienda -->
+        <!-- Botón Tienda — secundario, menor jerarquía -->
         <button id="coin-display" onclick="showShopView()" title="Tienda 🛒"
-          style="flex:1;background:var(--gold-500);color:white;border:none;
-          box-shadow:0 3px 0 var(--gold-600);border-radius:14px;
-          padding:10px 12px;cursor:pointer;
+          style="flex:1;background:var(--sand-100);color:var(--navy-700);
+          border:1.5px solid var(--sand-300);border-radius:12px;
+          padding:8px 10px;cursor:pointer;
           display:flex;align-items:center;justify-content:center;gap:6px;
-          font-size:13px;font-weight:900;
-          transition:transform .1s,box-shadow .1s;"
-          onmousedown="this.style.transform='translateY(2px)';this.style.boxShadow='0 1px 0 var(--gold-600)'"
-          onmouseup="this.style.transform='';this.style.boxShadow='0 3px 0 var(--gold-600)'"
-          ontouchstart="this.style.transform='translateY(2px)';this.style.boxShadow='0 1px 0 var(--gold-600)'"
-          ontouchend="this.style.transform='';this.style.boxShadow='0 3px 0 var(--gold-600)'">
+          font-size:12px;font-weight:700;
+          transition:transform .1s,background .1s;"
+          onmousedown="this.style.transform='translateY(1px)'"
+          onmouseup="this.style.transform=''"
+          ontouchstart="this.style.transform='translateY(1px)'"
+          ontouchend="this.style.transform=''">
           <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-            <span style="font-size:14px;">💰 <span id="coin-amount">0</span></span>
-            <span style="font-size:9px;font-weight:700;opacity:0.85;letter-spacing:0.04em;text-transform:uppercase;">Tienda</span>
+            <span style="font-size:13px;">💰 <span id="coin-amount">0</span></span>
+            <span style="font-size:9px;font-weight:600;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">Tienda</span>
           </div>
         </button>
-        <!-- Botón Desafíos semanales (desplegable) -->
+        <!-- Botón Desafíos semanales -->
         <button id="weekly-toggle-btn" onclick="toggleWeeklyPanel()"
-          style="flex:1;background:var(--navy-700);color:white;border:none;
-          box-shadow:0 3px 0 var(--navy-900);border-radius:14px;
-          padding:10px 12px;cursor:pointer;
+          style="flex:1;background:var(--sand-100);color:var(--navy-700);
+          border:1.5px solid var(--sand-300);border-radius:12px;
+          padding:8px 10px;cursor:pointer;
           display:flex;align-items:center;justify-content:center;gap:6px;
-          font-size:13px;font-weight:900;
-          transition:transform .1s,box-shadow .1s;"
-          onmousedown="this.style.transform='translateY(2px)';this.style.boxShadow='0 1px 0 var(--navy-900)'"
-          onmouseup="this.style.transform='';this.style.boxShadow='0 3px 0 var(--navy-900)'"
-          ontouchstart="this.style.transform='translateY(2px)';this.style.boxShadow='0 1px 0 var(--navy-900)'"
-          ontouchend="this.style.transform='';this.style.boxShadow='0 3px 0 var(--navy-900)'">
+          font-size:12px;font-weight:700;
+          transition:transform .1s;"
+          onmousedown="this.style.transform='translateY(1px)'"
+          onmouseup="this.style.transform=''"
+          ontouchstart="this.style.transform='translateY(1px)'"
+          ontouchend="this.style.transform=''">
           <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-            <span style="font-size:14px;">🗓️ <span id="weekly-btn-label">0/5</span></span>
-            <span style="font-size:9px;font-weight:700;opacity:0.85;letter-spacing:0.04em;text-transform:uppercase;">Semana</span>
+            <span style="font-size:13px;">🗓️ <span id="weekly-btn-label">0/5</span></span>
+            <span style="font-size:9px;font-weight:600;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">Semana</span>
           </div>
         </button>
-        <!-- Botón Misiones del día (desplegable) -->
+        <!-- Botón Misiones del día -->
         <button id="quest-toggle-btn" onclick="toggleDailyQuestPanel()"
-          style="flex:1;background:var(--navy-800);color:white;border:none;
-          box-shadow:0 3px 0 var(--navy-900);border-radius:14px;
-          padding:10px 12px;cursor:pointer;
+          style="flex:1;background:var(--sand-100);color:var(--navy-700);
+          border:1.5px solid var(--sand-300);border-radius:12px;
+          padding:8px 10px;cursor:pointer;
           display:flex;align-items:center;justify-content:center;gap:6px;
-          font-size:13px;font-weight:900;
-          transition:transform .1s,box-shadow .1s;"
-          onmousedown="this.style.transform='translateY(2px)';this.style.boxShadow='0 1px 0 var(--navy-900)'"
-          onmouseup="this.style.transform='';this.style.boxShadow='0 3px 0 var(--navy-900)'"
-          ontouchstart="this.style.transform='translateY(2px)';this.style.boxShadow='0 1px 0 var(--navy-900)'"
-          ontouchend="this.style.transform='';this.style.boxShadow='0 3px 0 var(--navy-900)'">
+          font-size:12px;font-weight:700;
+          transition:transform .1s;"
+          onmousedown="this.style.transform='translateY(1px)'"
+          onmouseup="this.style.transform=''"
+          ontouchstart="this.style.transform='translateY(1px)'"
+          ontouchend="this.style.transform=''">
           <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-            <span style="font-size:14px;">🎯 <span id="quest-btn-label">0/0</span></span>
-            <span style="font-size:9px;font-weight:700;opacity:0.85;letter-spacing:0.04em;text-transform:uppercase;">Misiones del día</span>
+            <span style="font-size:13px;">🎯 <span id="quest-btn-label">0/0</span></span>
+            <span style="font-size:9px;font-weight:600;opacity:0.7;letter-spacing:0.04em;text-transform:uppercase;">Misiones</span>
           </div>
         </button>
       </div>
@@ -4152,9 +4202,8 @@ function renderHome(){
     </div>
     ${reviewCount>0?`<div style="margin-top:10px;display:inline-block;background:#FEF3C7;border:1px solid #D4A843;border-radius:10px;padding:6px 14px;font-size:12px;color:#92400E;font-weight:700;">⏰ ${reviewCount} ${reviewCount===1?"serie necesita":"series necesitan"} repaso</div>`:""}
   `;
-  baseC.appendChild(header);
-
   // ── SALUDO CON AVATAR Y MASCOTA ─────────────────────────────────
+  // (header de stats se agrega después del CTA)
   const playerName  = getPlayerName();
   const activeAv    = getActiveAvatarItem();
   const activePet   = getActivePetItem();
@@ -4165,7 +4214,7 @@ function renderHome(){
   const greetName   = playerName ? greeting + ', ' + playerName + '!' : greeting + ' 👋';
 
   const greetEl = document.createElement('div');
-  greetEl.style.cssText = 'padding:10px 16px 4px;display:flex;align-items:flex-end;gap:10px;';
+  greetEl.style.cssText = 'padding:14px 16px 8px;display:flex;align-items:flex-end;gap:10px;';
 
   // Avatar con marco activo
   const activeFrame = FRAMES.find(f => f.id === getActiveFrame()) || FRAMES[0];
@@ -4206,8 +4255,14 @@ function renderHome(){
         '</div>' +
       '</div>';
   } else {
+    // Subtítulo contextual según estado
+    const hasProgress = Object.keys(ALL_DATA).some(k =>
+      getLessons(k).some((_,i) => (state.progress[lessonKey(k,i)]||0) > 0)
+    );
+    const subtitle = hasProgress ? 'Seguimos donde quedamos 📖' : '¡Empezá a aprender hebreo! ✨';
     bubbleWrap.innerHTML =
-      '<p style="font-size:13px;font-weight:600;color:var(--sand-500);margin:0;">' + greetName + '</p>';
+      '<p style="font-size:13px;font-weight:600;color:var(--sand-500);margin:0 0 2px;">' + greetName + '</p>' +
+      '<p style="font-size:12px;color:var(--sand-400);margin:0;font-weight:500;">' + subtitle + '</p>';
   }
   greetEl.appendChild(bubbleWrap);
   baseC.appendChild(greetEl);
@@ -4216,48 +4271,83 @@ function renderHome(){
   const nextStep = getNextStep();
   if(nextStep){
     const continueCard = document.createElement('div');
-    continueCard.style.cssText = 'padding:0 14px 16px;';
+    continueCard.style.cssText = 'padding:0 14px 20px;';
 
     const inProg = nextStep.inProgress;
     const isRev  = nextStep.isReview;
-    const accent = isRev ? '#2563EB' : '#C4963C';
-    const accentDark = isRev ? '#1D4ED8' : '#A67C28';
-    const accentBg   = isRev ? 'rgba(37,99,235,0.06)' : 'rgba(196,150,60,0.06)';
-    const icon = isRev ? '🔄' : inProg ? '▶️' : '🌟';
-    const ctaLabel = isRev ? 'Repasar' : 'Continuar';
+    // Nunca empezó nada — primer acceso
+    const isFirstTime = !inProg && !isRev &&
+      !Object.keys(ALL_DATA).some(k => getLessons(k).some((_,i) => (state.progress[lessonKey(k,i)]||0) > 0));
+
+    const accent     = isRev ? '#2563EB' : '#C4963C';
+    const accentDark = isRev ? '#1D4ED8' : '#8a6420';
+    const icon       = isRev ? '🔄' : isFirstTime ? '✨' : inProg ? '▶️' : '🌟';
+
+    // Etiqueta superior contextual
+    const eyebrow = isRev     ? 'REPASO PENDIENTE'
+                  : isFirstTime ? 'EMPEZAR A PRACTICAR'
+                  : inProg    ? 'CONTINUAR'
+                  : 'EMPEZAR A PRACTICAR';
+
+    // Texto del botón
+    const ctaLabel = isRev       ? 'Repasar ahora'
+                   : isFirstTime ? 'Empezar'
+                   : inProg      ? 'Continuar'
+                   : 'Practicar ahora';
 
     continueCard.innerHTML = `
-      <div style="background:white;border:2px solid ${accent};border-radius:18px;
-                  padding:14px 16px;box-shadow:0 4px 16px rgba(0,0,0,0.07);
-                  display:flex;align-items:center;gap:12px;cursor:pointer;"
+      <div style="background:${isFirstTime
+          ? 'linear-gradient(135deg,#1B3A5C 0%,#2A5280 100%)'
+          : 'white'};
+                  border:2px solid ${isFirstTime ? 'transparent' : accent};
+                  border-radius:20px;
+                  padding:18px 18px;
+                  box-shadow:${isFirstTime
+                    ? '0 8px 28px rgba(13,31,53,0.22)'
+                    : '0 4px 16px rgba(0,0,0,0.07)'};
+                  cursor:pointer;position:relative;overflow:hidden;"
            id="continue-card">
-        <div style="width:44px;height:44px;border-radius:50%;background:${accentBg};
-                    display:flex;align-items:center;justify-content:center;flex-shrink:0;
-                    font-size:1.4rem;">${icon}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:10px;font-weight:700;color:${accent};
-                      text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;">
-            ${isRev ? '🔄 Repaso pendiente' : inProg ? '▶ Retomá donde lo dejaste' : '🌟 Empezar nueva lección'}
-          </div>
-          <div style="font-size:14px;font-weight:900;color:#1B3A5C;
-                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${nextStep.label}
-          </div>
-          ${inProg && nextStep.pct > 0 ? `
-            <div style="margin-top:5px;height:4px;background:#F5E6D3;
-                        border-radius:99px;overflow:hidden;">
-              <div style="height:100%;width:${nextStep.pct}%;
-                          background:${accent};border-radius:99px;"></div>
-            </div>
-            <div style="font-size:10px;color:#B89A74;margin-top:2px;">
-              ${nextStep.pct}% completada
-            </div>` : ''}
+        ${isFirstTime ? '<div style="position:absolute;inset:0;background:radial-gradient(ellipse at top right,rgba(196,150,60,0.15),transparent 60%);pointer-events:none;"></div>' : ''}
+        <div style="font-size:10px;font-weight:700;
+                    color:${isFirstTime ? 'rgba(196,150,60,0.9)' : accent};
+                    text-transform:uppercase;letter-spacing:0.12em;margin-bottom:6px;">
+          ${eyebrow}
         </div>
-        <button style="background:${accent};color:white;border:none;
-                       border-radius:10px;padding:10px 16px;font-size:13px;
-                       font-weight:900;cursor:pointer;white-space:nowrap;
-                       box-shadow:0 3px 0 ${accentDark};flex-shrink:0;">
-          ${ctaLabel} →
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:48px;height:48px;border-radius:14px;
+                      background:${isFirstTime ? 'rgba(196,150,60,0.18)' : 'rgba(196,150,60,0.08)'};
+                      display:flex;align-items:center;justify-content:center;
+                      flex-shrink:0;font-size:1.5rem;">${icon}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:16px;font-weight:900;
+                        color:${isFirstTime ? 'white' : '#1B3A5C'};
+                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${nextStep.label}
+            </div>
+            ${inProg && nextStep.pct > 0 ? `
+              <div style="margin-top:6px;height:4px;
+                          background:${isFirstTime ? 'rgba(255,255,255,0.2)' : '#F5E6D3'};
+                          border-radius:99px;overflow:hidden;">
+                <div style="height:100%;width:${nextStep.pct}%;
+                            background:${isFirstTime ? 'white' : accent};border-radius:99px;"></div>
+              </div>
+              <div style="font-size:10px;color:${isFirstTime ? 'rgba(255,255,255,0.6)' : '#B89A74'};margin-top:2px;">
+                ${nextStep.pct}% completada
+              </div>` : ''}
+          </div>
+        </div>
+        <button style="margin-top:14px;width:100%;
+                       background:${isFirstTime
+                         ? 'linear-gradient(135deg,#D4A843,#C4963C,#A67C28)'
+                         : accent};
+                       color:white;border:none;border-radius:14px;
+                       padding:14px;font-size:15px;font-weight:900;
+                       font-family:'Fraunces',serif;
+                       cursor:pointer;letter-spacing:0.04em;
+                       box-shadow:0 4px 0 ${accentDark};
+                       animation:${isFirstTime ? 'none' : 'none'};
+                       display:flex;align-items:center;justify-content:center;gap:8px;">
+          ${ctaLabel} <span style="font-size:1.1em;">→</span>
         </button>
       </div>`;
 
@@ -4266,6 +4356,9 @@ function renderHome(){
     });
     baseC.appendChild(continueCard);
   }
+
+  // Stats / datos secundarios — aparecen DESPUÉS del CTA
+  baseC.appendChild(header);
 
   // ── BOTÓN TEFILOT ────────────────────────────────────────────
   const tefilotBtn = document.createElement('div');
@@ -4415,10 +4508,14 @@ function renderHome(){
   if(!hasAnyProgress){
     const startBtn=document.createElement('div');
     startBtn.style.cssText='padding:0 18px 0;display:flex;justify-content:center;margin-bottom:-20px;';
+    // El CTA principal ya muestra la acción para nuevos usuarios.
+    // Este botón alternativo solo se muestra si no existe el bloque continuar (getNextStep() === null).
+    // Lo hacemos sutil para no competir con la jerarquía.
     startBtn.innerHTML =
-    '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 0 4px;">' +
-    '<img src="img/rashi-idle.png" style="height:80px;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(13,31,53,0.18));animation:bounce 1s ease infinite alternate;" alt="Rashi">' +
-    '<button style="background:linear-gradient(135deg,#D4A843,#C4963C,#A67C28);color:white;border:none;border-radius:10px;padding:9px 28px;font-size:13px;font-weight:900;letter-spacing:0.08em;box-shadow:0 3px 0 #8a6420;cursor:pointer;" id="comenzar-btn">COMENZAR</button>' +
+    '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:4px 0 0;">' +
+    '<button style="background:linear-gradient(135deg,#D4A843,#C4963C,#A67C28);color:white;border:none;' +
+    'border-radius:14px;padding:14px 40px;font-size:15px;font-weight:900;' +
+    'font-family:Fraunces,serif;letter-spacing:0.05em;box-shadow:0 4px 0 #8a6420;cursor:pointer;" id="comenzar-btn">Empezar ahora →</button>' +
     '</div>';
   startBtn.querySelector('#comenzar-btn').addEventListener('click', function(){ startSeries('A'); });
     baseC.appendChild(startBtn);
@@ -12100,6 +12197,179 @@ const _perf = {
   }
 })();
 
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  WELCOME + ONBOARDING FLOW — imágenes de fondo           ║
+// ╚═══════════════════════════════════════════════════════════╝
+
+const OB_WELCOME_KEY    = 'welcome_seen';
+const OB_DONE_KEY       = 'onboarding_done';
+
+// Config de cada paso: imagen de fondo, texto del CTA, texto secundario
+const OB_STEPS = [
+  {
+    key:       'welcome',
+    bg:        'img/welcome-bg.png',
+    cta:       'Empezar',
+    secondary: 'Ya tengo cuenta',
+    dots:      false,
+  },
+  {
+    key:       1,
+    bg:        'img/onboarding-1.png',
+    cta:       'Siguiente →',
+    secondary: null,
+    dots:      true,
+  },
+  {
+    key:       2,
+    bg:        'img/onboarding-2.png',
+    cta:       'Siguiente →',
+    secondary: null,
+    dots:      true,
+  },
+  {
+    key:       3,
+    bg:        'img/onboarding-3.png',
+    cta:       'Empezar ahora',
+    secondary: null,
+    dots:      true,
+  },
+];
+
+let _obEl       = null;  // el overlay DOM
+let _obStepIdx  = 0;     // índice del paso actual
+
+/**
+ * startOnboardingFlow()
+ * Decide qué pantalla mostrar según localStorage.
+ * Llama a renderOnboardingStep() con el paso correcto.
+ */
+function startOnboardingFlow(){
+  if(typeof window._hideSplash === 'function'){
+    window._hideSplash(); window._hideSplash = null;
+  }
+
+  const welcomeSeen  = localStorage.getItem(OB_WELCOME_KEY);
+  const obDone       = localStorage.getItem(OB_DONE_KEY);
+
+  if(obDone){
+    // Ya completó todo — ir directo a home
+    renderHome();
+    return;
+  }
+
+  if(!welcomeSeen){
+    _obStepIdx = 0; // welcome
+  } else {
+    _obStepIdx = 1; // primer paso del onboarding
+  }
+
+  renderOnboardingStep(_obStepIdx);
+}
+
+/**
+ * renderOnboardingStep(stepIdx)
+ * Renderiza el paso indicado (0 = welcome, 1-3 = pasos).
+ * Reutiliza el mismo overlay, solo cambia la imagen y los botones.
+ */
+function renderOnboardingStep(stepIdx){
+  const step = OB_STEPS[stepIdx];
+  if(!step){ _obFinish(); return; }
+
+  // Crear overlay si no existe
+  if(!_obEl){
+    _obEl = document.createElement('div');
+    _obEl.className = 'ob-screen';
+    _obEl.id = 'ob-flow-screen';
+    document.body.appendChild(_obEl);
+  }
+
+  // Número de pasos con dots (1-3)
+  const TOTAL_DOTS = 3;
+  const dotIdx = typeof step.key === 'number' ? step.key - 1 : -1;
+
+  _obEl.innerHTML = `
+    <div class="ob-screen__bg" id="ob-bg" style="background-image:url('${step.bg}');"></div>
+    <div class="ob-screen__ui" style="animation:ob-fadein .28s ease both;">
+      ${step.dots ? `
+      <div class="ob-dots">
+        ${Array.from({length: TOTAL_DOTS}, (_,i) =>
+          `<div class="ob-dot${i === dotIdx ? ' active' : ''}"></div>`
+        ).join('')}
+      </div>` : ''}
+      <button class="ob-btn-primary" id="ob-cta-btn">${step.cta}</button>
+      ${step.secondary ? `
+      <button class="ob-btn-secondary" id="ob-secondary-btn">${step.secondary}</button>
+      ` : ''}
+    </div>`;
+
+  // Listeners
+  document.getElementById('ob-cta-btn').addEventListener('click', () => _obNext(stepIdx), { once: true });
+
+  const secBtn = document.getElementById('ob-secondary-btn');
+  if(secBtn){
+    secBtn.addEventListener('click', () => {
+      // "Ya tengo cuenta" → ir al login
+      _obEl.remove(); _obEl = null;
+      showView('auth');
+    }, { once: true });
+  }
+}
+
+/** Avanza al siguiente paso con transición */
+function _obNext(currentIdx){
+  const nextIdx = currentIdx + 1;
+
+  // Marcar welcome como visto al salir del step 0
+  if(currentIdx === 0){
+    localStorage.setItem(OB_WELCOME_KEY, '1');
+  }
+
+  // Si llegamos más allá del último paso → terminar
+  if(nextIdx >= OB_STEPS.length){
+    _obFinish();
+    return;
+  }
+
+  // Transición: fade out → renderizar nuevo paso
+  if(_obEl){
+    _obEl.style.transition = 'opacity .2s ease';
+    _obEl.style.opacity    = '0';
+    setTimeout(() => {
+      if(_obEl) _obEl.style.opacity = '';
+      _obStepIdx = nextIdx;
+      renderOnboardingStep(nextIdx);
+    }, 200);
+  }
+}
+
+/** Terminar el onboarding → renderHome */
+function _obFinish(){
+  localStorage.setItem(OB_DONE_KEY, '1');
+  localStorage.setItem('heb_welcomed', '1'); // compatibilidad con sistema existente
+
+  if(_obEl){
+    _obEl.style.transition = 'opacity .25s ease';
+    _obEl.style.opacity    = '0';
+    setTimeout(() => {
+      if(_obEl){ _obEl.remove(); _obEl = null; }
+      renderHome();
+    }, 250);
+  } else {
+    renderHome();
+  }
+}
+
+/** resetOnboarding() — para testing */
+function resetOnboarding(){
+  localStorage.removeItem(OB_WELCOME_KEY);
+  localStorage.removeItem(OB_DONE_KEY);
+  localStorage.removeItem('heb_welcomed');
+  if(_obEl){ _obEl.remove(); _obEl = null; }
+  startOnboardingFlow();
+  console.log('[Onboarding] Reset completo — reiniciando flujo');
+}
+
 // ── APP INIT ──────────────────────────────────────────────────────
 function startApp(){
   localStorage.setItem("heb_welcomed","1");
@@ -12130,8 +12400,12 @@ initAuth().then(() => {
   _updateAuthHeader();
 }).catch(() => {});
 
-const isFirstVisit=!localStorage.getItem("heb_welcomed");
-if(isFirstVisit){ startOnboarding(); } else {
+// Flujo de bienvenida: welcome → onboarding → home
+// Si ya completó el onboarding (heb_welcomed O onboarding_done) → home directo
+const _obAlreadyDone = localStorage.getItem('heb_welcomed') || localStorage.getItem(OB_DONE_KEY);
+if(!_obAlreadyDone){
+  startOnboardingFlow();
+} else {
   renderHome();
   setTimeout(checkWeeklyMilestone, 1200);
 }
