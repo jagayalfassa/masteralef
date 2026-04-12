@@ -69,7 +69,7 @@ async function loadTeacherDashboard(){
     if(ids.length){
       const { data: progs } = await _sb
         .from('user_progress')
-        .select('user_id, progress, shekels, updated_at')
+        .select('user_id, progress, shekels, updated_at, bm_date, created_at')
         .in('user_id', ids);
       (progs || []).forEach(p => { progressMap[p.user_id] = p; });
     }
@@ -205,35 +205,43 @@ function tdRenderStudentList(){
       ? new Date(s.prog.updated_at).toLocaleDateString('es', { day:'numeric', month:'short' })
       : 'Nunca';
 
-    return `
-      <div onclick="tdOpenStudent('${s.id}')"
-        style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;
-               padding:14px 16px;cursor:pointer;transition:box-shadow .15s;display:flex;align-items:center;gap:12px;"
-        onmouseenter="this.style.boxShadow='var(--shadow-2)'"
-        onmouseleave="this.style.boxShadow=''">
-        <!-- Avatar -->
-        <div style="width:40px;height:40px;border-radius:50%;background:${cfg.bg};
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:1.1rem;flex-shrink:0;">${cfg.icon}</div>
-        <!-- Info -->
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;color:var(--navy-800);font-size:14px;
-                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
-          <div style="font-size:11px;color:var(--sand-500);margin-top:2px;">
-            Última sesión: ${lastDate}
-          </div>
-          <!-- Barra de progreso -->
-          <div style="margin-top:6px;background:var(--sand-200);height:5px;border-radius:99px;overflow:hidden;">
-            <div style="height:100%;width:${pct}%;background:${pct >= 70 ? 'var(--success)' : pct >= 30 ? 'var(--gold-500)' : 'var(--sand-400)'};border-radius:99px;transition:width .4s;"></div>
-          </div>
-        </div>
-        <!-- % y estado -->
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-size:1rem;font-weight:900;color:var(--navy-800);font-family:'Fraunces',serif;">${pct}%</div>
-          <div style="font-size:10px;font-weight:700;color:${cfg.color};
-                      background:${cfg.bg};padding:2px 7px;border-radius:99px;margin-top:3px;">${cfg.label}</div>
-        </div>
-      </div>`;
+    // Prediction badge
+    const pred = tdGetPrediction(s);
+    var predBadge = '';
+    if(pred && pred.status !== 'today'){
+      var predCfg = {
+        on_track: { icon:'✅', label: pred.daysLeft + 'd · OK', color:'#065F46', bg:'#D1FAE5' },
+        at_risk:  { icon:'⚠️', label: pred.daysLeft + 'd · ' + pred.recoSessions + 'x/sem', color:'#92400E', bg:'#FEF3C7' },
+        behind:   { icon:'🔴', label: pred.daysLeft + 'd · urgente', color:'#991B1B', bg:'#FEE2E2' },
+      }[pred.status];
+      if(predCfg){
+        predBadge = '<div style="font-size:9px;font-weight:700;color:' + predCfg.color + ';' +
+          'background:' + predCfg.bg + ';padding:2px 7px;border-radius:99px;margin-top:2px;">' +
+          '✡️ ' + predBadge + predCfg.label + '</div>';
+      }
+    }
+
+    return '<div onclick="tdOpenStudent(\'' + s.id + '\')"' +
+      ' style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;' +
+      'padding:14px 16px;cursor:pointer;transition:box-shadow .15s;display:flex;align-items:center;gap:12px;"' +
+      ' onmouseenter="this.style.boxShadow=\'var(--shadow-2)\'"' +
+      ' onmouseleave="this.style.boxShadow=\'\'">' +
+        '<div style="width:40px;height:40px;border-radius:50%;background:' + cfg.bg + ';' +
+          'display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">' + cfg.icon + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-weight:700;color:var(--navy-800);font-size:14px;' +
+            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</div>' +
+          '<div style="font-size:11px;color:var(--sand-500);margin-top:2px;">Última sesión: ' + lastDate + '</div>' +
+          '<div style="margin-top:6px;background:var(--sand-200);height:5px;border-radius:99px;overflow:hidden;">' +
+            '<div style="height:100%;width:' + pct + '%;background:' + (pct >= 70 ? 'var(--success)' : pct >= 30 ? 'var(--gold-500)' : 'var(--sand-400)') + ';border-radius:99px;transition:width .4s;"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0;">' +
+          '<div style="font-size:1rem;font-weight:900;color:var(--navy-800);font-family:\'Fraunces\',serif;">' + pct + '%</div>' +
+          '<div style="font-size:10px;font-weight:700;color:' + cfg.color + ';background:' + cfg.bg + ';padding:2px 7px;border-radius:99px;margin-top:3px;">' + cfg.label + '</div>' +
+          predBadge +
+        '</div>' +
+      '</div>';
   }).join('');
 }
 
@@ -257,8 +265,9 @@ function tdGetPrediction(student){
   const bm      = new Date(bmDateStr + 'T00:00:00');
   const now     = new Date();
   const daysLeft = Math.max(0, Math.round((bm - now) / (1000 * 60 * 60 * 24)));
+  const weeksLeft = Math.ceil(daysLeft / 7);
 
-  if(daysLeft === 0) return { daysLeft: 0, status: 'today', pct, needed: 80 };
+  if(daysLeft === 0) return { daysLeft: 0, weeksLeft: 0, status: 'today', pct, projected: pct, GOAL: 80 };
 
   // Velocidad de aprendizaje: progreso / días desde primera actividad
   const firstSeen = student.prog?.created_at
@@ -280,39 +289,63 @@ function tdGetPrediction(student){
   const pctNeeded = Math.max(0, GOAL - pct);
   const daysNeeded = pctPerDay > 0 ? Math.ceil(pctNeeded / pctPerDay) : 999;
 
-  return { daysLeft, projected, status, pct, pctPerDay: pctPerDay.toFixed(1), daysNeeded, GOAL };
+  // Recomendación de sesiones por semana
+  var recoSessions = 3;
+  if(status === 'behind')        recoSessions = 7;
+  else if(status === 'at_risk')  recoSessions = 5;
+  else if(daysLeft <= 30)        recoSessions = 5;
+  else if(daysLeft <= 60)        recoSessions = 4;
+
+  // Ritmo actual estimado (sesiones/semana basado en updated_at history)
+  var currentPace = daysSinceStart > 0 ? Math.round((pct / 4) / (daysSinceStart / 7) * 10) / 10 : 0;
+
+  return { daysLeft, weeksLeft, projected, status, pct,
+           pctPerDay: pctPerDay.toFixed(1), daysNeeded, GOAL,
+           recoSessions, currentPace };
 }
 
 function tdRenderPrediction(pred){
   if(!pred) return '';
-  const { daysLeft, projected, status, pct, daysNeeded, GOAL } = pred;
+  const { daysLeft, weeksLeft, projected, status, pct, daysNeeded, GOAL, recoSessions } = pred;
 
   const statusConfig = {
-    on_track: { icon:'✅', color:'#065F46', bg:'#D1FAE5', label:'Va en camino', msg:`Proyectamos ${projected}% para la ceremonia. ¡Sigue así!` },
-    at_risk:  { icon:'⚠️', color:'#92400E', bg:'#FEF3C7', label:'Necesita refuerzo', msg:`Con este ritmo llegará al ${projected}%. Necesita ${Math.round(daysNeeded - daysLeft)} días más de práctica.` },
-    behind:   { icon:'🔴', color:'#991B1B', bg:'#FEE2E2', label:'Atención urgente', msg:`Solo llegaría al ${projected}%. Se recomienda sesiones adicionales.` },
+    on_track: { icon:'✅', color:'#065F46', bg:'#D1FAE5', label:'Va en camino', msg:'Proyectamos ' + projected + '% para la ceremonia.' },
+    at_risk:  { icon:'⚠️', color:'#92400E', bg:'#FEF3C7', label:'Necesita refuerzo', msg:'Con este ritmo llegará al ' + projected + '%. Recomendación: ' + recoSessions + ' sesiones/semana.' },
+    behind:   { icon:'🔴', color:'#991B1B', bg:'#FEE2E2', label:'Atención urgente', msg:'Solo llegaría al ' + projected + '%. Necesita practicar todos los días.' },
     today:    { icon:'🎉', color:'#1B3A5C', bg:'#EFF6FF', label:'Hoy es el día', msg:'¡Hoy es la ceremonia! 🎉' },
   };
-  const cfg = statusConfig[status];
+  var cfg = statusConfig[status];
 
-  return `
-    <div style="background:${cfg.bg};border:1.5px solid ${cfg.color}40;border-radius:12px;padding:12px 14px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <span style="font-size:1.2rem;">${cfg.icon}</span>
-        <div>
-          <div style="font-size:12px;font-weight:900;color:${cfg.color};">${cfg.label}</div>
-          <div style="font-size:10px;color:${cfg.color}80;">${daysLeft} días hasta la ceremonia</div>
-        </div>
-      </div>
-      <div style="font-size:12px;color:${cfg.color};line-height:1.5;">${cfg.msg}</div>
-      <div style="margin-top:8px;height:6px;background:rgba(0,0,0,0.08);border-radius:99px;overflow:hidden;">
-        <div style="height:100%;width:${Math.min(100,pct)}%;background:${cfg.color};border-radius:99px;"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px;">
-        <span style="font-size:10px;color:${cfg.color}80;">Progreso: ${pct}%</span>
-        <span style="font-size:10px;color:${cfg.color}80;">Meta: ${GOAL}%</span>
-      </div>
-    </div>`;
+  // Recomendación accionable
+  var recoHtml = '';
+  if(status === 'at_risk' || status === 'behind'){
+    recoHtml = '<div style="margin-top:8px;padding:8px 10px;background:white;border-radius:8px;' +
+      'font-size:11px;color:' + cfg.color + ';font-weight:600;display:flex;align-items:center;gap:6px;">' +
+      '<span style="font-size:1rem;">💡</span>' +
+      '<span>Recomendación: practicar <b>' + recoSessions + ' veces por semana</b> ' +
+      (weeksLeft ? '(' + weeksLeft + ' semanas restantes)' : '') + '</span></div>';
+  }
+
+  return '<div style="background:' + cfg.bg + ';border:1.5px solid ' + cfg.color + '40;border-radius:12px;padding:12px 14px;">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+      '<span style="font-size:1.2rem;">' + cfg.icon + '</span>' +
+      '<div>' +
+        '<div style="font-size:12px;font-weight:900;color:' + cfg.color + ';">' + cfg.label + '</div>' +
+        '<div style="font-size:10px;color:' + cfg.color + '80;">' + daysLeft + ' días · ' + (weeksLeft || 0) + ' semanas</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:' + cfg.color + ';line-height:1.5;">' + cfg.msg + '</div>' +
+    '<div style="margin-top:8px;height:6px;background:rgba(0,0,0,0.08);border-radius:99px;overflow:hidden;position:relative;">' +
+      '<div style="height:100%;width:' + Math.min(100,pct) + '%;background:' + cfg.color + ';border-radius:99px;"></div>' +
+      '<div style="position:absolute;top:0;left:' + GOAL + '%;width:2px;height:100%;background:' + cfg.color + ';opacity:0.4;"></div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;margin-top:4px;">' +
+      '<span style="font-size:10px;color:' + cfg.color + '80;">Actual: ' + pct + '%</span>' +
+      '<span style="font-size:10px;color:' + cfg.color + '80;">Meta: ' + GOAL + '%</span>' +
+      '<span style="font-size:10px;color:' + cfg.color + '80;">Proyección: ' + projected + '%</span>' +
+    '</div>' +
+    recoHtml +
+  '</div>';
 }
 
 function tdOpenStudent(studentId){
@@ -440,110 +473,151 @@ function tdRenderWeeklyReport(){
     ? Math.round(_tdStudents.reduce((s, st) => s + tdCalcProgress(st), 0) / _tdStudents.length)
     : 0;
 
-  // Alumnos en riesgo (tienen fecha de BM y proyección desfavorable)
-  const atRisk = _tdStudents.filter(s => {
-    const pred = tdGetPrediction(s);
-    return pred && (pred.status === 'at_risk' || pred.status === 'behind');
-  });
+  // ── REPORTE DE PREPARACIÓN: predicción por alumno ──
+  var studentsWithBM = _tdStudents.filter(function(s){ return tdGetPrediction(s) !== null; });
+  var onTrack = studentsWithBM.filter(function(s){ var p = tdGetPrediction(s); return p && p.status === 'on_track'; });
+  var atRisk  = studentsWithBM.filter(function(s){ var p = tdGetPrediction(s); return p && p.status === 'at_risk'; });
+  var behind  = studentsWithBM.filter(function(s){ var p = tdGetPrediction(s); return p && p.status === 'behind'; });
 
   // Top performers esta semana
   const topStudents = [...activeThisWeek]
     .sort((a, b) => tdCalcProgress(b) - tdCalcProgress(a))
     .slice(0, 3);
 
-  container.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px;">
+  var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
 
-      <!-- Resumen de la semana -->
-      <div style="background:var(--navy-800);border-radius:16px;padding:16px;color:white;">
-        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">
-          📊 Resumen — últimos 7 días
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-          ${[
-            { v: activeThisWeek.length, l: 'Activos', color: '#86efac' },
-            { v: inactiveThisWeek.length, l: 'Inactivos', color: '#fca5a5' },
-            { v: avgPct + '%', l: 'Promedio', color: '#fcd34d' },
-          ].map(x => `
-            <div style="text-align:center;">
-              <div style="font-family:'Fraunces',serif;font-size:1.6rem;font-weight:900;color:${x.color};">${x.v}</div>
-              <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.5);margin-top:2px;">${x.l}</div>
-            </div>`).join('')}
-        </div>
-      </div>
+  // ── Resumen de la semana ──
+  html += '<div style="background:var(--navy-800);border-radius:16px;padding:16px;color:white;">' +
+    '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">' +
+      '📊 Resumen — últimos 7 días</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' +
+      [{ v: activeThisWeek.length, l: 'Activos', color: '#86efac' },
+       { v: inactiveThisWeek.length, l: 'Inactivos', color: '#fca5a5' },
+       { v: avgPct + '%', l: 'Promedio', color: '#fcd34d' }
+      ].map(function(x){ return '<div style="text-align:center;">' +
+        '<div style="font-family:\'Fraunces\',serif;font-size:1.6rem;font-weight:900;color:' + x.color + ';">' + x.v + '</div>' +
+        '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.5);margin-top:2px;">' + x.l + '</div></div>'; }).join('') +
+    '</div></div>';
 
-      ${atRisk.length ? `
-      <!-- Alumnos en riesgo -->
-      <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:14px;padding:14px;">
-        <div style="font-size:12px;font-weight:900;color:#991B1B;margin-bottom:10px;">🔴 Necesitan atención (${atRisk.length})</div>
-        ${atRisk.map(s => {
-          const pred = tdGetPrediction(s);
-          const name = s.name || s.email?.split('@')[0] || 'Alumno';
-          return `
-          <div onclick="tdOpenStudent('${s.id}')" style="display:flex;justify-content:space-between;align-items:center;
-               padding:8px 0;border-bottom:1px solid #FECACA;cursor:pointer;">
-            <span style="font-size:13px;font-weight:600;color:var(--navy-800);">${name}</span>
-            <span style="font-size:11px;color:#991B1B;font-weight:700;">
-              ${pred ? pred.daysLeft + ' días · ' + pred.pct + '%' : ''}
-            </span>
-          </div>`;
-        }).join('')}
-      </div>` : `
-      <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:14px;padding:14px;font-size:13px;color:#065F46;">
-        ✅ Ningún alumno con fecha de ceremonia en riesgo esta semana.
-      </div>`}
+  // ── Reporte de Preparación (nuevo) ──
+  if(studentsWithBM.length > 0){
+    html += '<div style="background:white;border:2px solid var(--navy-300);border-radius:16px;padding:16px;">' +
+      '<div style="font-size:12px;font-weight:900;color:var(--navy-800);margin-bottom:12px;">✡️ Reporte de Preparación — Bar/Bat Mitzvá</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">' +
+        '<div style="background:#D1FAE5;border-radius:10px;padding:10px;text-align:center;">' +
+          '<div style="font-family:\'Fraunces\',serif;font-size:1.4rem;font-weight:900;color:#065F46;">' + onTrack.length + '</div>' +
+          '<div style="font-size:9px;font-weight:700;color:#065F46;text-transform:uppercase;">En camino</div></div>' +
+        '<div style="background:#FEF3C7;border-radius:10px;padding:10px;text-align:center;">' +
+          '<div style="font-family:\'Fraunces\',serif;font-size:1.4rem;font-weight:900;color:#92400E;">' + atRisk.length + '</div>' +
+          '<div style="font-size:9px;font-weight:700;color:#92400E;text-transform:uppercase;">Refuerzo</div></div>' +
+        '<div style="background:#FEE2E2;border-radius:10px;padding:10px;text-align:center;">' +
+          '<div style="font-family:\'Fraunces\',serif;font-size:1.4rem;font-weight:900;color:#991B1B;">' + behind.length + '</div>' +
+          '<div style="font-size:9px;font-weight:700;color:#991B1B;text-transform:uppercase;">Urgente</div></div>' +
+      '</div>';
 
-      ${topStudents.length ? `
-      <!-- Top de la semana -->
-      <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:14px;">
-        <div style="font-size:12px;font-weight:900;color:var(--navy-700);margin-bottom:10px;">🏆 Más activos esta semana</div>
-        ${topStudents.map((s, i) => {
-          const name = s.name || s.email?.split('@')[0] || 'Alumno';
-          const pct  = tdCalcProgress(s);
-          return `
-          <div onclick="tdOpenStudent('${s.id}')" style="display:flex;align-items:center;gap:10px;
-               padding:8px 0;border-bottom:${i < topStudents.length - 1 ? '1px solid var(--sand-200)' : 'none'};cursor:pointer;">
-            <span style="font-size:1.2rem;">${['🥇','🥈','🥉'][i]}</span>
-            <div style="flex:1;">
-              <div style="font-size:13px;font-weight:700;color:var(--navy-800);">${name}</div>
-              <div style="margin-top:4px;height:4px;background:var(--sand-200);border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:${pct}%;background:var(--gold-500);border-radius:99px;"></div>
-              </div>
-            </div>
-            <span style="font-size:13px;font-weight:900;color:var(--navy-800);font-family:'Fraunces',serif;">${pct}%</span>
-          </div>`;
-        }).join('')}
-      </div>` : ''}
+    // Per-student prediction rows
+    studentsWithBM.sort(function(a,b){
+      var pa = tdGetPrediction(a), pb = tdGetPrediction(b);
+      var order = { behind: 0, at_risk: 1, on_track: 2, today: 3 };
+      return (order[pa?.status] || 3) - (order[pb?.status] || 3);
+    });
+    studentsWithBM.forEach(function(s){
+      var pred = tdGetPrediction(s);
+      if(!pred) return;
+      var name = s.name || s.email?.split('@')[0] || 'Alumno';
+      var pCfg = {
+        on_track: { icon:'✅', color:'#065F46' },
+        at_risk:  { icon:'⚠️', color:'#92400E' },
+        behind:   { icon:'🔴', color:'#991B1B' },
+        today:    { icon:'🎉', color:'#1B3A5C' },
+      }[pred.status] || { icon:'', color:'var(--sand-500)' };
+      html += '<div onclick="tdOpenStudent(\'' + s.id + '\')" style="display:flex;align-items:center;gap:10px;' +
+        'padding:8px 0;border-top:1px solid var(--sand-200);cursor:pointer;">' +
+        '<span style="font-size:1rem;">' + pCfg.icon + '</span>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:600;color:var(--navy-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</div>' +
+          '<div style="font-size:10px;color:var(--sand-500);">' + pred.daysLeft + ' días · ' + pred.pct + '% → ' + pred.projected + '%</div>' +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0;">' +
+          '<div style="font-size:12px;font-weight:800;color:' + pCfg.color + ';">' + pred.projected + '%</div>' +
+          (pred.recoSessions ? '<div style="font-size:9px;color:var(--sand-500);">' + pred.recoSessions + 'x/sem</div>' : '') +
+        '</div></div>';
+    });
+    html += '</div>';
+  }
 
-      <!-- Alumnos inactivos esta semana -->
-      ${inactiveThisWeek.length ? `
-      <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:14px;">
-        <div style="font-size:12px;font-weight:700;color:var(--sand-500);margin-bottom:8px;">😴 Sin actividad esta semana (${inactiveThisWeek.length})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;">
-          ${inactiveThisWeek.map(s => {
-            const name = s.name || s.email?.split('@')[0] || 'Alumno';
-            return `<span onclick="tdOpenStudent('${s.id}')" style="font-size:11px;font-weight:700;color:var(--navy-700);
-              background:var(--sand-100);border:1.5px solid var(--sand-200);border-radius:99px;
-              padding:4px 10px;cursor:pointer;">${name}</span>`;
-          }).join('')}
-        </div>
-      </div>` : ''}
+  // ── Alumnos sin fecha de BM ──
+  var withoutBM = _tdStudents.filter(function(s){ return tdGetPrediction(s) === null; });
+  if(withoutBM.length > 0 && studentsWithBM.length > 0){
+    html += '<div style="background:var(--sand-100);border:1.5px solid var(--sand-200);border-radius:12px;padding:12px 14px;">' +
+      '<div style="font-size:11px;color:var(--sand-500);font-weight:600;">ℹ️ ' + withoutBM.length + ' alumno' +
+      (withoutBM.length !== 1 ? 's' : '') + ' sin fecha de ceremonia — pediles que la carguen en la app para ver su proyección.</div></div>';
+  }
 
-    </div>`;
+  // ── Top de la semana ──
+  if(topStudents.length){
+    html += '<div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:14px;">' +
+      '<div style="font-size:12px;font-weight:900;color:var(--navy-700);margin-bottom:10px;">🏆 Más activos esta semana</div>';
+    topStudents.forEach(function(s, i){
+      var name = s.name || s.email?.split('@')[0] || 'Alumno';
+      var pct  = tdCalcProgress(s);
+      html += '<div onclick="tdOpenStudent(\'' + s.id + '\')" style="display:flex;align-items:center;gap:10px;' +
+        'padding:8px 0;border-bottom:' + (i < topStudents.length - 1 ? '1px solid var(--sand-200)' : 'none') + ';cursor:pointer;">' +
+        '<span style="font-size:1.2rem;">' + ['🥇','🥈','🥉'][i] + '</span>' +
+        '<div style="flex:1;">' +
+          '<div style="font-size:13px;font-weight:700;color:var(--navy-800);">' + name + '</div>' +
+          '<div style="margin-top:4px;height:4px;background:var(--sand-200);border-radius:99px;overflow:hidden;">' +
+            '<div style="height:100%;width:' + pct + '%;background:var(--gold-500);border-radius:99px;"></div></div>' +
+        '</div>' +
+        '<span style="font-size:13px;font-weight:900;color:var(--navy-800);font-family:\'Fraunces\',serif;">' + pct + '%</span>' +
+      '</div>';
+    });
+    html += '</div>';
+  }
+
+  // ── Inactivos esta semana ──
+  if(inactiveThisWeek.length){
+    html += '<div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:14px;">' +
+      '<div style="font-size:12px;font-weight:700;color:var(--sand-500);margin-bottom:8px;">😴 Sin actividad esta semana (' + inactiveThisWeek.length + ')</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+    inactiveThisWeek.forEach(function(s){
+      var name = s.name || s.email?.split('@')[0] || 'Alumno';
+      html += '<span onclick="tdOpenStudent(\'' + s.id + '\')" style="font-size:11px;font-weight:700;color:var(--navy-700);' +
+        'background:var(--sand-100);border:1.5px solid var(--sand-200);border-radius:99px;padding:4px 10px;cursor:pointer;">' + name + '</span>';
+    });
+    html += '</div></div>';
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 // ── Configuración de la clase ─────────────────────────────────
 const TD_LEADERBOARD_KEY = 'td_leaderboard_enabled';
 
-function tdToggleLeaderboard(){
-  const current = localStorage.getItem(TD_LEADERBOARD_KEY) === 'true';
-  localStorage.setItem(TD_LEADERBOARD_KEY, String(!current));
-  tdRenderClassSettings(); // re-render para reflejar el cambio
-  showToast(!current ? 'Ranking de clase activado' : 'Ranking de clase desactivado', 'green');
+async function tdToggleLeaderboard(){
+  if(!_sb || !_authUser || !_tdClassData) return;
+  const current = _tdClassData.leaderboard_enabled !== false; // default true
+  const newVal  = !current;
+  // Persist to Supabase
+  const { error } = await _sb
+    .from('classes')
+    .update({ leaderboard_enabled: newVal })
+    .eq('id', _tdClassData.id);
+  if(error){
+    showToast('Error al guardar: ' + error.message, 'warn');
+    return;
+  }
+  _tdClassData.leaderboard_enabled = newVal;
+  // Also keep localStorage in sync for quick reads
+  localStorage.setItem(TD_LEADERBOARD_KEY, String(newVal));
+  tdRenderClassSettings();
+  showToast(newVal ? '🏅 Ranking de clase activado' : '🔒 Ranking de clase desactivado', 'green');
 }
 
 function isLeaderboardEnabled(){
-  return localStorage.getItem(TD_LEADERBOARD_KEY) === 'true';
+  if(_tdClassData) return _tdClassData.leaderboard_enabled !== false;
+  return localStorage.getItem(TD_LEADERBOARD_KEY) !== 'false';
 }
 
 function tdRenderClassSettings(){
@@ -569,6 +643,26 @@ function tdRenderClassSettings(){
                  color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
           Copiar
         </button>
+      </div>
+      <!-- Leaderboard toggle -->
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--sand-200);display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--navy-700);">🏅 Ranking de clase</div>
+          <div style="font-size:10px;color:var(--sand-500);margin-top:2px;">Los alumnos ven su posición entre compañeros</div>
+        </div>
+        <button onclick="tdToggleLeaderboard()"
+          style="padding:8px 14px;border-radius:10px;border:1.5px solid ${cls?.leaderboard_enabled !== false ? 'var(--success)' : 'var(--sand-400)'};
+                 background:${cls?.leaderboard_enabled !== false ? 'rgba(74,155,111,0.1)' : 'var(--sand-100)'};
+                 color:${cls?.leaderboard_enabled !== false ? 'var(--success)' : 'var(--sand-500)'};
+                 font-size:12px;font-weight:700;cursor:pointer;min-width:70px;">
+          ${cls?.leaderboard_enabled !== false ? '✓ Activo' : 'Inactivo'}
+        </button>
+      </div>
+      <!-- Reading type selector -->
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--sand-200);">
+        <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📜 Tipo de lectura de Torá</div>
+        <div style="font-size:10px;color:var(--sand-500);margin-bottom:8px;">Configurá el tipo de lectura que usa la institución</div>
+        <div id="td-reading-type-btns" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
       </div>
     </div>` : `
     <!-- Sin clase — crear -->
@@ -604,11 +698,55 @@ function tdRenderClassSettings(){
       </button>
       <div id="td-broadcast-status" style="font-size:12px;color:var(--sand-500);text-align:center;min-height:16px;margin-top:6px;"></div>
     </div>`;
+
+  // ── Populate reading type buttons dynamically (avoids template escape issues) ──
+  var rtContainer = document.getElementById('td-reading-type-btns');
+  if(rtContainer){
+    var labels = { weekday: '\ud83d\udcc5 D\u00eda de semana', full: '\ud83d\udcdc Shabat completa', triennial: '\ud83d\udd04 Trienal' };
+    var instRT = (_authProfile && _authProfile._institution && _authProfile._institution.reading_type) || 'full';
+    ['weekday','full','triennial'].forEach(function(rt){
+      var isActive = rt === instRT;
+      var btn = document.createElement('button');
+      btn.textContent = labels[rt];
+      btn.style.cssText = 'padding:8px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;' +
+        'border:1.5px solid ' + (isActive ? '#7c3aed' : 'var(--sand-300)') + ';' +
+        'background:' + (isActive ? 'rgba(124,58,237,0.1)' : 'white') + ';' +
+        'color:' + (isActive ? '#7c3aed' : 'var(--navy-700)') + ';';
+      btn.addEventListener('click', function(){ tdSetReadingType(rt); });
+      rtContainer.appendChild(btn);
+    });
+  }
 }
 
 // ── Leaderboard toggle ───────────────────────────────────────
 // Insertar toggle en el HTML de configuración de clase
 // (se llama desde tdRenderClassSettings al construir el HTML)
+
+// ── Reading type — guardar en la institución ────────────────
+async function tdSetReadingType(type){
+  if(!_sb || !_authProfile?.institution_id) {
+    // Sin institución: guardar en localStorage
+    if(typeof setReadingType === 'function') setReadingType(type);
+    showToast('Tipo de lectura actualizado', 'green');
+    tdRenderClassSettings();
+    return;
+  }
+  try {
+    var { error } = await _sb
+      .from('institutions')
+      .update({ reading_type: type })
+      .eq('id', _authProfile.institution_id);
+    if(error) throw error;
+    // Actualizar en memoria
+    if(_authProfile._institution) _authProfile._institution.reading_type = type;
+    if(typeof setReadingType === 'function') setReadingType(type);
+    showToast('Tipo de lectura: ' + type, 'green');
+    tdRenderClassSettings();
+  } catch(e){
+    dbg('[Teacher] setReadingType error:', e.message);
+    showToast('Error al guardar', 'warn');
+  }
+}
 
 // ── Crear clase ───────────────────────────────────────────────
 async function tdCreateClass(){
