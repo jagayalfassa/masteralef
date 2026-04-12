@@ -158,11 +158,11 @@ transition: width .2s ease, background .2s ease;
 .py-8 { padding-top: 2rem;     padding-bottom: 2rem; }
 </style>
 
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js" crossorigin="anonymous"></script>
 
   <!-- Supabase SDK -->
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -937,6 +937,7 @@ to   { transform: translateY(0);    opacity: 1; }
       <img src="img/rashi-idle.png" alt="Rashi" class="rashi-mascot" style="width:160px;height:auto;margin-bottom:24px;object-fit:contain;filter:drop-shadow(0 8px 28px rgba(13,31,53,0.2));animation:bounce 1s ease infinite alternate;" onerror="this.style.fontSize='4rem';this.outerHTML='<div style=font-size:4rem>✡️</div>'"/>
       <h1 style="font-family:'Fraunces',serif;font-size:2rem;font-weight:900;color:var(--navy-900);line-height:1.15;margin-bottom:12px;">Aprendé a leer<br><span style="color:var(--gold-500);">hebreo</span></h1>
       <p style="font-size:14px;color:var(--sand-500);line-height:1.7;max-width:260px;">Letra por letra, sílaba por sílaba. Desde el Alef hasta leer palabras reales de la Torá.</p>
+      <p style="font-size:11px;color:var(--sand-400);margin-top:12px;max-width:240px;line-height:1.5;">La mejor herramienta para acelerar tu preparación junto a tu moré 🤝</p>
     </div>
 
     <!-- Slide 2 -->
@@ -1089,6 +1090,11 @@ to   { transform: translateY(0);    opacity: 1; }
         <div style="font-family:'Fraunces',serif;font-size:1.1rem;font-weight:900;color:var(--navy-900);">Explorador de Sidur</div>
         <div style="font-size:11px;color:var(--sand-500);">Tocá cualquier palabra para escucharla</div>
       </div>
+      <button id="sidur-no-nikud-btn" style="background:var(--sand-200);color:var(--navy-700);
+        border:1.5px solid var(--sand-300);border-radius:10px;padding:7px 10px;
+        font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;" title="Modo sin nikudot">
+        <span id="sidur-nikud-icon">תּ</span>
+      </button>
     </div>
     <!-- Leyenda de colores -->
     <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -1112,6 +1118,11 @@ to   { transform: translateY(0);    opacity: 1; }
     <button class="sidur-tab-btn" data-idx="0" style="padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:var(--navy-800);color:white;">שְׁמַע יִשְׂרָאֵל</button>
     <button class="sidur-tab-btn" data-idx="1" style="padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:var(--sand-200);color:var(--navy-700);">בָּרוּךְ אַתָּה</button>
     <button class="sidur-tab-btn" data-idx="2" style="padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:var(--sand-200);color:var(--navy-700);">אָלֵינוּ לְשַׁבֵּחַ</button>
+    <button class="sidur-tab-btn" data-idx="3" style="padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:var(--sand-200);color:var(--navy-700);">בִּרְכוֹת הַשַּׁחַר</button>
+    <button class="sidur-tab-btn" data-idx="4" style="padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:var(--sand-200);color:var(--navy-700);">קִדּוּשׁ</button>
+    <button class="sidur-tab-btn" data-idx="5" style="padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:var(--sand-200);color:var(--navy-700);">מוֹדֶה אֲנִי</button>
+    <button class="sidur-tab-btn" data-idx="6" style="padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:var(--sand-200);color:var(--navy-700);">אַשְׁרֵי</button>
+    <button class="sidur-tab-btn" data-idx="7" style="padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;background:var(--sand-200);color:var(--navy-700);">בִּרְכַּת הַמָּזוֹן</button>
   </div>
 
   <!-- Barra de progreso del texto -->
@@ -1674,6 +1685,11 @@ to   { transform: translateY(0);    opacity: 1; }
         <div id="read-subtitle" style="font-size:11px;color:var(--sand-500);"></div>
       </div>
       <div style="display:flex;gap:6px;">
+        <button id="read-no-nikud-btn" style="background:var(--sand-200);color:var(--navy-700);
+          border:1.5px solid var(--sand-300);border-radius:10px;padding:8px 10px;
+          font-size:11px;font-weight:700;" title="Modo Torá: sin nikudot">
+          <span id="read-nikud-icon">תּ</span>
+        </button>
         <button id="read-transliterate-btn" style="background:var(--sand-200);color:var(--navy-700);
           border:1.5px solid var(--sand-300);border-radius:10px;padding:8px 10px;
           font-size:11px;font-weight:700;" title="Mostrar/ocultar fonética">
@@ -2204,6 +2220,13 @@ function onCorrectAnswer(){
   updateHudShekels();
   // Chequear logros de racha en tiempo real (durante el juego)
   checkAchievements();
+  // Track decoding level based on exercise type
+  if(state.currentChallenge && state.activeSeries && state.activeSeries !== '__parasha__'){
+    var _wIdx = state.currentChallenge.wordIdx;
+    var _mode = state.currentChallenge.mode;
+    if(typeof updateDecodingLevel === 'function' && _wIdx !== undefined && _mode)
+      updateDecodingLevel(state.activeSeries, _wIdx, _mode);
+  }
 }
 
 function onWrongAnswer(){
@@ -2216,6 +2239,8 @@ function onWrongAnswer(){
   save();
   showShekelFlash('-2');
   updateHudShekels();
+  // ── Error feedback diferenciado ──
+  _showErrorTip();
   // Registrar en Word State System o Parasha Progress
   if(state.currentChallenge){
     if(state._parashaMode && state.currentChallenge._parashaWord){
@@ -2230,6 +2255,44 @@ function onWrongAnswer(){
         reinsertErrorChallenge(wordIdx, ws, isMix);
       }
     }
+  }
+}
+
+// Muestra un tip contextual según el tipo de error cometido
+function _showErrorTip(){
+  if(!state.currentChallenge) return;
+  const ch = state.currentChallenge;
+  const word = ch._parashaWord || (ALL_DATA[state.activeSeries]?.words?.[ch.wordIdx]);
+  if(!word) return;
+
+  // Check if the error involves visually confusible letters
+  const heb = word.heb || '';
+  const confPairs = typeof getConfusiblePairs === 'function' ? getConfusiblePairs(heb) : [];
+
+  let tipMsg = null;
+  if(confPairs.length > 0){
+    // Visual confusion tip
+    const pair = confPairs[0];
+    tipMsg = 'Ojo: ' + pair[0] + ' y ' + pair[1] + ' se parecen pero suenan distinto';
+  } else if(ch.mode === 'WRITE'){
+    tipMsg = 'Revisá los nikudot — cada punto cambia el sonido';
+  }
+
+  if(tipMsg){
+    // Show subtle inline tip (not blocking)
+    setTimeout(function(){
+      var existing = document.getElementById('error-tip-inline');
+      if(existing) existing.remove();
+      var tip = document.createElement('div');
+      tip.id = 'error-tip-inline';
+      tip.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);' +
+        'background:rgba(13,31,53,0.92);color:white;padding:8px 16px;border-radius:12px;' +
+        'font-size:12px;font-weight:600;z-index:9000;max-width:300px;text-align:center;' +
+        'animation:fadeIn .2s ease;pointer-events:none;';
+      tip.textContent = tipMsg;
+      document.body.appendChild(tip);
+      setTimeout(function(){ if(tip.parentNode) tip.remove(); }, 3500);
+    }, 600);
   }
 }
 
@@ -2641,6 +2704,40 @@ const WORD_THRESHOLDS = {
   review_to_mastered: { correct: 6, streak: 3 },
 };
 
+// ── 3 NIVELES DE DOMINIO POR PALABRA ──────────────────────────────
+// Nivel 1: "reconoce" — acierta SELECT (opción múltiple)
+// Nivel 2: "decodifica" — acierta WRITE sin ayuda
+// Nivel 3: "lee fluido" — acierta en lectura corrida (view-lectura)
+// Se trackea en el word state como decodingLevel: 1|2|3
+function getDecodingLevel(ws){
+  if(!ws) return 0;
+  return ws.decodingLevel || (ws.status === 'mastered' ? 2 : ws.status === 'review' ? 1 : 0);
+}
+
+function updateDecodingLevel(seriesKey, wordIdx, exerciseMode){
+  var all = getAllWordStates();
+  var k   = wordStateKey(seriesKey, wordIdx);
+  var ws  = all[k];
+  if(!ws) return;
+  var currentLevel = ws.decodingLevel || 0;
+  // SELECT acierto → nivel 1
+  if(exerciseMode === 'SELECT' && currentLevel < 1) ws.decodingLevel = 1;
+  // WRITE/ARRANGE acierto → nivel 2
+  if((exerciseMode === 'WRITE' || exerciseMode === 'ARRANGE') && currentLevel < 2) ws.decodingLevel = 2;
+  // LECTURA corrida acierto → nivel 3
+  if(exerciseMode === 'LECTURA' && currentLevel < 3) ws.decodingLevel = 3;
+  all[k] = ws;
+  localStorage.setItem(WORD_STATE_KEY, JSON.stringify(all));
+}
+
+// Labels para UI
+function getDecodingLevelLabel(level){
+  if(level >= 3) return { text: 'Lee fluido', color: '#22c55e', icon: '🌟' };
+  if(level >= 2) return { text: 'Decodifica', color: '#3b82f6', icon: '⭐' };
+  if(level >= 1) return { text: 'Reconoce', color: '#f59e0b', icon: '👁️' };
+  return { text: 'Nuevo', color: '#94a3b8', icon: '🔒' };
+}
+
 // ── DIFFICULTY SCORE ──────────────────────────────────────────────
 // Calcula un score 0-100 de dificultad para una palabra.
 // Mayor score = más difícil = aparece más seguido.
@@ -2779,12 +2876,14 @@ state.lessonErrors=0; state.writeAttempts=0;
 // Definición de todos los logros posibles.
 // canUnlock(state) se evalúa después de cada lección.
 const ACHIEVEMENTS = [
+  // ── PRIMEROS PASOS (5) ─────────────────────────────────────────
   {
     id:    "first_lesson",
     heb:   "הַתְחָלָה",
     title: "Primera lección",
     desc:  "Completaste tu primera lección",
     icon:  "🌟",
+    cat:   "inicio",
     check: (st) => Object.keys(st.progress).length >= 1,
   },
   {
@@ -2793,95 +2892,74 @@ const ACHIEVEMENTS = [
     title: "Lección perfecta",
     desc:  "Completaste una lección sin errores",
     icon:  "💎",
+    cat:   "inicio",
     check: (st) => st._lastLessonPerfect === true,
   },
-  {
-    id:    "streak_5",
-    heb:   "אֵשׁ",
-    title: "Racha de 5",
-    desc:  "5 respuestas correctas seguidas",
-    icon:  "🔥",
+  { id:"word_5",   heb:"חָמֵשׁ",  title:"5 palabras dominadas",   desc:"Tus primeras 5 palabras dominadas", icon:"⭐",      cat:"inicio", check:(st)=>countMasteredWords()>=5 },
+  { id:"speed_first", heb:"מַהִיר",  title:"¡Rápido!",        desc:"Respondiste 5 veces con bonus de velocidad",  icon:"⚡", cat:"inicio", check:(st)=>(st._speedBonusCount||0)>=5 },
+  { id:"streak_5", heb:"אֵשׁ", title:"Racha de 5", desc:"5 respuestas correctas seguidas en una lección", icon:"🔥", cat:"inicio",
     check: (st) => (st.streak_bonus || 0) >= 5,
   },
-  {
-    id:    "streak_10",
-    heb:   "לַהַב",
-    title: "Racha de 10",
-    desc:  "10 respuestas correctas seguidas",
-    icon:  "🔥🔥",
+
+  // ── SERIES BASE (6) ────────────────────────────────────────────
+  { id:"series_a",  heb:"אָלֶף",    title:"Serie A completa",  desc:"Dominaste las primeras letras",       icon:"📖",  cat:"series", check:(st)=>seriesDone("A1") && seriesDone("A2") },
+  { id:"series_b",  heb:"בֵּית",    title:"Serie B completa",  desc:"Dominaste la segunda serie",          icon:"📗",  cat:"series", check:(st)=>seriesDone("B1") && seriesDone("B2") },
+  { id:"series_c",  heb:"גִּימֶל",  title:"Serie C completa",  desc:"Dominaste la tercera serie",          icon:"📘",  cat:"series", check:(st)=>seriesDone("C1") && seriesDone("C2") },
+  { id:"series_d",  heb:"דָּלֶת",   title:"Serie D completa",  desc:"Dominaste la cuarta serie",           icon:"📙",  cat:"series", check:(st)=>seriesDone("D1") && seriesDone("D2") },
+  { id:"series_e",  heb:"הֵי",      title:"Serie E completa",  desc:"¡Las 5 series base completadas!",     icon:"📕",  cat:"series", check:(st)=>seriesDone("E1") && seriesDone("E2") },
+  { id:"all_series", heb:"גִּבּוֹר", title:"Todo el Alefbet", desc:"Completaste las 10 series base", icon:"🏆", cat:"series",
+    check: (st) => ["A1","A2","B1","B2","C1","C2","D1","D2","E1","E2"].every(k => seriesDone(k)),
+  },
+
+  // ── SERIES MIX (4) ─────────────────────────────────────────────
+  { id:"mix_first", heb:"מִיקְס",   title:"Primera mezcla",    desc:"Completaste tu primera serie mix", icon:"🔀", cat:"series",
+    check:(st)=>["A2+B2","A2+C2","A2+D2","A2+E2","B2+C2","B2+D2","B2+E2","C2+D2","C2+E2","D2+E2"].some(k=>seriesDone(k)) },
+  { id:"mix_all",   heb:"שָׁלֵם",   title:"Todas las mezclas", desc:"Completaste todas las series mix", icon:"✨", cat:"series",
+    check:(st)=>["A2+B2","A2+C2","A2+D2","A2+E2","B2+C2","B2+D2","B2+E2","C2+D2","C2+E2","D2+E2"].every(k=>seriesDone(k)) },
+  { id:"triple_abc",heb:"שָׁלוֹשׁ",  title:"Triple ABC",        desc:"Completaste la mezcla A+B+C",    icon:"🥉", cat:"series", check:(st)=>seriesDone("A2+B2+C2") },
+  { id:"triple_cde",heb:"שָׁלוֹשׁ",  title:"Triple CDE",        desc:"Completaste la mezcla C+D+E",    icon:"🥇", cat:"series", check:(st)=>seriesDone("C2+D2+E2") },
+
+  // ── PALABRAS DOMINADAS (5) ─────────────────────────────────────
+  { id:"word_master_10", heb:"בָּקִי", title:"10 palabras dominadas", desc:"Dominaste 10 palabras", icon:"⭐⭐", cat:"palabras", check:(st)=>countMasteredWords()>=10 },
+  { id:"word_25",  heb:"עֶשְׂרִים", title:"25 palabras",  desc:"Ya dominás 25 palabras",           icon:"🌟",    cat:"palabras", check:(st)=>countMasteredWords()>=25 },
+  { id:"word_master_50", heb:"חָכָם", title:"50 palabras", desc:"Dominaste 50 palabras", icon:"🌟🌟", cat:"palabras", check:(st)=>countMasteredWords()>=50 },
+  { id:"word_100", heb:"מֵאָה",   title:"100 palabras", desc:"¡Increíble! 100 palabras dominadas", icon:"💫",   cat:"palabras", check:(st)=>countMasteredWords()>=100 },
+  { id:"word_200", heb:"מָאתַיִם", title:"200 palabras", desc:"¡Leyenda! Dominaste 200 palabras", icon:"👑", cat:"palabras", check:(st)=>countMasteredWords()>=200 },
+
+  // ── PERSEVERANCIA / RACHAS DIARIAS (4) ─────────────────────────
+  { id:"daily_3",  heb:"שָׁלוֹשׁ",   title:"3 días seguidos",   desc:"Estudiaste 3 días consecutivos",  icon:"🔥",     cat:"racha", check:(st)=>getStreak()>=3 },
+  { id:"daily_7",  heb:"שֶׁבַע",     title:"7 días seguidos",   desc:"Una semana entera de estudio",    icon:"🔥🔥",    cat:"racha", check:(st)=>getStreak()>=7 },
+  { id:"daily_30", heb:"חֹדֶשׁ",     title:"30 días seguidos",  desc:"Un mes completo de dedicación",   icon:"🔥🔥🔥",   cat:"racha", check:(st)=>getStreak()>=30 },
+  { id:"streak_10", heb:"לַהַב", title:"Racha de 10", desc:"10 respuestas correctas seguidas", icon:"⚡🔥", cat:"racha",
     check: (st) => (st.streak_bonus || 0) >= 10,
   },
-  {
-    id:    "series_a",
-    heb:   "מַתְחִיל",
-    title: "Serie A completa",
-    desc:  "Dominaste la primera serie",
-    icon:  "📖",
-    check: (st) => typeof seriesDone !== "undefined" && seriesDone("A2"),
-  },
-  {
-    id:    "all_series",
-    heb:   "גִּבּוֹר",
-    title: "Todas las series",
-    desc:  "Completaste las 5 series base",
-    icon:  "🏆",
-    check: (st) => ["A","B","C","D","E"].every(k =>
-      typeof seriesDone !== "undefined" && seriesDone(k)
-    ),
-  },
-  {
-    id:    "word_master_10",
-    heb:   "בָּקִי",
-    title: "10 palabras dominadas",
-    desc:  "Dominaste 10 palabras",
-    icon:  "⭐",
-    check: (st) => countMasteredWords() >= 10,
-  },
-  {
-    id:    "word_master_50",
-    heb:   "חָכָם",
-    title: "50 palabras dominadas",
-    desc:  "Dominaste 50 palabras",
-    icon:  "🌟",
-    check: (st) => countMasteredWords() >= 50,
-  },
 
-  // ── SERIE POR SERIE ───────────────────────────────────────────
-  { id:"series_b",  heb:"בֵּית",    title:"Serie B completa",  desc:"Dominaste la segunda serie",    icon:"📗", check:(st)=>seriesDone("B") },
-  { id:"series_c",  heb:"גִּימֶל",  title:"Serie C completa",  desc:"Dominaste la tercera serie",    icon:"📘", check:(st)=>seriesDone("C") },
-  { id:"series_d",  heb:"דָּלֶת",   title:"Serie D completa",  desc:"Dominaste la cuarta serie",     icon:"📙", check:(st)=>seriesDone("D") },
-  { id:"series_e",  heb:"הֵי",      title:"Serie E completa",  desc:"¡Las 5 series base completadas!", icon:"📕", check:(st)=>seriesDone("E") },
-  { id:"mix_first", heb:"מִיקְס",   title:"Primera mezcla",    desc:"Completaste tu primera serie mix", icon:"🔀", check:(st)=>["A+B","A+C","A+D","A+E","B+C","B+D","B+E"].some(k=>seriesDone(k)) },
-  { id:"mix_all",   heb:"שָׁלֵם",   title:"Todas las mezclas", desc:"Completaste todas las series mix", icon:"✨", check:(st)=>["A+B","A+C","A+D","A+E","B+C","B+D","B+E","C+D","C+E","D+E"].every(k=>seriesDone(k)) },
-  { id:"triple_abc",heb:"שָׁלוֹשׁ",  title:"Triple ABC",        desc:"Completaste la mezcla A+B+C",    icon:"🥉", check:(st)=>seriesDone("A+B+C") },
-  { id:"triple_cde",heb:"שָׁלוֹשׁ",  title:"Triple CDE",        desc:"Completaste la mezcla C+D+E",    icon:"🥇", check:(st)=>seriesDone("C+D+E") },
+  // ── LITÚRGICOS / SIDUR (4) ─────────────────────────────────────
+  { id:"sidur_first", heb:"סִדּוּר", title:"Explorador del Sidur", desc:"Abriste el Explorador de Sidur por primera vez", icon:"📜", cat:"liturgico",
+    check:(st)=>!!localStorage.getItem("heb_sidur_visited") },
+  { id:"sidur_25", heb:"קוֹרֵא", title:"25% del Sidur", desc:"Podés leer el 25% de las palabras del Sidur", icon:"📜⭐", cat:"liturgico",
+    check:(st)=>{ try{ const s=getSidurStats(); return s.total>0 && (s.mastered/s.total)>=0.25; }catch(e){return false;} } },
+  { id:"sidur_50", heb:"חֲצִי", title:"50% del Sidur", desc:"¡Mitad del Sidur decodificado!", icon:"📜🌟", cat:"liturgico",
+    check:(st)=>{ try{ const s=getSidurStats(); return s.total>0 && (s.mastered/s.total)>=0.50; }catch(e){return false;} } },
+  { id:"sidur_80", heb:"שְׁמַע", title:"Listo para leer", desc:"Podés leer el 80% del Sidur — ¡estás listo/a!", icon:"✡️", cat:"liturgico",
+    check:(st)=>{ try{ const s=getSidurStats(); return s.total>0 && (s.mastered/s.total)>=0.80; }catch(e){return false;} } },
 
-  // ── RACHAS DIARIAS ────────────────────────────────────────────
-  { id:"daily_3",  heb:"שָׁלוֹשׁ",   title:"3 días seguidos",   desc:"Estudiaste 3 días consecutivos",  icon:"🔥",   check:(st)=>(JSON.parse(localStorage.getItem("heb_streak")||"0"))>=3 },
-  { id:"daily_7",  heb:"שֶׁבַע",     title:"7 días seguidos",   desc:"Una semana entera de estudio",    icon:"🔥🔥",  check:(st)=>(JSON.parse(localStorage.getItem("heb_streak")||"0"))>=7 },
-  { id:"daily_30", heb:"חֹדֶשׁ",     title:"30 días seguidos",  desc:"Un mes completo de dedicación",   icon:"🔥🔥🔥", check:(st)=>(JSON.parse(localStorage.getItem("heb_streak")||"0"))>=30 },
-
-  // ── PALABRAS DOMINADAS ────────────────────────────────────────
-  { id:"word_5",   heb:"חָמֵשׁ",  title:"5 palabras dominadas",   desc:"Tus primeras 5 palabras dominadas", icon:"⭐",      check:(st)=>countMasteredWords()>=5 },
-  { id:"word_25",  heb:"עֶשְׂרִים", title:"25 palabras dominadas",  desc:"Ya dominás 25 palabras",           icon:"⭐⭐",    check:(st)=>countMasteredWords()>=25 },
-  { id:"word_100", heb:"מֵאָה",   title:"100 palabras dominadas", desc:"¡Increíble! 100 palabras dominadas", icon:"🌟🌟",   check:(st)=>countMasteredWords()>=100 },
-
-  // ── TORÁ ──────────────────────────────────────────────────────
-  { id:"parasha_first", heb:"תּוֹרָה",  title:"Primera parashá",    desc:"Practicaste tu primera parashá",    icon:"📜",  check:(st)=>Object.keys(JSON.parse(localStorage.getItem("heb_parasha_progress_v1")||"{}")).length>=1 },
-  { id:"parasha_words", heb:"מִלִּים",  title:"10 palabras de Torá", desc:"Dominaste 10 palabras de la Torá", icon:"📜⭐", check:(st)=>{
+  // ── TORÁ / PARASHÁ (3) ─────────────────────────────────────────
+  { id:"parasha_first", heb:"תּוֹרָה",  title:"Primera parashá",    desc:"Practicaste tu primera parashá",    icon:"📜",  cat:"tora", check:(st)=>Object.keys(JSON.parse(localStorage.getItem("heb_parasha_progress_v1")||"{}")).length>=1 },
+  { id:"parasha_words", heb:"מִלִּים",  title:"10 palabras de Torá", desc:"Dominaste 10 palabras de la Torá", icon:"📜⭐", cat:"tora", check:(st)=>{
     const all=JSON.parse(localStorage.getItem("heb_parasha_progress_v1")||"{}");
     return Object.values(all).flatMap(p=>Object.values(p)).filter(w=>w.mastered).length>=10;
   }},
-  { id:"mi_aliya_1",  heb:"עֲלִיָּה",  title:"Primera aliyá",       desc:"Practicaste tu aliyá con el temporizador", icon:"⏱",
+  { id:"mi_aliya_1",  heb:"עֲלִיָּה",  title:"Primera aliyá",       desc:"Practicaste tu aliyá con el temporizador", icon:"⏱",  cat:"tora",
     check:()=>Object.keys(JSON.parse(localStorage.getItem("heb_mi_aliya_times")||"{}")).length>=1
   },
-  { id:"mi_aliya_pro", heb:"בָּקִי",   title:"¡Aliyá dominada!",    desc:"Leíste un versículo en menos de 8 segundos", icon:"⚡📜",
+
+  // ── MAESTRÍA (3) ───────────────────────────────────────────────
+  { id:"perfect_3",   heb:"מֻשְׁלָם", title:"3 perfectas",    desc:"3 lecciones perfectas en total",             icon:"💎💎", cat:"maestria", check:(st)=>(st._perfectLessonsTotal||0)>=3 },
+  { id:"perfect_10",  heb:"יָהָלוֹם", title:"10 perfectas",   desc:"10 lecciones sin un solo error",             icon:"💎💎💎", cat:"maestria", check:(st)=>(st._perfectLessonsTotal||0)>=10 },
+  { id:"mi_aliya_pro", heb:"בָּקִי",   title:"¡Aliyá dominada!",    desc:"Leíste un versículo en menos de 8 segundos", icon:"⚡📜", cat:"maestria",
     check:()=>Object.values(JSON.parse(localStorage.getItem("heb_mi_aliya_times")||"{}")).some(arr=>arr.some(t=>t<8000))
   },
-
-  // ── VELOCIDAD ─────────────────────────────────────────────────
-  { id:"speed_first", heb:"מַהִיר",  title:"¡Rápido!",        desc:"Respondiste 5 veces con bonus de velocidad",  icon:"⚡",  check:(st)=>(st._speedBonusCount||0)>=5 },
-  { id:"perfect_3",   heb:"מֻשְׁלָם", title:"3 perfectas",    desc:"3 lecciones perfectas en total",             icon:"💎💎", check:(st)=>(st._perfectLessonsTotal||0)>=3 },
 ];
 
 const ACHIEVEMENTS_KEY = "heb_achievements_v1";
@@ -3432,7 +3510,105 @@ const parashaState = {
   _knownLettersCache:   null,  // cache de letras conocidas
   torahDict:            null,  // diccionario centralizado {heb:{fon,es}}
   _dictLoading:         false, // flag para no cargar dos veces
+  kriyahData:           null,  // datos de tipos de lectura (kriyah_data.json)
+  _kriyahLoading:       false,
 };
+
+// ╔═══════════════════════════════════════════════════════════════╗
+// ║  TIPOS DE LECTURA DE TORÁ                                     ║
+// ║  weekday = lunes/jueves (3 aliyot)                            ║
+// ║  full    = Shabat lectura completa (7 aliyot + maftir)        ║
+// ║  triennial = Shabat lectura trienal (7 aliyot, varía por año) ║
+// ╚═══════════════════════════════════════════════════════════════╝
+
+// Tipo de lectura: se lee de la institución (Supabase) o localStorage
+function getReadingType(){
+  // Prioridad: institución > localStorage > default
+  if(_authProfile && _authProfile._institution && _authProfile._institution.reading_type){
+    return _authProfile._institution.reading_type;
+  }
+  return localStorage.getItem('heb_reading_type') || 'full';
+}
+
+function setReadingType(type){
+  if(['weekday','full','triennial'].indexOf(type) === -1) return;
+  localStorage.setItem('heb_reading_type', type);
+}
+
+// Labels para UI
+var READING_TYPE_LABELS = {
+  weekday:   { label: 'Día de semana', desc: 'Lunes/Jueves · 3 aliyot', icon: '📅' },
+  full:      { label: 'Shabat completa', desc: '7 aliyot + maftir + haftará', icon: '📜' },
+  triennial: { label: 'Shabat trienal', desc: '7 aliyot · ciclo de 3 años', icon: '🔄' },
+};
+
+// Carga kriyah_data.json una sola vez (lazy)
+async function loadKriyahData(){
+  if(parashaState.kriyahData) return parashaState.kriyahData;
+  if(parashaState._kriyahLoading) return null;
+  parashaState._kriyahLoading = true;
+  try {
+    var r = await fetch('data/kriyah_data.json');
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    parashaState.kriyahData = await r.json();
+    dbg('Kriyah data loaded:', Object.keys(parashaState.kriyahData).length, 'parashot');
+    return parashaState.kriyahData;
+  } catch(e){
+    dbg('Kriyah data load failed:', e.message);
+    parashaState.kriyahData = {};
+    return {};
+  } finally {
+    parashaState._kriyahLoading = false;
+  }
+}
+
+// Devuelve las aliyot según tipo de lectura para una parashá
+// Retorna [{aliyah, reading}] o null si no hay datos
+function getKriyahAliyot(parashaId, readingType, bmDate){
+  var kd = parashaState.kriyahData;
+  if(!kd || !kd[parashaId]) return null;
+  var pData = kd[parashaId];
+
+  if(readingType === 'weekday'){
+    if(!pData.w) return null;
+    return pData.w.map(function(r, i){ return { aliyah: String(i+1), reading: r }; });
+  }
+
+  if(readingType === 'full'){
+    if(!pData.f) return null;
+    return pData.f.map(function(entry){ return { aliyah: entry[0], reading: entry[1] }; });
+  }
+
+  if(readingType === 'triennial'){
+    if(!pData.t || !pData.t.length) return null;
+    // Buscar la entrada trienal más cercana a la fecha del BBM
+    var target = bmDate || localStorage.getItem('heb_bm_date') || '';
+    if(target){
+      // Encontrar la entrada cuya fecha sea <= bmDate y la más cercana
+      var best = null;
+      pData.t.forEach(function(entry){
+        var entryDate = entry[0]; // "YYYY-MM-DD"
+        if(entryDate <= target && (!best || entryDate > best[0])){
+          best = entry;
+        }
+      });
+      // Si no hay una antes, tomar la primera después
+      if(!best){
+        pData.t.forEach(function(entry){
+          if(!best || entry[0] < best[0]) best = entry;
+        });
+      }
+      if(best){
+        return best.slice(1).map(function(entry){ return { aliyah: entry[0], reading: entry[1] }; });
+      }
+    }
+    // Sin fecha: tomar la primera entrada
+    var first = pData.t[0];
+    return first.slice(1).map(function(entry){ return { aliyah: entry[0], reading: entry[1] }; });
+  }
+
+  return null;
+}
 
 // ── CARGAR DICCIONARIO DE TORÁ ────────────────────────────────────
 // Carga torah_complete_dict.json una sola vez y lo cachea en parashaState.
@@ -3720,10 +3896,11 @@ async function startParashaSession(parashaId, aliyah = 1){
   // Caché: si ya está cargada no refetchear
   if(parashaState.currentParasha !== parashaId){
     showToast("Cargando parashá…", "cyan");
-    // Cargar parashá y diccionario en paralelo
+    // Cargar parashá, diccionario y kriyah data en paralelo
     const [data] = await Promise.all([
       loadParasha(parashaId),
       loadTorahDict(),
+      loadKriyahData(),
     ]);
     if(!data){
       showToast("No se pudo cargar la parashá", "red");
@@ -4055,6 +4232,23 @@ function getNextStep(){
     }
   }
 
+  // PRIORIDAD 0.5: si la fecha del BBM está a ≤14 días y tiene parashá, priorizar parashá
+  const _bmD = localStorage.getItem('heb_bm_date');
+  const _bmP = localStorage.getItem('heb_bm_parasha');
+  if(_bmD && _bmP){
+    const _today = new Date(); _today.setHours(0,0,0,0);
+    const _bm    = new Date(_bmD + 'T00:00:00');
+    const _dLeft = Math.ceil((_bm - _today) / 86400000);
+    if(_dLeft > 0 && _dLeft <= 14){
+      const _meta = typeof PARASHA_CATALOG !== 'undefined' ? PARASHA_CATALOG.find(p => p.id === _bmP) : null;
+      return {
+        key: '__parasha__', lessonIdx: 0,
+        label: _meta ? _meta.esp + ' · ¡' + _dLeft + ' días!' : 'Tu parashá · ¡' + _dLeft + ' días!',
+        pct: 0, inProgress: false, isParasha: true, parashaId: _bmP,
+      };
+    }
+  }
+
   // 1. ¿Hay una lección en progreso?
   for(const key of allKeys){
     if(ALL_DATA[key].type === 'MIX'){
@@ -4082,7 +4276,18 @@ function getNextStep(){
     if(nextLesson !== -1)
       return { key, lessonIdx: nextLesson, label: `Serie ${key} · Lección ${nextLesson+1}`, pct: 0, inProgress: false };
   }
-  // 3. Todo completo — repaso SRS de mantenimiento
+
+  // 3. Todo el contenido completo — sugerir parashá si tiene, o Sidur
+  if(_bmP){
+    const _meta3 = typeof PARASHA_CATALOG !== 'undefined' ? PARASHA_CATALOG.find(p => p.id === _bmP) : null;
+    return {
+      key: '__parasha__', lessonIdx: 0,
+      label: _meta3 ? 'Practicar ' + _meta3.esp : 'Practicar mi parashá',
+      pct: 0, inProgress: false, isParasha: true, parashaId: _bmP,
+    };
+  }
+
+  // 4. Repaso SRS de mantenimiento
   const needsRepaso = allKeys.find(k => needsReview(k));
   if(needsRepaso) return { key: needsRepaso, lessonIdx: 0, label: `Repaso: Serie ${needsRepaso}`, pct: 0, inProgress: false, isReview: true };
   return null;
@@ -4223,33 +4428,64 @@ function renderAchievementsDrawer(){
     <div style="font-size:10px;color:var(--sand-400);margin-top:4px;text-align:right;">${masteredCount} de ${totalWords} palabras dominadas</div>`;
   container.appendChild(statsCard);
 
-  // Section title
+  // Section title with count
   const title = document.createElement('div');
   title.style.cssText = 'font-size:10px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.1em;margin-top:4px;';
-  title.textContent = `${unlocked.length} de ${ACHIEVEMENTS.length} logros`;
+  title.textContent = unlocked.length + ' de ' + ACHIEVEMENTS.length + ' logros';
   container.appendChild(title);
 
-  // Achievement cards
-  ACHIEVEMENTS.forEach(ach => {
-    const isUnlocked = unlocked.includes(ach.id);
-    const card = document.createElement('div');
-    card.style.cssText = [
-      'display:flex;align-items:center;gap:12px',
-      'background:' + (isUnlocked ? 'white' : 'var(--sand-100)'),
-      'border:1.5px solid ' + (isUnlocked ? 'var(--gold-400)' : 'var(--sand-300)'),
-      'border-radius:14px;padding:12px 14px',
-      'opacity:' + (isUnlocked ? '1' : '0.55'),
-      'transition:opacity .2s'
-    ].join(';');
-    card.innerHTML = `
-      <div style="font-size:1.8rem;flex-shrink:0;filter:${isUnlocked?'none':'grayscale(1) opacity(0.4)'};">${ach.icon}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:900;color:var(--navy-800);">${ach.title}</div>
-        <div style="font-size:11px;color:var(--sand-500);margin-top:1px;">${ach.desc}</div>
-        ${isUnlocked ? `<div style="font-family:'Noto Serif Hebrew',serif;font-size:11px;color:var(--gold-600);margin-top:3px;">${ach.heb}</div>` : ''}
-      </div>
-      ${isUnlocked ? '<div style="font-size:1rem;">✓</div>' : '<div style="font-size:0.8rem;color:var(--sand-400);">🔒</div>'}`;
-    container.appendChild(card);
+  // Group achievements by category
+  var CAT_LABELS = {
+    inicio:    '🌱 Primeros pasos',
+    series:    '📚 Series y mezclas',
+    palabras:  '⭐ Palabras dominadas',
+    racha:     '🔥 Perseverancia',
+    liturgico: '📜 Sidur y lectura',
+    tora:      '✡️ Torá y parashá',
+    maestria:  '💎 Maestría'
+  };
+  var CAT_ORDER = ['inicio','series','palabras','racha','liturgico','tora','maestria'];
+  var grouped = {};
+  ACHIEVEMENTS.forEach(function(ach){
+    var cat = ach.cat || 'inicio';
+    if(!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(ach);
+  });
+
+  CAT_ORDER.forEach(function(cat){
+    var achs = grouped[cat];
+    if(!achs || !achs.length) return;
+    var catUnlocked = achs.filter(function(a){ return unlocked.indexOf(a.id) >= 0; }).length;
+
+    // Category header
+    var catHeader = document.createElement('div');
+    catHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-top:12px;margin-bottom:4px;';
+    catHeader.innerHTML = '<span style="font-size:12px;font-weight:800;color:var(--navy-700);">' + (CAT_LABELS[cat]||cat) + '</span>' +
+      '<span style="font-size:10px;font-weight:700;color:' + (catUnlocked===achs.length ? 'var(--success)' : 'var(--sand-400)') + ';background:' + (catUnlocked===achs.length ? 'rgba(74,155,111,0.1)' : 'var(--sand-100)') + ';padding:2px 8px;border-radius:99px;">' + catUnlocked + '/' + achs.length + '</span>';
+    container.appendChild(catHeader);
+
+    // Achievement cards in this category
+    achs.forEach(function(ach){
+      var isUnlocked = unlocked.indexOf(ach.id) >= 0;
+      var card = document.createElement('div');
+      card.style.cssText = [
+        'display:flex;align-items:center;gap:12px',
+        'background:' + (isUnlocked ? 'white' : 'var(--sand-100)'),
+        'border:1.5px solid ' + (isUnlocked ? 'var(--gold-400)' : 'var(--sand-300)'),
+        'border-radius:14px;padding:12px 14px',
+        'opacity:' + (isUnlocked ? '1' : '0.55'),
+        'transition:opacity .2s'
+      ].join(';');
+      card.innerHTML =
+        '<div style="font-size:1.8rem;flex-shrink:0;filter:' + (isUnlocked ? 'none' : 'grayscale(1) opacity(0.4)') + ';">' + ach.icon + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:900;color:var(--navy-800);">' + ach.title + '</div>' +
+          '<div style="font-size:11px;color:var(--sand-500);margin-top:1px;">' + ach.desc + '</div>' +
+          (isUnlocked ? '<div style="font-family:\'Noto Serif Hebrew\',serif;font-size:11px;color:var(--gold-600);margin-top:3px;">' + ach.heb + '</div>' : '') +
+        '</div>' +
+        (isUnlocked ? '<div style="font-size:1rem;">✓</div>' : '<div style="font-size:0.8rem;color:var(--sand-400);">🔒</div>');
+      container.appendChild(card);
+    });
   });
 }
 
@@ -4565,11 +4801,17 @@ function renderHome(){
         '</div>' +
       '</div>';
   } else {
-    // Subtítulo contextual según estado
+    // Subtítulo contextual según estado y días de ausencia
     const hasProgress = Object.keys(ALL_DATA).some(k =>
       getLessons(k).some((_,i) => (state.progress[lessonKey(k,i)]||0) > 0)
     );
-    const subtitle = hasProgress ? 'Seguimos donde quedamos 📖' : '¡Empezá a aprender hebreo! ✨';
+    const _lastAct = parseInt(localStorage.getItem('heb_last_activity') || '0');
+    const _daysAway = _lastAct ? Math.floor((Date.now() - _lastAct) / 86400000) : 0;
+    let subtitle;
+    if(!hasProgress) subtitle = '¡Empezá a aprender hebreo! ✨';
+    else if(_daysAway >= 7) subtitle = '¡Qué bueno que volviste! Repasemos juntos 💪';
+    else if(_daysAway >= 3) subtitle = '¡Volviste! Retomemos donde dejamos 📖';
+    else subtitle = 'Seguimos donde quedamos 📖';
     bubbleWrap.innerHTML =
       '<p style="font-size:13px;font-weight:600;color:var(--sand-500);margin:0 0 2px;">' + greetName + '</p>' +
       '<p style="font-size:12px;color:var(--sand-400);margin:0;font-weight:500;">' + subtitle + '</p>';
@@ -4585,23 +4827,26 @@ function renderHome(){
 
     const inProg = nextStep.inProgress;
     const isRev  = nextStep.isReview;
+    const isPar  = nextStep.isParasha;
     // Nunca empezó nada — primer acceso
-    const isFirstTime = !inProg && !isRev &&
+    const isFirstTime = !inProg && !isRev && !isPar &&
       !Object.keys(ALL_DATA).some(k => getLessons(k).some((_,i) => (state.progress[lessonKey(k,i)]||0) > 0));
 
-    const accent     = isRev ? '#2563EB' : '#C4963C';
-    const accentDark = isRev ? '#1D4ED8' : '#8a6420';
-    const icon       = isRev ? '🔄' : isFirstTime ? '✨' : inProg ? '▶️' : '🌟';
+    const accent     = isRev ? '#2563EB' : isPar ? '#7c3aed' : '#C4963C';
+    const accentDark = isRev ? '#1D4ED8' : isPar ? '#5b21b6' : '#8a6420';
+    const icon       = isRev ? '🔄' : isPar ? '📖' : isFirstTime ? '✨' : inProg ? '▶️' : '🌟';
 
     // Etiqueta superior contextual
     const srsCount = nextStep.srsCount || 0;
     const eyebrow = isRev     ? (srsCount > 0 ? `🔁 ${srsCount} ${srsCount===1?'SERIE':'SERIES'} POR REPASAR HOY` : 'REPASO PENDIENTE')
+                  : isPar     ? '✡️ TU LECTURA DE TORÁ'
                   : isFirstTime ? 'EMPEZAR A PRACTICAR'
                   : inProg    ? 'CONTINUAR'
                   : 'EMPEZAR A PRACTICAR';
 
     // Texto del botón
     const ctaLabel = isRev       ? (srsCount > 0 ? `Repasar ahora · ${srsCount===1?'~2 min':'~'+Math.min(srsCount*2,10)+' min'}` : 'Repasar ahora')
+                   : isPar       ? 'Practicar parashá'
                    : isFirstTime ? 'Empezar'
                    : inProg      ? 'Continuar'
                    : 'Practicar ahora';
@@ -4670,12 +4915,54 @@ function renderHome(){
       </div>`;
 
     continueCard.querySelector('#continue-card').addEventListener('click', () => {
-      startSeries(nextStep.key, nextStep.lessonIdx);
+      if(nextStep.isParasha && nextStep.parashaId){
+        (async()=>{
+          showToast('Cargando...','cyan');
+          const ok = await startParashaSession(nextStep.parashaId, null);
+          if(ok) showAliyahSelect(nextStep.parashaId);
+        })();
+      } else {
+        startSeries(nextStep.key, nextStep.lessonIdx);
+      }
     });
     baseC.appendChild(continueCard);
   }
 
-  // ── BANNER BAR/BAT MITZVÁ — unificado en el bloque principal más abajo ──
+  // ── BANNER BAR/BAT MITZVÁ — compacto, arriba del CTA ──
+  const _bmDateEarly = localStorage.getItem('heb_bm_date');
+  if(_bmDateEarly){
+    const _bmParashaEarly = localStorage.getItem('heb_bm_parasha');
+    const _todayE = new Date(); _todayE.setHours(0,0,0,0);
+    const _bmE    = new Date(_bmDateEarly + 'T00:00:00');
+    const _daysE  = Math.ceil((_bmE - _todayE) / 86400000);
+    if(_daysE >= 0 && _daysE <= 365){
+      const _urgE   = _daysE <= 7 ? '#DC2626' : _daysE <= 30 ? '#D97706' : 'var(--navy-700)';
+      const _bmMetaE = _bmParashaEarly ? PARASHA_CATALOG.find(p => p.id === _bmParashaEarly) : null;
+      const _bmEarlyDiv = document.createElement('div');
+      _bmEarlyDiv.style.cssText = 'padding:0 14px 12px;';
+      _bmEarlyDiv.innerHTML = `
+        <div style="background:white;border:2px solid ${_urgE};border-radius:16px;
+                    padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;"
+             onclick="showBMSettingsModal()">
+          <div style="font-size:1.4rem;flex-shrink:0;">✡️</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;font-weight:700;color:${_urgE};
+                        text-transform:uppercase;letter-spacing:0.1em;">
+              ${_daysE===0?'¡Es hoy!':_daysE===1?'¡Mañana!':'En '+_daysE+' días · Bar/Bat Mitzvá'}
+            </div>
+            <div style="font-size:13px;font-weight:800;color:var(--navy-800);
+                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${_bmMetaE ? _bmMetaE.esp : 'Tu lectura de la Torá'}
+            </div>
+          </div>
+          ${_bmParashaEarly ? `<button onclick="event.stopPropagation();(async()=>{showToast('Cargando...','cyan');const ok=await startParashaSession('${_bmParashaEarly}',null);if(ok)showAliyahSelect('${_bmParashaEarly}');})()"
+            style="background:var(--navy-800);color:white;border:none;border-radius:10px;
+                   padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;
+                   white-space:nowrap;flex-shrink:0;">📖 Practicar</button>` : ''}
+        </div>`;
+      baseC.appendChild(_bmEarlyDiv);
+    }
+  }
 
   // Stats / datos secundarios — aparecen DESPUÉS del CTA
   // Agregar contenedores de panel desplegable DENTRO del header
@@ -6063,6 +6350,45 @@ async function showAliyahSelect(parashaId){
   const listEl = document.getElementById('aliyah-list');
   listEl.innerHTML = '';
 
+  // ── READING TYPE SELECTOR ──────────────────────────────────────
+  var currentRT = getReadingType();
+  var kriyahAliyot = getKriyahAliyot(parashaId, currentRT, localStorage.getItem('heb_bm_date') || '');
+
+  var rtSelector = document.createElement('div');
+  rtSelector.style.cssText = 'display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;';
+  ['weekday','full','triennial'].forEach(function(rt){
+    var info = READING_TYPE_LABELS[rt];
+    var isActive = rt === currentRT;
+    var hasData = !!getKriyahAliyot(parashaId, rt, '');
+    var btn = document.createElement('button');
+    btn.style.cssText = 'padding:8px 12px;border-radius:12px;border:1.5px solid ' +
+      (isActive ? 'var(--navy-800)' : 'var(--sand-300)') + ';cursor:pointer;' +
+      'font-size:11px;font-weight:700;white-space:nowrap;flex-shrink:0;' +
+      'background:' + (isActive ? 'var(--navy-800)' : 'white') + ';' +
+      'color:' + (isActive ? 'white' : hasData ? 'var(--navy-700)' : 'var(--sand-400)') + ';' +
+      'opacity:' + (hasData ? '1' : '0.5') + ';';
+    btn.textContent = info.icon + ' ' + info.label;
+    if(hasData){
+      btn.addEventListener('click', function(){
+        setReadingType(rt);
+        showAliyahSelect(parashaId);
+      });
+    }
+    rtSelector.appendChild(btn);
+  });
+  listEl.appendChild(rtSelector);
+
+  // ── Info del tipo de lectura activo ──
+  if(kriyahAliyot && kriyahAliyot.length > 0){
+    var rtInfo = READING_TYPE_LABELS[currentRT];
+    var infoEl = document.createElement('div');
+    infoEl.style.cssText = 'background:rgba(124,58,237,0.06);border:1.5px solid rgba(124,58,237,0.15);border-radius:12px;padding:10px 14px;margin-bottom:12px;';
+    infoEl.innerHTML = '<div style="font-size:11px;font-weight:700;color:#7c3aed;">' + rtInfo.icon + ' ' + rtInfo.label + '</div>' +
+      '<div style="font-size:10px;color:var(--sand-500);margin-top:2px;">' + rtInfo.desc + ' · ' + kriyahAliyot.length + ' secciones</div>';
+    listEl.appendChild(infoEl);
+  }
+
+  // ── Build aliyah list: use kriyah data for references ──
   aliyot.forEach(al => {
     const verseCount = al.verses?.length || 0;
     const firstVerse = al.verses?.[0];
@@ -6070,6 +6396,13 @@ async function showAliyahSelect(parashaId){
     const preview = firstVerse
       ? decodeVerse(firstVerse, dict).slice(0, 40) + '…'
       : '';
+
+    // Look up biblical reference from kriyah data
+    var kriyahRef = '';
+    if(kriyahAliyot){
+      var match = kriyahAliyot.find(function(k){ return k.aliyah === String(al.aliyah); });
+      if(match) kriyahRef = match.reading;
+    }
 
     const btn = document.createElement('button');
     btn.style.cssText = [
@@ -6083,19 +6416,19 @@ async function showAliyahSelect(parashaId){
     const aliyahPool = parashaState.index ? getAliyahWordPool(parashaId, al.aliyah) : [];
     const readableInAliyah = aliyahPool.length;
 
-    btn.innerHTML = `
-      <div style="width:36px;height:36px;border-radius:50%;background:var(--navy-800);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <span style="font-size:14px;font-weight:900;color:white;font-family:'Fraunces',serif;">${al.aliyah}</span>
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:13px;font-weight:900;color:var(--navy-800);">Aliyá ${al.aliyah}</span>
-          ${hasAudio ? '<span style="font-size:10px;background:rgba(74,155,111,0.12);color:var(--success);border-radius:99px;padding:2px 7px;font-weight:700;">🎵 Audio</span>' : ''}
-        </div>
-        <div style="font-size:11px;color:var(--sand-500);margin-top:2px;">${verseCount} versículo${verseCount!==1?'s':''} · ${readableInAliyah} palabras legibles</div>
-        <div style="font-family:'Noto Serif Hebrew',serif;font-size:12px;color:var(--navy-700);direction:rtl;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${preview}</div>
-      </div>
-      <div style="font-size:1.2rem;color:var(--sand-400);">→</div>`;
+    btn.innerHTML = '<div style="width:36px;height:36px;border-radius:50%;background:var(--navy-800);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+        '<span style="font-size:14px;font-weight:900;color:white;font-family:\'Fraunces\',serif;">' + al.aliyah + '</span>' +
+      '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+          '<span style="font-size:13px;font-weight:900;color:var(--navy-800);">Aliy\u00e1 ' + al.aliyah + '</span>' +
+          (hasAudio ? '<span style="font-size:10px;background:rgba(74,155,111,0.12);color:var(--success);border-radius:99px;padding:2px 7px;font-weight:700;">\ud83c\udfb5 Audio</span>' : '') +
+        '</div>' +
+        (kriyahRef ? '<div style="font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;">' + kriyahRef + '</div>' : '') +
+        '<div style="font-size:11px;color:var(--sand-500);margin-top:2px;">' + verseCount + ' vers\u00edculo' + (verseCount!==1?'s':'') + ' \u00b7 ' + readableInAliyah + ' palabras legibles</div>' +
+        '<div style="font-family:\'Noto Serif Hebrew\',serif;font-size:12px;color:var(--navy-700);direction:rtl;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + preview + '</div>' +
+      '</div>' +
+      '<div style="font-size:1.2rem;color:var(--sand-400);">\u2192</div>';
 
     btn.addEventListener('mouseenter', () => {
       btn.style.borderColor = 'var(--gold-400)';
@@ -6140,11 +6473,22 @@ function renderParashaRead(parashaId, aliyah){
   titleEl.textContent = meta?.esp || parashaId;
   if(aliyah){
     const alMeta = getAliyahMeta(parashaId, aliyah);
-    subtEl.textContent = alMeta
-      ? `Aliyá ${aliyah} · ${alMeta.reading}`
-      : `Aliyá ${aliyah}`;
+    // Also look up kriyah reference
+    var _rt = getReadingType();
+    var _krAliyot = getKriyahAliyot(parashaId, _rt, localStorage.getItem('heb_bm_date') || '');
+    var _krRef = '';
+    if(_krAliyot){
+      var _krMatch = _krAliyot.find(function(k){ return k.aliyah === String(aliyah); });
+      if(_krMatch) _krRef = _krMatch.reading;
+    }
+    subtEl.textContent = _krRef
+      ? 'Aliy\u00e1 ' + aliyah + ' \u00b7 ' + _krRef
+      : alMeta
+        ? 'Aliy\u00e1 ' + aliyah + ' \u00b7 ' + alMeta.reading
+        : 'Aliy\u00e1 ' + aliyah;
   } else {
-    subtEl.textContent = 'Todas las aliyot';
+    var _rtLabel = READING_TYPE_LABELS[getReadingType()];
+    subtEl.textContent = 'Todas las aliyot' + (_rtLabel ? ' \u00b7 ' + _rtLabel.label : '');
   }
 
   // ── TABS DE NAVEGACIÓN POR ALIYÁ ─────────────────────────────
@@ -6295,6 +6639,41 @@ function renderParashaRead(parashaId, aliyah){
       document.querySelectorAll('.word-translit').forEach(el => {
         el.style.display = _translitOn ? 'block' : 'none';
       });
+    });
+  }
+
+  // Toggle "Sin nikudot" — modo Torá real (consonantes solamente)
+  let _noNikudOn = false;
+  const noNikudBtn = document.getElementById('read-no-nikud-btn');
+  if(noNikudBtn){
+    noNikudBtn.addEventListener('click', () => {
+      _noNikudOn = !_noNikudOn;
+      const icon = document.getElementById('read-nikud-icon');
+      if(icon) icon.textContent = _noNikudOn ? 'ת' : 'תּ';
+      noNikudBtn.style.background  = _noNikudOn ? '#7c3aed' : 'var(--sand-200)';
+      noNikudBtn.style.color        = _noNikudOn ? 'white'   : 'var(--navy-700)';
+      noNikudBtn.style.borderColor  = _noNikudOn ? '#7c3aed' : 'var(--sand-300)';
+      // Apply/remove nikudot on all Hebrew word spans in the verse area
+      const verseArea = document.getElementById('read-verses');
+      if(!verseArea) return;
+      verseArea.querySelectorAll('span[data-word]').forEach(function(span){
+        var original = span.dataset.word;
+        if(!original) return;
+        if(_noNikudOn){
+          // Store original with nikudot, show stripped
+          if(!span.dataset.withNikud) span.dataset.withNikud = span.textContent;
+          span.textContent = stripNikudot(typeof cleanTorahText === 'function' ? cleanTorahText(original) : original);
+        } else {
+          // Restore original with nikudot
+          if(span.dataset.withNikud){
+            span.textContent = span.dataset.withNikud;
+          }
+        }
+      });
+      // Show mode indicator
+      if(_noNikudOn){
+        showToast('📜 Modo Torá — sin nikudot, como en el Séfer', 'cyan');
+      }
     });
   }
 
@@ -9506,6 +9885,34 @@ function _runCelebration(){
 
   // next/home buttons
   const nextLessonIdx=lessons.findIndex((_,i)=>i>state.activeLesson&&!lessonDone(key,i));
+
+  // ── Sidur context hint: show where these words appear in real prayers ──
+  if(typeof SIDUR_TEXTS !== 'undefined' && typeof normalizeSidurWord === 'function'){
+    var _learnedHebs = wordsToShow.map(function(idx){ return s.words[idx]?.heb; }).filter(Boolean);
+    var _sidurMatches = [];
+    SIDUR_TEXTS.forEach(function(t){
+      var _mw = [];
+      t.verses.forEach(function(verse){
+        verse.split(/\s+/).forEach(function(w){
+          var _cl = w.replace(/[\u0591-\u05AF\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7]/g, '');
+          if(_learnedHebs.some(function(lh){ return normalizeSidurWord(lh) === normalizeSidurWord(_cl); })){
+            if(_mw.indexOf(_cl) === -1) _mw.push(_cl);
+          }
+        });
+      });
+      if(_mw.length > 0) _sidurMatches.push({ title: t.esp, count: _mw.length });
+    });
+    if(_sidurMatches.length > 0){
+      var _shEl = document.createElement('div');
+      _shEl.style.cssText = 'width:100%;max-width:300px;margin:12px auto 0;background:rgba(168,85,247,0.06);border:1.5px solid rgba(168,85,247,0.2);border-radius:14px;padding:12px 16px;text-align:center;';
+      _shEl.innerHTML = '<div style="font-size:10px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">📜 ¿Sabías que...?</div>' +
+        '<div style="font-size:12px;color:var(--navy-700);line-height:1.5;">' +
+        _sidurMatches.map(function(m){ return 'Palabras de esta lección aparecen en <b>' + m.title + '</b>'; }).join('<br>') +
+        '</div>' +
+        '<button onclick="showSidurExplorer(0)" style="margin-top:8px;background:none;border:1px solid #7c3aed;color:#7c3aed;border-radius:10px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;">Ver en el Sidur →</button>';
+      cardsEl.insertAdjacentElement('afterend', _shEl);
+    }
+  }
   const nextBtn=document.getElementById("cel-next-btn");
   const homeBtn=document.getElementById("cel-home-btn");
   if(nextLessonIdx!==-1){
@@ -9597,13 +10004,20 @@ function _runCelebration(){
 let _fadingTimer = null; // timer del fade actual
 
 // Calcula cuánto tiempo (ms) mostrar la transliteración según estado y aciertos
+// Progresión de 5 niveles: full → long → medium → short → hidden
 function getFadingDuration(ws){
-  if(!ws) return 3000;
-  if(ws.status === 'review' || ws.status === 'mastered') return 0; // no mostrar
-  if(ws.status === 'new') return 3000;
-  // learning: reducir según cantidad de aciertos
-  if(ws.correct <= 2) return 1500;
-  return 800;
+  if(!ws) return 3000; // primera vez: 3s completo
+  if(ws.status === 'mastered') return 0; // no mostrar
+  if(ws.status === 'review'){
+    // Review: mostrar breve solo si tiene errores recientes
+    return ws.streak >= 2 ? 0 : 500;
+  }
+  if(ws.status === 'new') return 3000; // nuevo: 3s
+  // Learning: escala progresiva según aciertos
+  // correct 1 → 2500ms, 2 → 1800ms, 3 → 1200ms, 4 → 600ms, 5+ → 0ms
+  var levels = [2500, 1800, 1200, 600, 0];
+  var idx = Math.min(ws.correct - 1, levels.length - 1);
+  return levels[Math.max(0, idx)];
 }
 
 // Muestra la transliteración con fading para la palabra actual del challenge
@@ -11309,42 +11723,100 @@ function renderWeeklyChallengesCard(){
 
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  RANKING DE CLASE — leaderboard entre compañeros          ║
+// ║  • Busca la clase del alumno via class_members              ║
+// ║  • Score = total de ejercicios completados (progress vals)  ║
+// ║  • Semanal: solo cuenta progreso desde el lunes             ║
+// ║  • Opt-in: el docente activa/desactiva desde teacher.js     ║
 // ╚═══════════════════════════════════════════════════════════╝
 
-async function _fetchClassRanking(){
-  // Usa Supabase para obtener progreso de alumnos de la misma clase
-  if(!_sb || !_authProfile) return null;
-  try {
-    const institutionId = _authProfile.institution_id;
-    if(!institutionId) return null;
+let _rankingCache = null;
+let _rankingCacheTs = 0;
+const RANKING_CACHE_TTL = 60000; // 1 minuto
 
+async function _fetchClassRanking(){
+  if(!_sb || !_authUser) return null;
+
+  // Cache: no refetch si fue hace menos de 1 min
+  if(_rankingCache && (Date.now() - _rankingCacheTs) < RANKING_CACHE_TTL) return _rankingCache;
+
+  try {
+    // 1. Find the student's class
+    const { data: membership } = await _sb
+      .from('class_members')
+      .select('class_id')
+      .eq('student_id', _authUser.id)
+      .maybeSingle();
+
+    if(!membership?.class_id) return null;
+    const classId = membership.class_id;
+
+    // 2. Check if leaderboard is enabled for this class
+    const { data: classInfo } = await _sb
+      .from('classes')
+      .select('id, name, leaderboard_enabled')
+      .eq('id', classId)
+      .maybeSingle();
+
+    // If leaderboard_enabled column doesn't exist yet, default to true
+    // (backwards compatible — teacher can disable later)
+    if(classInfo && classInfo.leaderboard_enabled === false) return 'disabled';
+
+    // 3. Get all classmates
     const { data: members } = await _sb
       .from('class_members')
-      .select('user_id')
-      .eq('institution_id', institutionId);
+      .select('student_id')
+      .eq('class_id', classId);
 
     if(!members?.length) return null;
+    const userIds = members.map(m => m.student_id);
 
-    const userIds = members.map(m => m.user_id);
-    const { data: profiles } = await _sb
-      .from('profiles')
-      .select('user_id, name')
-      .in('user_id', userIds);
+    // 4. Get profiles and progress
+    const [profResult, progResult] = await Promise.all([
+      _sb.from('profiles').select('id, name').in('id', userIds),
+      _sb.from('user_progress').select('user_id, progress, shekels, updated_at').in('user_id', userIds),
+    ]);
 
-    const { data: progData } = await _sb
-      .from('user_progress')
-      .select('user_id, progress, streak')
-      .in('user_id', userIds);
+    const profiles = profResult.data || [];
+    const progData = progResult.data || [];
 
-    // Calcular score por alumno (palabras correctas totales)
-    return (progData || []).map(p => {
+    // 5. Calculate scores
+    // Score = sum of all progress values (each lessonKey has a count of exercises done)
+    const ranking = progData.map(p => {
       const prog  = p.progress || {};
-      const score = Object.values(prog).reduce((s,d) => s + (d.correct||0), 0);
-      const prof  = profiles?.find(pr => pr.user_id === p.user_id);
-      const isMe  = p.user_id === _authUser?.id;
-      return { name: prof?.name || 'Alumno', score, streak: p.streak || 0, isMe };
-    }).sort((a,b) => b.score - a.score);
-  } catch(e){ return null; }
+      // Total XP: sum of all lesson progress values
+      const totalXP = Object.values(prog).reduce((sum, val) => {
+        if(typeof val === 'number') return sum + val;
+        if(typeof val === 'object' && val !== null) return sum + (val.correct || 0);
+        return sum;
+      }, 0);
+
+      // Weekly XP: compare updated_at to see if active this week
+      const updatedAt = p.updated_at ? new Date(p.updated_at) : null;
+      const now = new Date();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      monday.setHours(0,0,0,0);
+      const activeThisWeek = updatedAt && updatedAt >= monday;
+
+      const prof  = profiles.find(pr => pr.id === p.user_id);
+      const isMe  = p.user_id === _authUser.id;
+      return {
+        name:    prof?.name || 'Alumno',
+        totalXP,
+        shekels: p.shekels || 0,
+        isMe,
+        activeThisWeek,
+        userId: p.user_id,
+      };
+    }).sort((a,b) => b.totalXP - a.totalXP);
+
+    _rankingCache   = ranking;
+    _rankingCacheTs = Date.now();
+    return ranking;
+  } catch(e){
+    dbg('[Ranking] fetch error:', e.message);
+    return null;
+  }
 }
 
 function toggleRankingPanel(){
@@ -11356,66 +11828,119 @@ function toggleRankingPanel(){
     panel.style.maxHeight = '0';
     if(btn){ btn.style.borderColor='var(--sand-300)'; btn.style.color='var(--navy-700)'; }
   } else {
-    // Mostrar loading + cargar datos
-    panel.style.maxHeight = '300px';
+    panel.style.maxHeight = '400px';
     if(btn){ btn.style.borderColor='var(--navy-600)'; btn.style.color='var(--navy-800)'; }
     _renderRankingPanel(panel);
   }
 }
 
 async function _renderRankingPanel(panel){
-  panel.innerHTML = `
-    <div style="padding:12px 16px;">
-      <div class="sk-pulse" style="height:14px;border-radius:6px;width:50%;margin-bottom:10px;"></div>
-      ${[1,2,3].map(()=>'<div class="sk-pulse" style="height:40px;border-radius:10px;margin-bottom:8px;"></div>').join('')}
-    </div>`;
+  // Loading skeleton
+  panel.innerHTML = '<div style="padding:12px 16px;">' +
+    '<div class="sk-pulse" style="height:14px;border-radius:6px;width:50%;margin-bottom:10px;"></div>' +
+    [1,2,3].map(function(){ return '<div class="sk-pulse" style="height:44px;border-radius:10px;margin-bottom:8px;"></div>'; }).join('') +
+    '</div>';
 
   if(!_authUser || !_sb){
-    panel.innerHTML = `
-      <div style="padding:16px;text-align:center;font-size:13px;color:var(--sand-500);">
-        🔐 Iniciá sesión para ver el ranking de tu clase
-      </div>`;
+    panel.innerHTML = '<div style="padding:16px;text-align:center;font-size:13px;color:var(--sand-500);">' +
+      '🔐 Iniciá sesión para ver el ranking de tu clase</div>';
+    panel.style.maxHeight = panel.scrollHeight + 20 + 'px';
     return;
   }
 
-  const ranking = await _fetchClassRanking();
+  var ranking = await _fetchClassRanking();
+
+  if(ranking === 'disabled'){
+    panel.innerHTML = '<div style="padding:16px;text-align:center;font-size:13px;color:var(--sand-500);">' +
+      '🔒 El ranking está desactivado por tu profesor/a</div>';
+    panel.style.maxHeight = panel.scrollHeight + 20 + 'px';
+    return;
+  }
 
   if(!ranking || ranking.length === 0){
-    panel.innerHTML = `
-      <div style="padding:16px;text-align:center;font-size:13px;color:var(--sand-500);">
-        Sin compañeros en tu clase todavía
-      </div>`;
+    panel.innerHTML = '<div style="padding:16px;text-align:center;">' +
+      '<div style="font-size:2rem;margin-bottom:6px;">🏅</div>' +
+      '<div style="font-size:13px;color:var(--sand-500);">Todavía no hay compañeros en tu clase</div>' +
+      '<div style="font-size:11px;color:var(--sand-400);margin-top:4px;">Pedile el código de clase a tu profesor/a</div>' +
+      '</div>';
+    panel.style.maxHeight = panel.scrollHeight + 20 + 'px';
     return;
   }
 
-  const MEDALS = ['🥇','🥈','🥉'];
-  panel.innerHTML = `
-    <div style="padding:10px 16px 14px;">
-      <div style="font-size:11px;font-weight:700;color:var(--sand-500);
-                  text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
-        🏅 Ranking de tu clase
-      </div>
-      ${ranking.map((r, i) => `
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;
-                    border-bottom:${i<ranking.length-1?'1px solid var(--sand-200)':'none'};
-                    ${r.isMe ? 'background:rgba(196,150,60,0.06);border-radius:8px;padding:8px 10px;margin:2px -10px;' : ''}">
-          <span style="font-size:1.1rem;width:24px;text-align:center;flex-shrink:0;">
-            ${i<3 ? MEDALS[i] : (i+1)+'.'}
-          </span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:${r.isMe?'900':'600'};
-                        color:${r.isMe?'var(--gold-600)':'var(--navy-800)'};
-                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${r.isMe ? '👤 Vos' : r.name}
-            </div>
-          </div>
-          <div style="text-align:right;flex-shrink:0;">
-            <div style="font-size:13px;font-weight:700;color:var(--navy-700);">${r.score} ✓</div>
-            ${r.streak>0 ? `<div style="font-size:10px;color:#D97706;">🔥${r.streak}</div>` : ''}
-          </div>
-        </div>`).join('')}
-    </div>`;
-  // Actualizar altura real
+  var MEDALS = ['🥇','🥈','🥉'];
+  var myRank = -1;
+  ranking.forEach(function(r, i){ if(r.isMe) myRank = i; });
+
+  var html = '<div style="padding:10px 16px 14px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+      '<div style="font-size:12px;font-weight:800;color:var(--navy-700);">🏅 Ranking de clase</div>' +
+      '<div style="font-size:10px;color:var(--sand-400);">' + ranking.length + ' alumno' + (ranking.length!==1?'s':'') + '</div>' +
+    '</div>';
+
+  // My position highlight if not in top 3
+  if(myRank >= 3){
+    html += '<div style="background:rgba(196,150,60,0.08);border:1.5px solid var(--gold-400);border-radius:12px;' +
+      'padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">' +
+      '<span style="font-size:12px;font-weight:900;color:var(--gold-600);width:24px;text-align:center;">#' + (myRank+1) + '</span>' +
+      '<div style="flex:1;font-size:13px;font-weight:800;color:var(--gold-600);">👤 Tu posición</div>' +
+      '<div style="font-size:13px;font-weight:800;color:var(--navy-700);">' + ranking[myRank].totalXP + ' XP</div>' +
+      '</div>';
+  }
+
+  // Podium — top 3
+  if(ranking.length >= 3){
+    html += '<div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;margin-bottom:14px;padding:0 8px;">';
+    // 2nd place
+    var r2 = ranking[1];
+    html += '<div style="flex:1;text-align:center;">' +
+      '<div style="font-size:1.4rem;">🥈</div>' +
+      '<div style="background:' + (r2.isMe ? 'rgba(196,150,60,0.12)' : 'var(--sand-100)') + ';border-radius:12px 12px 0 0;padding:10px 6px 8px;border:1px solid var(--sand-200);border-bottom:none;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">' +
+        '<div style="font-size:11px;font-weight:' + (r2.isMe?'900':'700') + ';color:' + (r2.isMe?'var(--gold-600)':'var(--navy-700)') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">' + (r2.isMe ? '👤 Vos' : r2.name) + '</div>' +
+        '<div style="font-size:12px;font-weight:800;color:var(--navy-800);">' + r2.totalXP + '</div>' +
+      '</div></div>';
+    // 1st place
+    var r1 = ranking[0];
+    html += '<div style="flex:1.2;text-align:center;">' +
+      '<div style="font-size:1.8rem;">🥇</div>' +
+      '<div style="background:' + (r1.isMe ? 'rgba(196,150,60,0.12)' : 'rgba(255,215,0,0.08)') + ';border-radius:12px 12px 0 0;padding:12px 6px 10px;border:1.5px solid ' + (r1.isMe ? 'var(--gold-400)' : 'rgba(255,215,0,0.3)') + ';border-bottom:none;min-height:65px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">' +
+        '<div style="font-size:12px;font-weight:900;color:' + (r1.isMe?'var(--gold-600)':'var(--navy-800)') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">' + (r1.isMe ? '👤 Vos' : r1.name) + '</div>' +
+        '<div style="font-size:14px;font-weight:900;color:var(--navy-800);font-family:\'Fraunces\',serif;">' + r1.totalXP + '</div>' +
+      '</div></div>';
+    // 3rd place
+    var r3 = ranking[2];
+    html += '<div style="flex:1;text-align:center;">' +
+      '<div style="font-size:1.4rem;">🥉</div>' +
+      '<div style="background:' + (r3.isMe ? 'rgba(196,150,60,0.12)' : 'var(--sand-100)') + ';border-radius:12px 12px 0 0;padding:10px 6px 8px;border:1px solid var(--sand-200);border-bottom:none;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">' +
+        '<div style="font-size:11px;font-weight:' + (r3.isMe?'900':'700') + ';color:' + (r3.isMe?'var(--gold-600)':'var(--navy-700)') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">' + (r3.isMe ? '👤 Vos' : r3.name) + '</div>' +
+        '<div style="font-size:12px;font-weight:800;color:var(--navy-800);">' + r3.totalXP + '</div>' +
+      '</div></div>';
+    html += '</div>';
+  }
+
+  // List — remaining (or all if < 3)
+  var startIdx = ranking.length >= 3 ? 3 : 0;
+  if(startIdx < ranking.length){
+    ranking.slice(startIdx).forEach(function(r, i){
+      var pos = startIdx + i;
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:9px 4px;' +
+        'border-bottom:' + (pos < ranking.length-1 ? '1px solid var(--sand-200)' : 'none') + ';' +
+        (r.isMe ? 'background:rgba(196,150,60,0.06);border-radius:8px;padding:9px 10px;margin:2px -6px;' : '') + '">' +
+        '<span style="font-size:12px;font-weight:700;color:var(--sand-500);width:24px;text-align:center;flex-shrink:0;">' +
+          (pos < 3 ? MEDALS[pos] : (pos+1) + '.') + '</span>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:' + (r.isMe ? '900' : '600') + ';color:' + (r.isMe ? 'var(--gold-600)' : 'var(--navy-800)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+            (r.isMe ? '👤 Vos' : r.name) +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0;">' +
+          '<div style="font-size:13px;font-weight:700;color:var(--navy-700);">' + r.totalXP + ' XP</div>' +
+          (r.activeThisWeek ? '<div style="font-size:9px;color:var(--success);font-weight:600;">activo</div>' : '<div style="font-size:9px;color:var(--sand-400);">inactivo</div>') +
+        '</div></div>';
+    });
+  }
+
+  html += '</div>';
+  panel.innerHTML = html;
   panel.style.maxHeight = panel.scrollHeight + 20 + 'px';
 }
 
@@ -11724,6 +12249,88 @@ const SIDUR_TEXTS = [
       'לִפְנֵי מֶלֶךְ מַלְכֵי הַמְּלָכִים הַקָּדוֹשׁ בָּרוּךְ הוּא',
     ]
   },
+  {
+    id:    'birjot',
+    title: 'בִּרְכוֹת הַשַּׁחַר',
+    esp:   'Birjot HaShajar',
+    desc:  'Bendiciones de la mañana',
+    verses: [
+      'בָּרוּךְ אַתָּה יְהוָה אֱלֹהֵינוּ מֶלֶךְ הָעוֹלָם',
+      'אֲשֶׁר נָתַן לַשֶּׂכְוִי בִינָה לְהַבְחִין בֵּין יוֹם וּבֵין לָיְלָה',
+      'שֶׁעָשַׂנִי בְּצַלְמוֹ',
+      'שֶׁעָשַׂנִי יִשְׂרָאֵל',
+      'שֶׁעָשַׂנִי בֶן חוֹרִין',
+      'פּוֹקֵחַ עִוְרִים',
+      'מַלְבִּישׁ עֲרֻמִּים',
+      'מַתִּיר אֲסוּרִים',
+      'זוֹקֵף כְּפוּפִים',
+      'רוֹקַע הָאָרֶץ עַל הַמָּיִם',
+      'הַמֵּכִין מִצְעֲדֵי גָבֶר',
+      'שֶׁעָשָׂה לִי כָּל צָרְכִּי',
+      'אוֹזֵר יִשְׂרָאֵל בִּגְבוּרָה',
+      'עוֹטֵר יִשְׂרָאֵל בְּתִפְאָרָה',
+    ]
+  },
+  {
+    id:    'kidush',
+    title: 'קִדּוּשׁ',
+    esp:   'Kidush de Shabat',
+    desc:  'Santificación del Shabat con vino',
+    verses: [
+      'וַיְהִי עֶרֶב וַיְהִי בֹקֶר יוֹם הַשִּׁשִּׁי',
+      'וַיְכֻלּוּ הַשָּׁמַיִם וְהָאָרֶץ וְכָל צְבָאָם',
+      'וַיְכַל אֱלֹהִים בַּיּוֹם הַשְּׁבִיעִי מְלַאכְתּוֹ אֲשֶׁר עָשָׂה',
+      'וַיִּשְׁבֹּת בַּיּוֹם הַשְּׁבִיעִי מִכָּל מְלַאכְתּוֹ אֲשֶׁר עָשָׂה',
+      'וַיְבָרֶךְ אֱלֹהִים אֶת יוֹם הַשְּׁבִיעִי וַיְקַדֵּשׁ אֹתוֹ',
+      'כִּי בוֹ שָׁבַת מִכָּל מְלַאכְתּוֹ אֲשֶׁר בָּרָא אֱלֹהִים לַעֲשׂוֹת',
+      'בָּרוּךְ אַתָּה יְהוָה אֱלֹהֵינוּ מֶלֶךְ הָעוֹלָם בּוֹרֵא פְּרִי הַגָּפֶן',
+    ]
+  },
+  {
+    id:    'modeh',
+    title: 'מוֹדֶה אֲנִי',
+    esp:   'Modeh Ani',
+    desc:  'Primera oración al despertar',
+    verses: [
+      'מוֹדֶה אֲנִי לְפָנֶיךָ',
+      'מֶלֶךְ חַי וְקַיָּם',
+      'שֶׁהֶחֱזַרְתָּ בִּי נִשְׁמָתִי בְּחֶמְלָה',
+      'רַבָּה אֱמוּנָתֶךָ',
+    ]
+  },
+  {
+    id:    'ashrei',
+    title: 'אַשְׁרֵי',
+    esp:   'Ashrei',
+    desc:  'Salmo 145 — se recita 3 veces al día',
+    verses: [
+      'אַשְׁרֵי יוֹשְׁבֵי בֵיתֶךָ עוֹד יְהַלְלוּךָ סֶּלָה',
+      'אַשְׁרֵי הָעָם שֶׁכָּכָה לוֹ אַשְׁרֵי הָעָם שֶׁיְהוָה אֱלֹהָיו',
+      'גָּדוֹל יְהוָה וּמְהֻלָּל מְאֹד וְלִגְדֻלָּתוֹ אֵין חֵקֶר',
+      'דּוֹר לְדוֹר יְשַׁבַּח מַעֲשֶׂיךָ וּגְבוּרֹתֶיךָ יַגִּידוּ',
+      'פּוֹתֵחַ אֶת יָדֶךָ וּמַשְׂבִּיעַ לְכָל חַי רָצוֹן',
+      'קָרוֹב יְהוָה לְכָל קֹרְאָיו לְכֹל אֲשֶׁר יִקְרָאֻהוּ בֶאֱמֶת',
+      'תְּהִלַּת יְהוָה יְדַבֶּר פִּי וִיבָרֵךְ כָּל בָּשָׂר שֵׁם קָדְשׁוֹ לְעוֹלָם וָעֶד',
+    ]
+  },
+  {
+    id:    'birkat_hamazon',
+    title: 'בִּרְכַּת הַמָּזוֹן',
+    esp:   'Birkat Hamazon',
+    desc:  'Bendición después de comer — apertura',
+    verses: [
+      'בָּרוּךְ אַתָּה יְהוָה אֱלֹהֵינוּ מֶלֶךְ הָעוֹלָם',
+      'הַזָּן אֶת הָעוֹלָם כֻּלוֹ בְּטוּבוֹ',
+      'בְּחֵן בְּחֶסֶד וּבְרַחֲמִים',
+      'הוּא נוֹתֵן לֶחֶם לְכָל בָּשָׂר כִּי לְעוֹלָם חַסְדּוֹ',
+      'וּבְטוּבוֹ הַגָּדוֹל תָּמִיד לֹא חָסַר לָנוּ',
+      'וְאַל יֶחְסַר לָנוּ מָזוֹן לְעוֹלָם וָעֶד',
+      'בַּעֲבוּר שְׁמוֹ הַגָּדוֹל',
+      'כִּי הוּא אֵל זָן וּמְפַרְנֵס לַכֹּל',
+      'וּמֵכִין מָזוֹן לְכָל בְּרִיּוֹתָיו אֲשֶׁר בָּרָא',
+      'בָּרוּךְ אַתָּה יְהוָה הַזָּן אֶת הַכֹּל',
+    ]
+  },
 ];
 
 // ── DICCIONARIO MAESTRO DEL EXPLORADOR ───────────────────────
@@ -11768,6 +12375,14 @@ function normalizeSidurWord(word){
     .replace(/[\u0591-\u05AF\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7]/g, '') // trope y puntos especiales
     .replace(/\u05BC/g, '') // dagesh
     .trim();
+}
+
+// ── STRIP NIKUDOT — para práctica de lectura sin vocales ──────────
+// Remueve nikudot (vocales) dejando solo consonantes + shin/sin dots
+function stripNikudot(text){
+  return text
+    .replace(/[\u05B0-\u05BC\u05C7]/g, '') // nikudot (vocales) + dagesh
+    .replace(/[\u05BD\u05BF\u05C4\u05C5]/g, ''); // misc marks
 }
 
 // Tokeniza un versículo en palabras individuales
@@ -11826,6 +12441,12 @@ function showSidurExplorer(startIdx){
   _sidurCurrentIdx = startIdx || 0;
   _sidurDict = buildSidurDictionary();
 
+  // Track first visit for achievement
+  if(!localStorage.getItem("heb_sidur_visited")){
+    localStorage.setItem("heb_sidur_visited", "1");
+    if(typeof checkAchievements === 'function') checkAchievements();
+  }
+
   showView('sidur');
 
   // Back button
@@ -11840,6 +12461,34 @@ function showSidurExplorer(startIdx){
   });
 
   renderSidurText(_sidurCurrentIdx);
+
+  // ── Toggle "sin nikudot" en Sidur ──
+  let _sidurNoNikud = false;
+  const _snBtn = document.getElementById('sidur-no-nikud-btn');
+  if(_snBtn){
+    // Remove old listeners by cloning
+    const newBtn = _snBtn.cloneNode(true);
+    _snBtn.parentNode.replaceChild(newBtn, _snBtn);
+    newBtn.addEventListener('click', function(){
+      _sidurNoNikud = !_sidurNoNikud;
+      var icon = document.getElementById('sidur-nikud-icon');
+      if(icon) icon.textContent = _sidurNoNikud ? 'ת' : 'תּ';
+      newBtn.style.background  = _sidurNoNikud ? '#7c3aed' : 'var(--sand-200)';
+      newBtn.style.color        = _sidurNoNikud ? 'white'   : 'var(--navy-700)';
+      newBtn.style.borderColor  = _sidurNoNikud ? '#7c3aed' : 'var(--sand-300)';
+      var area = document.getElementById('sidur-text-area');
+      if(!area) return;
+      area.querySelectorAll('span[style*="Noto Serif Hebrew"]').forEach(function(span){
+        if(_sidurNoNikud){
+          if(!span.dataset.withNikud) span.dataset.withNikud = span.textContent;
+          span.textContent = stripNikudot(span.dataset.withNikud);
+        } else {
+          if(span.dataset.withNikud) span.textContent = span.dataset.withNikud;
+        }
+      });
+      if(_sidurNoNikud) showToast('📜 Modo Torá — sin nikudot', 'cyan');
+    });
+  }
 }
 
 function renderSidurText(idx){
@@ -11951,6 +12600,69 @@ function renderSidurText(idx){
   else                 motivMsg = '¡Dominaste todo este texto del Sidur! 🎉';
   motivEl.innerHTML = '<span style="font-size:13px;color:var(--sand-400);font-style:italic;">' + motivMsg + '</span>';
   area.appendChild(motivEl);
+
+  // ── Botón "Lectura corrida" — practica palabra por palabra en voz alta ──
+  if(pct > 0){
+    var lectBtn = document.createElement('div');
+    lectBtn.style.cssText = 'padding:0 16px 20px;';
+    lectBtn.innerHTML = '<button onclick="startSidurLectura(' + idx + ')" style="width:100%;padding:14px;' +
+      'border-radius:14px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;border:none;' +
+      'font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 3px 0 #5b21b6;' +
+      'display:flex;align-items:center;justify-content:center;gap:8px;">' +
+      '📖 Practicar lectura corrida</button>';
+    area.appendChild(lectBtn);
+  }
+}
+
+// ── LECTURA CORRIDA DESDE SIDUR ──────────────────────────────────
+// Lanza el modo lectura guiada usando palabras de un texto del Sidur.
+// Construye el array de words directamente desde SIDUR_TEXTS[idx].
+function startSidurLectura(idx){
+  var textObj = SIDUR_TEXTS[idx];
+  if(!textObj){ showToast('Texto no encontrado', 'warn'); return; }
+
+  var dict = buildSidurDictionary();
+  var words = [];
+
+  textObj.verses.forEach(function(verse, vi){
+    var verseWords = tokenizeSidurVerse(verse);
+    verseWords.forEach(function(w){
+      var norm  = normalizeSidurWord(w);
+      var entry = dict[norm];
+      var fon   = (entry && entry.fon) ? entry.fon : _generateBasicTranslit(w);
+      var sign  = (entry && entry.sign) ? entry.sign : '';
+      words.push({
+        heb:        w,
+        fon:        fon,
+        sign:       sign,
+        verseIdx:   vi,
+        verseLabel: textObj.esp + ' · Versículo ' + (vi + 1),
+        verseWords: verseWords,
+      });
+    });
+  });
+
+  if(!words.length){ showToast('No hay palabras para practicar', 'warm'); return; }
+
+  // Set lectura state and launch
+  _lecturaState.tefilaId   = 'sidur_' + textObj.id;
+  _lecturaState.sectionNum = null;
+  _lecturaState.words      = words;
+  _lecturaState.wordIdx    = 0;
+  _lecturaState.soloCount  = 0;
+  _lecturaState.helpCount  = 0;
+  _lecturaState.revealed   = false;
+
+  // Hide result panel if visible
+  var rp = document.getElementById('lectura-result-panel');
+  if(rp) rp.style.display = 'none';
+
+  // Setup lectura view
+  showView('lectura');
+  document.getElementById('lectura-title').textContent    = textObj.esp;
+  document.getElementById('lectura-subtitle').textContent = textObj.desc;
+  document.getElementById('lectura-back-btn').onclick     = function(){ showSidurExplorer(idx); };
+  lecturaRenderWord();
 }
 
 async function loadAndShowTefila(tefilaId){
@@ -13685,6 +14397,8 @@ const COACH_MSGS = {
   // señales predictivas
   fatigue:       ['¿Todo bien? Podés tomar un descanso 😌','Si sentís que tardás más, no hay problema — seguí a tu ritmo','Una pausa corta ayuda a recordar mejor'],
   slowing:       ['Notás que tardás un poco más — es normal 👍','Tu cerebro está procesando — dale tiempo'],
+  // re-engagement después de ausencia
+  welcome_back:  ['¡Qué bueno que volviste! Vamos a repasar 💪','¡Te extrañamos! Empecemos con un repaso rápido 🌟','¡Volviste! Tu progreso sigue guardado 📖','¡Hola de nuevo! Arranquemos suave 🤝'],
   // integración con misiones
   mission_push:  ['Estás muy cerca de terminar la misión 🎯','Te falta poco para completarla — ¡dale!'],
   mission_done:  ['🎯 ¡Misión del día completada! Excelente trabajo','¡Lo lograste! Misión cumplida 🏆'],
@@ -13999,7 +14713,16 @@ function showCoach(trigger){
 
 // Alias para compatibilidad con código anterior
 function showCoachMessage(){ showCoach('home'); }
-function runCoachCheck(){    setTimeout(() => showCoach('home'), 1500); }
+function runCoachCheck(){
+  const _la = parseInt(localStorage.getItem('heb_last_activity') || '0');
+  const _da = _la ? Math.floor((Date.now() - _la) / 86400000) : 0;
+  if(_da >= 3 && typeof _pickMsg === 'function'){
+    const msg = _pickMsg('welcome_back');
+    if(msg) setTimeout(() => showToast(msg, 'cyan'), 1800);
+    return;
+  }
+  setTimeout(() => showCoach('home'), 1500);
+}
 function analyzeUserBehavior(){ return getUserContext(); }
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  NOTIFICACIONES — sistema tipo Duolingo                   ║
