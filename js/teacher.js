@@ -658,12 +658,6 @@ function tdRenderClassSettings(){
           ${cls?.leaderboard_enabled !== false ? '✓ Activo' : 'Inactivo'}
         </button>
       </div>
-      <!-- Reading type selector -->
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--sand-200);">
-        <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📜 Tipo de lectura de Torá</div>
-        <div style="font-size:10px;color:var(--sand-500);margin-bottom:8px;">Configurá el tipo de lectura que usa la institución</div>
-        <div id="td-reading-type-btns" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-      </div>
     </div>` : `
     <!-- Sin clase — crear -->
     <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
@@ -698,55 +692,11 @@ function tdRenderClassSettings(){
       </button>
       <div id="td-broadcast-status" style="font-size:12px;color:var(--sand-500);text-align:center;min-height:16px;margin-top:6px;"></div>
     </div>`;
-
-  // ── Populate reading type buttons dynamically (avoids template escape issues) ──
-  var rtContainer = document.getElementById('td-reading-type-btns');
-  if(rtContainer){
-    var labels = { weekday: '\ud83d\udcc5 D\u00eda de semana', full: '\ud83d\udcdc Shabat completa', triennial: '\ud83d\udd04 Trienal' };
-    var instRT = (_authProfile && _authProfile._institution && _authProfile._institution.reading_type) || 'full';
-    ['weekday','full','triennial'].forEach(function(rt){
-      var isActive = rt === instRT;
-      var btn = document.createElement('button');
-      btn.textContent = labels[rt];
-      btn.style.cssText = 'padding:8px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;' +
-        'border:1.5px solid ' + (isActive ? '#7c3aed' : 'var(--sand-300)') + ';' +
-        'background:' + (isActive ? 'rgba(124,58,237,0.1)' : 'white') + ';' +
-        'color:' + (isActive ? '#7c3aed' : 'var(--navy-700)') + ';';
-      btn.addEventListener('click', function(){ tdSetReadingType(rt); });
-      rtContainer.appendChild(btn);
-    });
-  }
 }
 
 // ── Leaderboard toggle ───────────────────────────────────────
 // Insertar toggle en el HTML de configuración de clase
 // (se llama desde tdRenderClassSettings al construir el HTML)
-
-// ── Reading type — guardar en la institución ────────────────
-async function tdSetReadingType(type){
-  if(!_sb || !_authProfile?.institution_id) {
-    // Sin institución: guardar en localStorage
-    if(typeof setReadingType === 'function') setReadingType(type);
-    showToast('Tipo de lectura actualizado', 'green');
-    tdRenderClassSettings();
-    return;
-  }
-  try {
-    var { error } = await _sb
-      .from('institutions')
-      .update({ reading_type: type })
-      .eq('id', _authProfile.institution_id);
-    if(error) throw error;
-    // Actualizar en memoria
-    if(_authProfile._institution) _authProfile._institution.reading_type = type;
-    if(typeof setReadingType === 'function') setReadingType(type);
-    showToast('Tipo de lectura: ' + type, 'green');
-    tdRenderClassSettings();
-  } catch(e){
-    dbg('[Teacher] setReadingType error:', e.message);
-    showToast('Error al guardar', 'warn');
-  }
-}
 
 // ── Crear clase ───────────────────────────────────────────────
 async function tdCreateClass(){
