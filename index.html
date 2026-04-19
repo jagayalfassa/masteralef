@@ -7,7 +7,7 @@
 
   <!-- PWA — Instalación como app -->
 
-  <link rel="manifest" href="./site.webmanifest">
+  <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#1B3A5C">
 
   <!-- Favicons — generados con RealFaviconGenerator -->
@@ -65,7 +65,7 @@
 100% { background-position:  200% 0; }
 }
 .sk-pulse {
-background: linear-gradient(90deg,var(–sand-200) 25%,var(–sand-100) 50%,var(–sand-200) 75%);
+background: linear-gradient(90deg,var(--sand-200) 25%,var(--sand-100) 50%,var(--sand-200) 75%);
 background-size: 200% 100%;
 animation: sk-shimmer 1.4s ease-in-out infinite;
 }
@@ -177,7 +177,6 @@ transition: width .2s ease, background .2s ease;
       --sand-400: #D4B896;
       --sand-500: #B89A74;
 
-```
   /* Deep blue contrast */
   --navy-900: #0D1F35;
   --navy-800: #1B3A5C;
@@ -223,6 +222,10 @@ transition: width .2s ease, background .2s ease;
   /* Error unified */
   --error: #E53E3E;
   --error-bg: #FFF0F0;
+  /* Layout */
+  --max-w: 480px;
+  /* Navy extended */
+  --navy-200: #C8DAEA;
 }
 
 /* ── RESET & BASE ───────────────────────────────────────── */
@@ -737,7 +740,6 @@ main {
   from { transform: translateY(0) scale(1) rotate(-3deg); }
   to   { transform: translateY(-10px) scale(1.12) rotate(3deg); }
 }
-```
 
 /* Daily Quest bonus pop */
 @keyframes popIn {
@@ -835,7 +837,6 @@ to   { transform: translateY(0);    opacity: 1; }
   <header>
     <div class="w-full flex justify-between items-center px-2 max-w-xl mx-auto">
 
-```
   <!-- Botón volver (oculto por defecto) -->
   <button id="home-btn" style="color:#1B3A5C;min-width:40px;min-height:44px;display:flex;align-items:center;justify-content:center;visibility:hidden;flex-shrink:0;" aria-label="Salir">
     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -919,7 +920,6 @@ to   { transform: translateY(0);    opacity: 1; }
     </button>
   </div>
 </div>
-```
 
   </header>
 
@@ -931,7 +931,6 @@ to   { transform: translateY(0);    opacity: 1; }
       <!-- Slide container -->
       <div id="ob-slides" style="flex:1;position:relative;overflow:hidden;">
 
-```
     <!-- Slide 1 -->
     <div class="ob-slide" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;">
       <img src="img/rashi-idle.png" alt="Rashi" class="rashi-mascot" style="width:160px;height:auto;margin-bottom:24px;object-fit:contain;filter:drop-shadow(0 8px 28px rgba(13,31,53,0.2));animation:bounce 1s ease infinite alternate;" onerror="this.style.fontSize='4rem';this.outerHTML='<div style=font-size:4rem>✡️</div>'"/>
@@ -1223,7 +1222,7 @@ to   { transform: translateY(0);    opacity: 1; }
   </div>
 
   <!-- Panel de resultado final (oculto hasta terminar) -->
-  <div id="lectura-result-panel" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(13,31,53,0.85);display:flex;align-items:flex-end;justify-content:center;padding-bottom:0;">
+  <div id="lectura-result-panel" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(13,31,53,0.85);align-items:flex-end;justify-content:center;padding-bottom:0;">
     <div style="background:white;border-radius:28px 28px 0 0;padding:28px 24px 40px;width:100%;max-width:var(--max-w);max-height:90vh;overflow-y:auto;">
       <div style="text-align:center;margin-bottom:20px;">
         <div id="lectura-result-stars" style="font-size:2.5rem;margin-bottom:8px;"></div>
@@ -1323,7 +1322,7 @@ to   { transform: translateY(0);    opacity: 1; }
 <div id="view-intro" class="hidden w-full max-w-sm mx-auto flex flex-col items-center justify-center py-6">
   <div class="w-full flex flex-col items-center px-4">
     <!-- progress dots -->
-    <div id="intro-dots" style="display:none;display:flex;gap:8px;margin-bottom:24px;align-items:center;"></div>
+    <div id="intro-dots" style="display:flex;gap:8px;margin-bottom:24px;align-items:center;"></div>
     <!-- card -->
     <div id="intro-card" class="card" style="width:100%;padding:24px;display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:20px;">
       <p style="font-size:11px;font-weight:700;color:var(--sand-400);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:16px;">Nueva letra</p>
@@ -1965,7 +1964,6 @@ to   { transform: translateY(0);    opacity: 1; }
     </button>
   </div>
 </div>
-```
 
   </main>
 
@@ -4009,7 +4007,7 @@ function getMixedLessonWords(systemWordIdxs, seriesKey){
 // Decodifica los versículos de una aliyah para modo lectura
 function getAliyahVerses(aliyah){
   if(!parashaState.data) return [];
-  const aliyahData = parashaState.data.aliyot?.find(a => a.aliyah === aliyah);
+  const aliyahData = parashaState.data.aliyot?.find(a => String(a.aliyah) === String(aliyah));
   if(!aliyahData) return [];
   const dict = parashaState.data.dictionary || {};
   return (aliyahData.verses || []).map((v, i) => ({
@@ -6106,7 +6104,7 @@ function startMiAliya(parashaId, aliyah){
   const data = parashaState.data;
   if(!data){ showToast('Cargá una parashá primero', 'warm'); return; }
 
-  const aliyahData = (data.aliyot || []).find(a => a.aliyah === aliyah);
+  const aliyahData = (data.aliyot || []).find(a => String(a.aliyah) === String(aliyah));
   if(!aliyahData){ showToast('Aliyá no encontrada', 'red'); return; }
 
   const dict   = data.dictionary || {};
@@ -6588,8 +6586,8 @@ function renderParashaRead(parashaId, aliyah){
     tab.textContent = `Aliyá ${al.aliyah}`;
     tab.style.cssText = `padding:6px 14px;border-radius:99px;border:none;cursor:pointer;
       font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;
-      background:${aliyah===al.aliyah ? 'var(--gold-500)':'var(--sand-200)'};
-      color:${aliyah===al.aliyah ? 'white':'var(--navy-700)'}`;
+      background:${String(aliyah)===String(al.aliyah) ? 'var(--gold-500)':'var(--sand-200)'};
+      color:${String(aliyah)===String(al.aliyah) ? 'white':'var(--navy-700)'}`;
     tab.addEventListener('click', () => renderParashaRead(parashaId, al.aliyah));
     tabsEl.appendChild(tab);
   });
@@ -6602,7 +6600,7 @@ function renderParashaRead(parashaId, aliyah){
 
   // Recolectar versículos
   const aliyot = aliyah
-    ? (data.aliyot || []).filter(a => a.aliyah === aliyah)
+    ? (data.aliyot || []).filter(a => String(a.aliyah) === String(aliyah))
     : (data.aliyot || []);
 
   const dict = data.dictionary || {};
@@ -8429,7 +8427,6 @@ function _showVowelsIntro3(onDone){
 // Pantalla de introducción a los 6 nikudot principales (Bloque 1).
 // Se muestra solo la primera vez, antes de la Serie A.
 // onDone() se llama al terminar.
-///
 function _showVowelsIntro(onDone){
   if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
 
@@ -11737,11 +11734,12 @@ function showExportModal(){
 // Muestra un resumen el domingo (o al primer acceso de la semana)
 // con las palabras aprendidas, racha y progreso relativo
 const WEEKLY_KEY = 'heb_weekly_challenges';
+const WEEKLY_MILESTONE_KEY = 'heb_weekly_milestone';
 
 function checkWeeklyMilestone(){
   const today = new Date();
   const weekNum = Math.floor(today.getTime() / (7 * 86400000));
-  const lastWeek = localStorage.getItem(WEEKLY_KEY);
+  const lastWeek = localStorage.getItem(WEEKLY_MILESTONE_KEY);
   if(String(weekNum) === lastWeek) return; // Ya se mostró esta semana
 
   // Solo mostrar si tiene al menos 3 días de progreso
@@ -11750,7 +11748,7 @@ function checkWeeklyMilestone(){
   const totalDone = Object.values(state.progress).reduce((a,b)=>a+b,0);
   if(totalDone < 12) return; // Menos de 1 lección completada
 
-  localStorage.setItem(WEEKLY_KEY, String(weekNum));
+  localStorage.setItem(WEEKLY_MILESTONE_KEY, String(weekNum));
 
   const el = document.createElement('div');
   el.style.cssText = [
@@ -12158,19 +12156,6 @@ function _updateQuestBtnLabel(){ _updateChallengesBtnLabel(); }
 
 function toggleWeeklyPanel(){ toggleChallengesPanel(); }
 // ── DAILY QUEST PANEL TOGGLE ──────────────────────────────────────
-function _updateQuestBtnLabel(){
-  const quests = getDailyQuests();
-  const done   = quests.filter(q => q.done).length;
-  const total  = quests.length;
-  const btn    = document.getElementById('quest-btn-label');
-  if(btn) btn.textContent = done + '/' + total + ' ✓';
-  const btn2   = document.getElementById('quest-toggle-btn');
-  if(btn2){
-    const allDone = done === total;
-    btn2.style.background  = allDone ? 'var(--success)' : 'var(--navy-800)';
-    btn2.style.boxShadow   = allDone ? '0 3px 0 #2d8a55'  : '0 3px 0 var(--navy-900)';
-  }
-}
 
 function toggleDailyQuestPanel(){ toggleChallengesPanel(); }
 
@@ -13266,7 +13251,7 @@ function lecturaClose(goHome){
   const rp = document.getElementById('lectura-result-panel');
   if(rp) rp.style.display = 'none';
   if(goHome){
-    renderTefilaRead(_lecturaState.tefilaId, _lecturaState.sectionNum);
+    showTefilotView();
   }
 }
 // ╔═══════════════════════════════════════════════════════════╗
