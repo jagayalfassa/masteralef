@@ -1,13 +1,17 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AlefMaster — Service Worker PRO                             ║
 // ║  Para actualizar: cambiar CACHE_VERSION abajo                ║
+// ║  v5 — Kriyah-based engine: kriyah_data + dict en PRECACHE   ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_STATIC  = `alefmaster-static-${CACHE_VERSION}`;
 const CACHE_DYNAMIC = `alefmaster-dynamic-${CACHE_VERSION}`;
 
-// Shell de la app — se cachea en install
+// Shell de la app — se cachea en install.
+// Incluye los JSON críticos para el engine de lectura:
+//   · kriyah_data.json  → fuente única de rangos de aliyot
+//   · torah_complete_dict.json → fonética y traducciones (cargado en cada sesión)
 const PRECACHE = [
   './',
   './index.html',
@@ -15,6 +19,8 @@ const PRECACHE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-180.png',
+  './data/kriyah_data.json',
+  './data/torah/torah_complete_dict.json',
 ];
 
 // ── INSTALL ───────────────────────────────────────────────────
@@ -23,12 +29,11 @@ self.addEventListener('install', event => {
     const cache = await caches.open(CACHE_STATIC);
 
     // Shell crítico — addAll atómico: si falla, el SW no instala
-    // Garantiza que index.html y recursos core siempre estén offline
     try {
       await cache.addAll(PRECACHE);
     } catch(e) {
       console.warn('[SW] addAll falló, intentando uno a uno:', e.message);
-      // Fallback: intentar cada uno individualmente
+      // Fallback: intentar cada recurso individualmente
       await Promise.allSettled(
         PRECACHE.map(url =>
           cache.add(url).catch(err => console.warn('[SW] No cacheado:', url, err.message))
@@ -36,20 +41,23 @@ self.addEventListener('install', event => {
       );
     }
 
-    await self.skipWaiting(); // activar inmediatamente
+    await self.skipWaiting(); // activar inmediatamente sin esperar tabs abiertos
   })());
 });
 
-// ── ACTIVATE — limpiar caches viejos ─────────────────────────
+// ── ACTIVATE — limpiar caches de versiones anteriores ─────────
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
         keys
           .filter(k => k !== CACHE_STATIC && k !== CACHE_DYNAMIC)
-          .map(k => { console.log('[SW] Eliminando cache:', k); return caches.delete(k); })
+          .map(k => {
+            console.log('[SW] Eliminando cache obsoleto:', k);
+            return caches.delete(k);
+          })
       ))
-      .then(() => self.clients.claim()) // tomar control inmediato
+      .then(() => self.clients.claim()) // tomar control de tabs inmediatamente
   );
 });
 
@@ -63,7 +71,7 @@ self.addEventListener('fetch', event => {
   // Edge case Chrome: evita errores silenciosos con requests only-if-cached cross-origin
   if(request.cache === 'only-if-cached' && request.mode !== 'same-origin') return;
 
-  // HTML → Network First
+  // HTML → Network First (siempre intenta la versión más fresca)
   if(request.destination === 'document' || request.headers.get('accept')?.includes('text/html')){
     event.respondWith(networkFirst(request));
     return;
@@ -75,19 +83,30 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // CDN externos (Tailwind, confetti) → Cache First
+  // CDN externos (Tailwind, confetti, etc.) → Cache First estático
   if(url.hostname.includes('cdn.') || url.hostname.includes('jsdelivr')){
     event.respondWith(cacheFirst(request, CACHE_STATIC));
     return;
   }
 
-  // Audio mp3 → Cache First (dinámico, se cachea al escuchar)
+  // Audio mp3 → Cache First dinámico (se cachea la primera vez que se escucha)
   if(url.pathname.endsWith('.mp3')){
     event.respondWith(cacheFirst(request, CACHE_DYNAMIC));
     return;
   }
 
-  // JSON datos (parasha, tefilot) → Cache First dinámico
+  // JSON críticos del engine (kriyah_data, torah_complete_dict) → Cache First ESTÁTICO
+  // Ya están en PRECACHE; esta regla garantiza que se sirvan offline sin round-trip.
+  if(
+    url.pathname.endsWith('kriyah_data.json') ||
+    url.pathname.endsWith('torah_complete_dict.json')
+  ){
+    event.respondWith(cacheFirst(request, CACHE_STATIC));
+    return;
+  }
+
+  // JSON dinámicos (parasha, tefilot) → Cache First dinámico
+  // Se cachean en la primera visita; disponibles offline en visitas siguientes.
   if(url.pathname.endsWith('.json')){
     event.respondWith(cacheFirst(request, CACHE_DYNAMIC));
     return;
@@ -101,8 +120,8 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   const data = event.data?.json() ?? {
     title: 'AlefMaster',
-    body: '¡Hora de practicar hebreo! 🌟',
-    icon: './icons/icon-192.png',
+    body:  '¡Hora de practicar hebreo! 🌟',
+    icon:  './icons/icon-192.png',
   };
   event.waitUntil(
     self.registration.showNotification(data.title, {
@@ -134,7 +153,10 @@ self.addEventListener('notificationclick', event => {
   );
 });
 
-// ── ESTRATEGIAS ───────────────────────────────────────────────
+// ── ESTRATEGIAS DE CACHÉ ──────────────────────────────────────
+
+// Network First: intenta red; si falla, sirve desde cache.
+// Usado para HTML (siempre queremos la versión más fresca).
 async function networkFirst(req){
   try {
     const res = await fetch(req);
@@ -154,6 +176,8 @@ async function networkFirst(req){
   }
 }
 
+// Cache First: sirve desde cache; si no existe, va a red y guarda.
+// Usado para assets estáticos y datos JSON.
 async function cacheFirst(req, cacheName){
   const cached = await caches.match(req);
   if(cached) return cached;
@@ -166,27 +190,31 @@ async function cacheFirst(req, cacheName){
     return res;
   } catch {
     // Solo devolver index.html para navigation requests (documentos HTML)
-    // Para imágenes, audio, JS, CSS → devolver 503 limpio, no HTML
     if(req.destination === 'document' || req.mode === 'navigate'){
       const fallback = await caches.match('./index.html');
       return fallback || new Response('Sin conexión', { status: 503 });
     }
     // Assets no-document: respuesta vacía con tipo correcto para no romper la UI
     const emptyTypes = {
-      'image': 'image/gif',
-      'audio': 'audio/mpeg',
-      'style': 'text/css',
+      'image':  'image/gif',
+      'audio':  'audio/mpeg',
+      'style':  'text/css',
       'script': 'text/javascript',
-      'font':  'font/woff2',
+      'font':   'font/woff2',
+      'json':   'application/json',
     };
     const ct = emptyTypes[req.destination] || 'application/octet-stream';
     return new Response('', { status: 503, headers: { 'Content-Type': ct } });
   }
 }
 
+// Stale While Revalidate: sirve desde cache inmediatamente y revalida en background.
+// Usado para fuentes Google (alta disponibilidad + frescura eventual).
 async function staleWhileRevalidate(req, cacheName){
   const cache  = await caches.open(cacheName);
   const cached = await cache.match(req);
-  const fresh  = fetch(req).then(res => { if(res.ok) cache.put(req, res.clone()); return res; }).catch(() => null);
+  const fresh  = fetch(req)
+    .then(res => { if(res.ok) cache.put(req, res.clone()); return res; })
+    .catch(() => null);
   return cached || await fresh;
 }
