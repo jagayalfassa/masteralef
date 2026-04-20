@@ -3512,6 +3512,11 @@ const parashaState = {
   kriyahData:           null,  // datos de tipos de lectura (kriyah_data.json)
   _kriyahLoading:       false,
   verseMap:             null,  // Map<ref, words[]> — single-source verse lookup
+  cache: {
+    aliyot:  new Map(), // key: "parashaId|readingType|triYear" → [{aliyah, reading, range}]
+    refs:    new Map(), // key: "Gn 1:1-1:5"                  → ["Gn 1:1", ...]
+    verses:  new Map(), // key: "Gn 1:1"                      → "full verse text"
+  },
 };
 
 // ╔═══════════════════════════════════════════════════════════════╗
@@ -3653,12 +3658,46 @@ function parseReadingRange(reading) {
   return { book: m[1], chS: +m[2], vS: +m[3], chE: +m[4], vE: +m[5] };
 }
 
+// Build structured aliyot list from kriyah_data using the current reading type.
+// Returns [{aliyah:string, reading:string, range:object}] — numeric aliyot only (1–7).
+// Cache key includes readingType + triYear so switching modes never returns stale data.
+function buildAliyotFromKriyah(parashaId) {
+  var rt      = getReadingType();
+  var triYear = (rt === 'triennial')
+    ? (getTriennialYear() || detectTriennialYear(parashaId, localStorage.getItem('heb_bm_date') || ''))
+    : 0;
+  var cacheKey = parashaId + '|' + rt + '|' + triYear;
+  if (parashaState.cache.aliyot.has(cacheKey)) {
+    return parashaState.cache.aliyot.get(cacheKey);
+  }
+
+  var bmDate  = localStorage.getItem('heb_bm_date') || '';
+  var krAliyot = getKriyahAliyot(parashaId, rt, bmDate, triYear || null);
+  var result = [];
+  if (krAliyot && krAliyot.length) {
+    result = krAliyot
+      .filter(function(k) { return /^\d+$/.test(String(k.aliyah)); })
+      .map(function(k) {
+        var reading = String(k.reading || '').split('|')[0].trim(); // strip liturgical notes
+        return { aliyah: String(k.aliyah), reading: reading, range: parseReadingRange(reading) };
+      })
+      .filter(function(a) { return a.range !== null; });
+  }
+
+  parashaState.cache.aliyot.set(cacheKey, result);
+  return result;
+}
+
 // Expand a chapter:verse range into individual refs that exist in verseMap.
-// Handles multi-chapter ranges; stops generating when a verse is absent from the map.
-// Input:  { book:"Gn", chS:1, vS:1, chE:1, vE:5 }, verseMap
+// Result is cached by canonical range string; multi-chapter ranges are supported.
 // Output: ["Gn 1:1", "Gn 1:2", ..., "Gn 1:5"]
 function buildRefsFromRange(range, verseMap) {
   if (!range || !verseMap) return [];
+  var key = range.book + ' ' + range.chS + ':' + range.vS + '-' + range.chE + ':' + range.vE;
+  if (parashaState.cache.refs.has(key)) {
+    return parashaState.cache.refs.get(key);
+  }
+
   var book = range.book, chS = range.chS, vS = range.vS, chE = range.chE, vE = range.vE;
   var refs = [];
   for (var ch = chS; ch <= chE; ch++) {
@@ -3673,35 +3712,23 @@ function buildRefsFromRange(range, verseMap) {
       refs.push(ref);
     }
   }
+
+  parashaState.cache.refs.set(key, refs);
   return refs;
 }
 
-// Build structured aliyot list from kriyah_data using the current reading type.
-// Returns [{aliyah:string, reading:string, range:object}] — numeric aliyot only (1–7).
-function buildAliyotFromKriyah(parashaId) {
-  var rt      = getReadingType();
-  var triYear = (rt === 'triennial')
-    ? (getTriennialYear() || detectTriennialYear(parashaId, localStorage.getItem('heb_bm_date') || ''))
-    : null;
-  var bmDate  = localStorage.getItem('heb_bm_date') || '';
-  var krAliyot = getKriyahAliyot(parashaId, rt, bmDate, triYear);
-  if (!krAliyot || !krAliyot.length) return [];
-  return krAliyot
-    .filter(function(k) { return /^\d+$/.test(String(k.aliyah)); })
-    .map(function(k) {
-      var reading = String(k.reading || '').split('|')[0].trim(); // strip liturgical notes
-      return { aliyah: String(k.aliyah), reading: reading, range: parseReadingRange(reading) };
-    })
-    .filter(function(a) { return a.range !== null; });
-}
-
-// Look up the decoded words for a verse ref from the cached verse map.
+// Return the full text of a verse ref as a joined string.
+// Caches the result so subsequent calls cost zero — no repeated array joins.
 // Input:  "Gn 1:1"
-// Output: ["בְּרֵאשִׁית", "בָּרָא", ...] or null
+// Output: "בְּרֵאשִׁית בָּרָא אֱלֹהִים ..."  or  "" if not found
 function getVerseByRef(ref) {
-  return (parashaState.verseMap && parashaState.verseMap.has(ref))
-    ? parashaState.verseMap.get(ref)
-    : null;
+  if (parashaState.cache.verses.has(ref)) {
+    return parashaState.cache.verses.get(ref);
+  }
+  var words = (parashaState.verseMap && parashaState.verseMap.get(ref)) || [];
+  var text  = Array.isArray(words) ? words.join(' ') : String(words || '');
+  parashaState.cache.verses.set(ref, text);
+  return text;
 }
 
 // Detectar qué año trienal corresponde a una fecha para una parashá
@@ -4191,7 +4218,22 @@ async function startParashaSession(parashaId, aliyah = 1){
     parashaState.currentParasha = parashaId;
     parashaState.data = data;
     parashaState.verseMap = buildVerseMap(data);
+    // Invalidate all derived caches when a new parasha loads
+    parashaState.cache = { aliyot: new Map(), refs: new Map(), verses: new Map() };
     parashaState.index = buildParashaIndex(data, null);
+    // Prewarm: populate all caches for instant first render
+    (function _prewarm(){
+      try {
+        const aliyot = buildAliyotFromKriyah(parashaId);
+        aliyot.forEach(function(a) {
+          const refs = buildRefsFromRange(a.range, parashaState.verseMap);
+          refs.forEach(function(ref) { getVerseByRef(ref); });
+        });
+        dbg('[cache] prewarm complete —', parashaState.cache.verses.size, 'verses cached');
+      } catch(e) {
+        dbg('[cache] prewarm error:', e.message);
+      }
+    })();
   } else {
     // Parashá ya cargada, asegurarse que el diccionario también
     await loadTorahDict();
@@ -4259,7 +4301,7 @@ function getAliyahVerses(aliyah){
     .find(a => String(a.aliyah) === String(aliyah));
   if(!alKr) return [];
   return buildRefsFromRange(alKr.range, parashaState.verseMap)
-    .map(ref => ({ ref, text: (getVerseByRef(ref) || []).join(' ') }));
+    .map(ref => ({ ref, text: getVerseByRef(ref) }));
 }
 
 // ╔═══════════════════════════════════════════════════════════════╗
@@ -6335,7 +6377,7 @@ function startMiAliya(parashaId, aliyah){
 
   const verseMap  = parashaState.verseMap;
   const refsArr   = buildRefsFromRange(alKr.range, verseMap);
-  const versesArr = refsArr.map(ref => getVerseByRef(ref) || []);
+  const versesArr = refsArr.map(ref => getVerseByRef(ref));  // strings, handled by _renderMiAliyaModal
   const meta      = PARASHA_CATALOG.find(p => p.id === parashaId);
   const times     = getMiAliyaTimes();
 
@@ -6698,8 +6740,10 @@ async function showAliyahSelect(parashaId){
   krAliyotList.forEach(al => {
     const refs        = buildRefsFromRange(al.range, verseMap);
     const verseCount  = refs.length;
-    const firstWords  = refs.length ? (getVerseByRef(refs[0]) || []) : [];
-    const preview     = firstWords.slice(0, 6).join(' ') + (firstWords.length > 6 ? '…' : '');
+    const firstText   = refs.length ? getVerseByRef(refs[0]) : '';
+    const preview     = firstText
+      ? firstText.split(' ').slice(0, 6).join(' ') + (firstText.split(' ').length > 6 ? '…' : '')
+      : '';
     const hasAudio    = !!getAliyahAudio(parashaId, al.aliyah);
     const aliyahPool  = parashaState.index ? getAliyahWordPool(parashaId, al.aliyah) : [];
     const readableInAliyah = aliyahPool.length;
@@ -6828,8 +6872,9 @@ function renderParashaRead(parashaId, aliyah){
 
     const refs = buildRefsFromRange(al.range, verseMap);
     refs.forEach(ref => {
-      const words = getVerseByRef(ref);
-      if (!words || !words.length) return;
+      const verseText = getVerseByRef(ref);
+      if (!verseText) return;
+      const words = verseText.split(' ').filter(Boolean);
 
       const verseCard = document.createElement('div');
       verseCard.style.cssText = [
