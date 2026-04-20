@@ -3511,6 +3511,7 @@ const parashaState = {
   _dictLoading:         false, // flag para no cargar dos veces
   kriyahData:           null,  // datos de tipos de lectura (kriyah_data.json)
   _kriyahLoading:       false,
+  verseMap:             null,  // Map<ref, words[]> — single-source verse lookup
 };
 
 // ╔═══════════════════════════════════════════════════════════════╗
@@ -3617,6 +3618,92 @@ function getKriyahAliyot(parashaId, readingType, bmDate, triennialYear){
   return null;
 }
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  KRIYAH-BASED VERSE ENGINE                                       ║
+// ║  Single source of truth: kriyah_data.json                        ║
+// ║  data.aliyot is used ONCE at load time to build verseMap.        ║
+// ║  All rendering uses verseMap + kriyah ranges only.               ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+// Build a flat verse lookup map from data.aliyot (called ONCE at parasha load).
+// Returns Map<"Gn 1:1", string[]> — ref → decoded words array.
+function buildVerseMap(data) {
+  var dict = data.dictionary || {};
+  var map  = new Map();
+  (data.aliyot || []).forEach(function(al) {
+    (al.verses || []).forEach(function(verseIndices, vi) {
+      var ref = al.refs && al.refs[vi];
+      if (!ref) return;
+      var words = Array.isArray(verseIndices)
+        ? verseIndices.map(function(i) { return dict[String(i)] || null; }).filter(Boolean)
+        : String(verseIndices).split(/\s+/).filter(Boolean);
+      if (words.length > 0 && !map.has(ref)) map.set(ref, words);
+    });
+  });
+  return map;
+}
+
+// Parse a biblical reading string into a structured range object.
+// Input:  "Gn 1:1-1:5"  →  { book:"Gn", chS:1, vS:1, chE:1, vE:5 }
+// Returns null if parsing fails.
+function parseReadingRange(reading) {
+  if (!reading) return null;
+  var m = String(reading).trim().match(/^([A-Za-z0-9]+)\s+(\d+):(\d+)-(\d+):(\d+)/);
+  if (!m) return null;
+  return { book: m[1], chS: +m[2], vS: +m[3], chE: +m[4], vE: +m[5] };
+}
+
+// Expand a chapter:verse range into individual refs that exist in verseMap.
+// Handles multi-chapter ranges; stops generating when a verse is absent from the map.
+// Input:  { book:"Gn", chS:1, vS:1, chE:1, vE:5 }, verseMap
+// Output: ["Gn 1:1", "Gn 1:2", ..., "Gn 1:5"]
+function buildRefsFromRange(range, verseMap) {
+  if (!range || !verseMap) return [];
+  var book = range.book, chS = range.chS, vS = range.vS, chE = range.chE, vE = range.vE;
+  var refs = [];
+  for (var ch = chS; ch <= chE; ch++) {
+    var startV = (ch === chS) ? vS : 1;
+    var endV   = (ch === chE) ? vE : 220; // safe upper bound per chapter
+    for (var v = startV; v <= endV; v++) {
+      var ref = book + ' ' + ch + ':' + v;
+      if (!verseMap.has(ref)) {
+        if (v > startV) break;  // gap after first verse → end of chapter
+        continue;               // sparse numbering → keep scanning
+      }
+      refs.push(ref);
+    }
+  }
+  return refs;
+}
+
+// Build structured aliyot list from kriyah_data using the current reading type.
+// Returns [{aliyah:string, reading:string, range:object}] — numeric aliyot only (1–7).
+function buildAliyotFromKriyah(parashaId) {
+  var rt      = getReadingType();
+  var triYear = (rt === 'triennial')
+    ? (getTriennialYear() || detectTriennialYear(parashaId, localStorage.getItem('heb_bm_date') || ''))
+    : null;
+  var bmDate  = localStorage.getItem('heb_bm_date') || '';
+  var krAliyot = getKriyahAliyot(parashaId, rt, bmDate, triYear);
+  if (!krAliyot || !krAliyot.length) return [];
+  return krAliyot
+    .filter(function(k) { return /^\d+$/.test(String(k.aliyah)); })
+    .map(function(k) {
+      var reading = String(k.reading || '').split('|')[0].trim(); // strip liturgical notes
+      return { aliyah: String(k.aliyah), reading: reading, range: parseReadingRange(reading) };
+    })
+    .filter(function(a) { return a.range !== null; });
+}
+
+// Look up the decoded words for a verse ref from the cached verse map.
+// Input:  "Gn 1:1"
+// Output: ["בְּרֵאשִׁית", "בָּרָא", ...] or null
+function getVerseByRef(ref) {
+  return (parashaState.verseMap && parashaState.verseMap.has(ref))
+    ? parashaState.verseMap.get(ref)
+    : null;
+}
+
 // Detectar qué año trienal corresponde a una fecha para una parashá
 // Retorna 1, 2, o 3
 function detectTriennialYear(parashaId, targetDate){
@@ -3643,6 +3730,166 @@ function getTriennialYear(){
 function setTriennialYear(year){
   localStorage.setItem('heb_triennial_year', year === 0 ? 'auto' : String(year));
 }
+
+// ╔═══════════════════════════════════════════════════════════════════╗
+// ║  CAPA DE NORMALIZACIÓN DE KRIYAH DATA                            ║
+// ║  Lee parashaState.kriyahData (raw) y devuelve objetos            ║
+// ║  estructurados. NO modifica el JSON original.                    ║
+// ║  Las funciones existentes (getKriyahAliyot, render*, etc.)       ║
+// ║  siguen usando el raw sin cambios.                               ║
+// ╚═══════════════════════════════════════════════════════════════════╝
+
+(function(){
+
+  // ── Cache: Map<parashaId, normalizedData> ──────────────────────────
+  var _normalizedCache = new Map();
+
+  // ── Detectar tipo de aliyah a partir del key crudo ─────────────────
+  function _resolveType(rawKey) {
+    var k = String(rawKey).trim();
+    // Haftarot
+    if (k === 'Haftara')                   return { type: 'haftara', variant: null };
+    if (k === 'Haftara for Ashkenazim')    return { type: 'haftara', variant: 'ashkenazi' };
+    if (k === 'Haftara for Sephardim')     return { type: 'haftara', variant: 'sephardi' };
+    if (k === 'Alternate Haftara')         return { type: 'haftara', variant: 'alternate' };
+    // Maftir
+    if (k === 'maf')                       return { type: 'maf', variant: null };
+    // Aliyot numéricas (1-7 y variantes)
+    return { type: 'aliyah', variant: null };
+  }
+
+  // ── Parsear un string de referencia bíblica con posible | ──────────
+  // Entrada:  "Gn 4:19-4:22 | some sources use 4:19-26"
+  // Salida:   { ref: "Gn 4:19-4:22", note: "some sources use 4:19-26", context: null, extra: null }
+  function _parseRefString(raw) {
+    var s = String(raw || '').trim();
+    var result = { ref: s, note: null, context: null, extra: null };
+    if (!s.includes('|')) return result;
+
+    var idx   = s.indexOf('|');
+    var left  = s.slice(0, idx).trim();
+    var right = s.slice(idx + 1).trim();
+
+    result.ref = left;
+
+    // Clasificar el lado derecho
+    if (/Shabbat|Rosh Chodesh|Chanukah|HaGadol|HaChodesh|Shekalim|Zachor|Parah|Shuva/i.test(right)) {
+      result.context = right;
+    } else if (/some sources/i.test(right)) {
+      result.note = right;
+    } else {
+      // Caso "other": notas litúrgicas, variantes de lectura, etc.
+      result.extra = right;
+    }
+
+    return result;
+  }
+
+  // ── Normalizar una entrada [key, value] del JSON ───────────────────
+  // Entrada:  ["Haftara for Ashkenazim", "Is 42:5-43:10"]
+  //           ["5", "Gn 4:19-4:22 | some sources use 4:19-26"]
+  // Salida:   objeto normalizado
+  function _normalizeEntry(rawKey, rawValue) {
+    var typeInfo = _resolveType(rawKey);
+    var parsed   = _parseRefString(rawValue);
+    return {
+      key:     String(rawKey),   // preservar key original para debug
+      type:    typeInfo.type,
+      variant: typeInfo.variant,
+      ref:     parsed.ref,
+      note:    parsed.note,
+      context: parsed.context,
+      extra:   parsed.extra
+    };
+  }
+
+  // ── Normalizar array de entries de lectura (full o trienal) ─────────
+  // Cada entry es [key, value], excepto el primer element de 't' que es la fecha
+  function _normalizeEntries(entries) {
+    if (!Array.isArray(entries)) return [];
+    return entries
+      .filter(function(e){ return Array.isArray(e) && e.length >= 2; })
+      .map(function(e){ return _normalizeEntry(e[0], e[1]); });
+  }
+
+  // ── Normalizar entrada completa de una parashá ─────────────────────
+  // raw = { w: [...], f: [...], t: [[date, ...entries], ...] }
+  function normalizeKriyahData(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    var result = {
+      weekday:    [],
+      full:       [],
+      triennial:  []
+    };
+
+    // Weekday: array de strings planos ["Gn 1:1-1:5", ...]
+    if (Array.isArray(raw.w)) {
+      result.weekday = raw.w.map(function(s, i){
+        var parsed = _parseRefString(s);
+        return {
+          key:     String(i + 1),
+          type:    'aliyah',
+          variant: null,
+          ref:     parsed.ref,
+          note:    parsed.note,
+          context: parsed.context,
+          extra:   parsed.extra
+        };
+      });
+    }
+
+    // Full: array de [key, value]
+    if (Array.isArray(raw.f)) {
+      result.full = _normalizeEntries(raw.f);
+    }
+
+    // Triennial: array de [date, [key,val], [key,val], ...]
+    if (Array.isArray(raw.t)) {
+      result.triennial = raw.t.map(function(tEntry){
+        if (!Array.isArray(tEntry)) return null;
+        var date    = typeof tEntry[0] === 'string' ? tEntry[0] : '';
+        var entries = _normalizeEntries(tEntry.slice(1));
+        return { date: date, entries: entries };
+      }).filter(Boolean);
+    }
+
+    return result;
+  }
+
+  // ── Wrapper público con cache y fallback ───────────────────────────
+  function getNormalizedParasha(parashaId) {
+    try {
+      // Cache hit
+      if (_normalizedCache.has(parashaId)) {
+        return _normalizedCache.get(parashaId);
+      }
+
+      var kd = parashaState.kriyahData;
+      if (!kd || !kd[parashaId]) return null;
+
+      var normalized = normalizeKriyahData(kd[parashaId]);
+      if (normalized) {
+        _normalizedCache.set(parashaId, normalized);
+      }
+      return normalized;
+    } catch(e) {
+      console.warn('[AlefMaster] getNormalizedParasha error for', parashaId, e);
+      return null;  // fallback seguro
+    }
+  }
+
+  // ── Invalidar cache (llamar si kriyahData se recarga) ──────────────
+  function clearNormalizedCache() {
+    _normalizedCache.clear();
+  }
+
+  // ── Exponer al scope global ────────────────────────────────────────
+  window.normalizeKriyahData   = normalizeKriyahData;
+  window.getNormalizedParasha  = getNormalizedParasha;
+  window.clearNormalizedCache  = clearNormalizedCache;
+
+})();
 
 // ── CARGAR DICCIONARIO DE TORÁ ────────────────────────────────────
 // Carga torah_complete_dict.json una sola vez y lo cachea en parashaState.
@@ -3943,6 +4190,7 @@ async function startParashaSession(parashaId, aliyah = 1){
     parashaState._knownLettersCache = null;
     parashaState.currentParasha = parashaId;
     parashaState.data = data;
+    parashaState.verseMap = buildVerseMap(data);
     parashaState.index = buildParashaIndex(data, null);
   } else {
     // Parashá ya cargada, asegurarse que el diccionario también
@@ -4006,14 +4254,12 @@ function getMixedLessonWords(systemWordIdxs, seriesKey){
 // ── PARASHA VERSE READER ──────────────────────────────────────────
 // Decodifica los versículos de una aliyah para modo lectura
 function getAliyahVerses(aliyah){
-  if(!parashaState.data) return [];
-  const aliyahData = parashaState.data.aliyot?.find(a => String(a.aliyah) === String(aliyah));
-  if(!aliyahData) return [];
-  const dict = parashaState.data.dictionary || {};
-  return (aliyahData.verses || []).map((v, i) => ({
-    ref:  aliyahData.refs?.[i] || `${parashaState.data.parasha} ${aliyah}:${i+1}`,
-    text: Array.isArray(v) ? decodeVerse(v, dict) : v,
-  }));
+  if(!parashaState.data || !parashaState.verseMap) return [];
+  const alKr = buildAliyotFromKriyah(parashaState.currentParasha)
+    .find(a => String(a.aliyah) === String(aliyah));
+  if(!alKr) return [];
+  return buildRefsFromRange(alKr.range, parashaState.verseMap)
+    .map(ref => ({ ref, text: (getVerseByRef(ref) || []).join(' ') }));
 }
 
 // ╔═══════════════════════════════════════════════════════════════╗
@@ -4868,6 +5114,46 @@ function renderHome(){
     const inProg = nextStep.inProgress;
     const isRev  = nextStep.isReview;
     const isPar  = nextStep.isParasha;
+
+    // ── PRE-CÓMPUTO BM (solo activo cuando isPar=true) ─────────
+    let _bmDaysValid=false,_bmDays=0,_bmWeeks=0,_bmUrgColor='var(--navy-700)';
+    let _pctSeries=0,_doneSeries=0,_totalSeries=0;
+    let _pctWords=0,_masteredWords=0,_totalWords=0,_pctSidur=0;
+    let _bmStatusMsg='',_bmStatusColor='var(--navy-600)',_bmStatusIcon='';
+    if(isPar){
+      const _bd=localStorage.getItem('heb_bm_date');
+      const _bp=localStorage.getItem('heb_bm_parasha');
+      if(_bd){
+        const _t=new Date();_t.setHours(0,0,0,0);
+        _bmDays=Math.ceil((new Date(_bd+'T00:00:00')-_t)/86400000);
+        _bmDaysValid=_bmDays>=0&&_bmDays<=730;
+        if(_bmDaysValid){
+          _bmWeeks=Math.ceil(_bmDays/7);
+          _bmUrgColor=_bmDays<=7?'#DC2626':_bmDays<=30?'#D97706':_bmDays<=90?'var(--navy-700)':'var(--navy-600)';
+          const _ak=Object.keys(ALL_DATA);
+          _totalSeries=_ak.length;
+          _doneSeries=_ak.filter(k=>seriesDone(k)).length;
+          _pctSeries=Math.round(_doneSeries/_totalSeries*100);
+          _ak.forEach(k=>{(ALL_DATA[k].words||[]).forEach((_,idx)=>{_totalWords++;if(getWordState(k,idx).status==='mastered')_masteredWords++;});});
+          _pctWords=_totalWords?Math.round(_masteredWords/_totalWords*100):0;
+          let _ss={total:0,mastered:0};try{_ss=getSidurStats();}catch(e){}
+          _pctSidur=_ss.total?Math.round(_ss.mastered/_ss.total*100):0;
+          const _r=Math.round(_pctSeries*0.4+_pctWords*0.3+_pctSidur*0.3);
+          const _ed=getEverDone();const _ts=Object.values(_ed).filter(v=>typeof v==='number'&&v>0);
+          const _fa=_ts.length?Math.min(..._ts):Date.now();
+          const _da=Math.max(1,Math.ceil((Date.now()-_fa)/86400000));
+          const _spd=_doneSeries/_da;const _dn=_spd>0?Math.ceil((_totalSeries-_doneSeries)/_spd):999;
+          const _ot=_dn<=_bmDays;const _rs=_bmDays<=30?6:_bmDays<=60?5:_bmDays<=120?4:3;
+          if(_r>=80)            {_bmStatusMsg='Estás muy bien preparado/a';_bmStatusColor='var(--success)';_bmStatusIcon='🌟';}
+          else if(_ot&&_r>=40)  {_bmStatusMsg='Vas en buen camino';        _bmStatusColor='var(--success)';_bmStatusIcon='✅';}
+          else if(_ot)          {_bmStatusMsg='Buen ritmo, seguí así';      _bmStatusColor='var(--navy-600)';_bmStatusIcon='📈';}
+          else if(_bmDays>30)   {_bmStatusMsg=_rs+' sesiones/semana';       _bmStatusColor='#D97706';_bmStatusIcon='⚡';}
+          else                  {_bmStatusMsg='Practicá todos los días';     _bmStatusColor='#D97706';_bmStatusIcon='🔥';}
+        }
+      }
+    }
+    // ──────────────────────────────────────────────────────────
+
     // Nunca empezó nada — primer acceso
     const isFirstTime = !inProg && !isRev && !isPar &&
       !Object.keys(ALL_DATA).some(k => getLessons(k).some((_,i) => (state.progress[lessonKey(k,i)]||0) > 0));
@@ -4920,18 +5206,37 @@ function renderHome(){
                         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
               ${nextStep.label}
             </div>
-            ${inProg && nextStep.pct > 0 ? `
-              <div style="margin-top:6px;height:4px;
-                          background:${isFirstTime ? 'rgba(255,255,255,0.2)' : '#F5E6D3'};
-                          border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:${nextStep.pct}%;
-                            background:${isFirstTime ? 'white' : accent};border-radius:99px;"></div>
-              </div>
-              <div style="font-size:10px;color:${isFirstTime ? 'rgba(255,255,255,0.6)' : '#B89A74'};margin-top:2px;">
-                ${nextStep.pct}% completada
-              </div>` : ''}
+            ${isPar && _bmDaysValid ? `
+            <div style="font-size:11px;font-weight:700;color:${_bmUrgColor};margin-top:2px;">
+              ${_bmDays===0?'¡Hoy es el día!':_bmDays===1?'Mañana':_bmDays+' días'}
+            </div>` : inProg && nextStep.pct > 0 ? `
+            <div style="margin-top:6px;height:4px;
+                        background:${isFirstTime ? 'rgba(255,255,255,0.2)' : '#F5E6D3'};
+                        border-radius:99px;overflow:hidden;">
+              <div style="height:100%;width:${nextStep.pct}%;
+                          background:${isFirstTime ? 'white' : accent};border-radius:99px;"></div>
+            </div>
+            <div style="font-size:10px;color:${isFirstTime ? 'rgba(255,255,255,0.6)' : '#B89A74'};margin-top:2px;">
+              ${nextStep.pct}% completada
+            </div>` : ''}
           </div>
         </div>
+        ${isPar && _bmDaysValid ? `
+        <div style="margin-top:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+            <span style="font-size:11px;font-weight:700;color:${_bmStatusColor};">
+              ${_bmStatusIcon} ${_bmStatusMsg}
+            </span>
+            <span style="font-size:11px;font-weight:900;color:${accent};">
+              ${Math.round(_pctSeries*0.4+_pctWords*0.3+_pctSidur*0.3)}%
+            </span>
+          </div>
+          <div style="height:5px;background:rgba(124,58,237,0.12);border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${Math.round(_pctSeries*0.4+_pctWords*0.3+_pctSidur*0.3)}%;
+                        background:linear-gradient(90deg,#7c3aed,#5b21b6);border-radius:99px;
+                        transition:width .8s ease;"></div>
+          </div>
+        </div>` : ''}
         <button style="margin-top:14px;width:100%;
                        background:${isFirstTime
                          ? 'linear-gradient(135deg,#D4A843,#C4963C,#A67C28)'
@@ -4944,7 +5249,14 @@ function renderHome(){
                        display:flex;align-items:center;justify-content:center;gap:8px;">
           ${ctaLabel} <span style="font-size:1.1em;">→</span>
         </button>
-        ${!isRev && !isFirstTime ? `
+        ${isPar ? `
+        <button onclick="event.stopPropagation();showSidurExplorer(0);"
+          style="margin-top:8px;width:100%;background:none;
+                 border:1.5px solid rgba(124,58,237,0.25);color:#7c3aed;
+                 border-radius:12px;padding:10px;font-size:13px;font-weight:700;
+                 cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+          📜 Sidur
+        </button>` : !isRev && !isFirstTime ? `
         <button onclick="startQuickPractice()"
           style="margin-top:8px;width:100%;background:none;
                  border:1.5px solid ${accent};color:${accent};
@@ -4968,41 +5280,6 @@ function renderHome(){
     baseC.appendChild(continueCard);
   }
 
-  // ── BANNER BAR/BAT MITZVÁ — compacto, arriba del CTA ──
-  const _bmDateEarly = localStorage.getItem('heb_bm_date');
-  if(_bmDateEarly){
-    const _bmParashaEarly = localStorage.getItem('heb_bm_parasha');
-    const _todayE = new Date(); _todayE.setHours(0,0,0,0);
-    const _bmE    = new Date(_bmDateEarly + 'T00:00:00');
-    const _daysE  = Math.ceil((_bmE - _todayE) / 86400000);
-    if(_daysE >= 0 && _daysE <= 365){
-      const _urgE   = _daysE <= 7 ? '#DC2626' : _daysE <= 30 ? '#D97706' : 'var(--navy-700)';
-      const _bmMetaE = _bmParashaEarly ? PARASHA_CATALOG.find(p => p.id === _bmParashaEarly) : null;
-      const _bmEarlyDiv = document.createElement('div');
-      _bmEarlyDiv.style.cssText = 'padding:0 14px 12px;';
-      _bmEarlyDiv.innerHTML = `
-        <div style="background:white;border:2px solid ${_urgE};border-radius:16px;
-                    padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;"
-             onclick="showBMSettingsModal()">
-          <div style="font-size:1.4rem;flex-shrink:0;">✡️</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:10px;font-weight:700;color:${_urgE};
-                        text-transform:uppercase;letter-spacing:0.1em;">
-              ${_daysE===0?'¡Es hoy!':_daysE===1?'¡Mañana!':'En '+_daysE+' días · Bar/Bat Mitzvá'}
-            </div>
-            <div style="font-size:13px;font-weight:800;color:var(--navy-800);
-                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${_bmMetaE ? _bmMetaE.esp : 'Tu lectura de la Torá'}
-            </div>
-          </div>
-          ${_bmParashaEarly ? `<button onclick="event.stopPropagation();(async()=>{showToast('Cargando...','cyan');const ok=await startParashaSession('${_bmParashaEarly}',null);if(ok)showAliyahSelect('${_bmParashaEarly}');})()"
-            style="background:var(--navy-800);color:white;border:none;border-radius:10px;
-                   padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;
-                   white-space:nowrap;flex-shrink:0;">📖 Practicar</button>` : ''}
-        </div>`;
-      baseC.appendChild(_bmEarlyDiv);
-    }
-  }
 
   // Stats / datos secundarios — aparecen DESPUÉS del CTA
   // Agregar contenedores de panel desplegable DENTRO del header
@@ -5026,10 +5303,10 @@ function renderHome(){
   baseC.appendChild(header);
 
   // ── COUNTDOWN DASHBOARD — BAR/BAT MITZVÁ ─────────────────────
-  // Proyección predictiva: ¿va a llegar preparado/a?
+  // Solo visible cuando la parashá NO es el CTA principal
   const bmDate    = localStorage.getItem('heb_bm_date');
   const bmParasha = localStorage.getItem('heb_bm_parasha');
-  if(bmDate){
+  if(bmDate && !(nextStep && nextStep.isParasha)){
     const today   = new Date(); today.setHours(0,0,0,0);
     const bm      = new Date(bmDate + 'T00:00:00');
     const days    = Math.ceil((bm - today) / 86400000);
@@ -5042,7 +5319,6 @@ function renderHome(){
       const doneSeries  = allKeys.filter(k => seriesDone(k)).length;
       const pctSeries   = Math.round(doneSeries / totalSeries * 100);
 
-      // Palabras dominadas vs total
       let totalWords = 0, masteredWords = 0;
       allKeys.forEach(k => {
         const words = ALL_DATA[k].words || [];
@@ -5054,16 +5330,12 @@ function renderHome(){
       });
       const pctWords = totalWords ? Math.round(masteredWords / totalWords * 100) : 0;
 
-      // Sidur readiness (palabras del Sidur que ya puede leer)
       let sidurStats = { total: 0, mastered: 0 };
       try { sidurStats = getSidurStats(); } catch(e){}
       const pctSidur = sidurStats.total ? Math.round(sidurStats.mastered / sidurStats.total * 100) : 0;
 
-      // Score compuesto de "readiness" (peso: 40% series, 30% palabras, 30% sidur)
       const readiness = Math.round(pctSeries * 0.4 + pctWords * 0.3 + pctSidur * 0.3);
 
-      // ── Proyección: ¿va a llegar? ──
-      // Estimación basada en ritmo: series completadas / días desde primera actividad
       const everDone = getEverDone();
       const timestamps = Object.values(everDone).filter(v => typeof v === 'number' && v > 0);
       const firstActivity = timestamps.length ? Math.min(...timestamps) : Date.now();
@@ -5072,15 +5344,12 @@ function renderHome(){
       const remainingSeries = totalSeries - doneSeries;
       const daysNeeded = seriesPerDay > 0 ? Math.ceil(remainingSeries / seriesPerDay) : 999;
       const onTrack = daysNeeded <= days;
-      const weeksLeft = Math.ceil(days / 7);
 
-      // Recomendación de sesiones por semana
-      let recoSessions = 3; // default
+      let recoSessions = 3;
       if(days <= 30) recoSessions = 6;
       else if(days <= 60) recoSessions = 5;
       else if(days <= 120) recoSessions = 4;
 
-      // Urgencia visual
       const urgColor = days <= 7  ? '#DC2626'
                      : days <= 30 ? '#D97706'
                      : days <= 90 ? 'var(--navy-700)'
@@ -5089,26 +5358,24 @@ function renderHome(){
                      : days <= 30 ? 'rgba(217,119,6,0.04)'
                      : 'white';
 
-      // Status message
       let statusMsg, statusColor, statusIcon;
       if(readiness >= 80){
-        statusMsg = '¡Excelente! Estás muy bien preparado/a';
+        statusMsg = 'Estás muy bien preparado/a';
         statusColor = 'var(--success)'; statusIcon = '🌟';
       } else if(onTrack && readiness >= 40){
-        statusMsg = 'Vas en buen camino — seguí así';
+        statusMsg = 'Vas en buen camino';
         statusColor = 'var(--success)'; statusIcon = '✅';
       } else if(onTrack){
-        statusMsg = 'Buen ritmo, cada sesión cuenta';
+        statusMsg = 'Buen ritmo, seguí así';
         statusColor = 'var(--navy-600)'; statusIcon = '📈';
       } else if(days > 30){
-        statusMsg = 'Podés llegar — practicá ' + recoSessions + ' veces/semana';
+        statusMsg = recoSessions + ' sesiones/semana';
         statusColor = '#D97706'; statusIcon = '⚡';
       } else {
-        statusMsg = '¡A estudiar! Practicá todos los días';
-        statusColor = '#DC2626'; statusIcon = '🔥';
+        statusMsg = 'Practicá todos los días';
+        statusColor = '#D97706'; statusIcon = '🔥';
       }
 
-      // ── SVG circular progress ring ──
       const ringSize = 64;
       const ringStroke = 5;
       const ringRadius = (ringSize - ringStroke) / 2;
@@ -5127,9 +5394,7 @@ function renderHome(){
              ontouchstart="this.style.transform='scale(0.99)'"
              ontouchend="this.style.transform=''">
 
-          <!-- Row 1: Countdown + Ring -->
           <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
-            <!-- Circular readiness ring -->
             <div style="position:relative;flex-shrink:0;width:${ringSize}px;height:${ringSize}px;">
               <svg width="${ringSize}" height="${ringSize}" style="transform:rotate(-90deg);">
                 <circle cx="${ringSize/2}" cy="${ringSize/2}" r="${ringRadius}"
@@ -5144,14 +5409,13 @@ function renderHome(){
                 <span style="font-size:8px;color:var(--sand-500);font-weight:600;">LISTO</span>
               </div>
             </div>
-            <!-- Info -->
             <div style="flex:1;min-width:0;">
               <div style="font-size:10px;font-weight:700;color:${urgColor};
                           text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;">
-                ${days===0?'¡Es hoy!': days===1?'¡Mañana!': days + ' días · ' + weeksLeft + ' semanas'}
+                ${days===0?'¡Hoy!':days===1?'Mañana':days+' días'}
               </div>
               <div style="font-size:14px;font-weight:900;color:var(--navy-800);
-                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;">
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;">
                 ${bmMeta ? bmMeta.esp : 'Bar/Bat Mitzvá'} ✡️
               </div>
               <div style="font-size:11px;font-weight:700;color:${statusColor};">
@@ -5160,51 +5424,13 @@ function renderHome(){
             </div>
           </div>
 
-          <!-- Row 2: Progress bars -->
-          <div style="display:flex;gap:8px;margin-bottom:10px;">
-            <div style="flex:1;">
-              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;">
-                <span style="font-size:9px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.05em;">Lecciones</span>
-                <span style="font-size:10px;font-weight:800;color:var(--navy-700);">${doneSeries}/${totalSeries}</span>
-              </div>
-              <div style="height:6px;background:var(--sand-200);border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:${pctSeries}%;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:99px;transition:width .8s ease;"></div>
-              </div>
-            </div>
-            <div style="flex:1;">
-              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;">
-                <span style="font-size:9px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.05em;">Palabras</span>
-                <span style="font-size:10px;font-weight:800;color:var(--navy-700);">${masteredWords}/${totalWords}</span>
-              </div>
-              <div style="height:6px;background:var(--sand-200);border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:${pctWords}%;background:linear-gradient(90deg,#22c55e,#16a34a);border-radius:99px;transition:width .8s ease;"></div>
-              </div>
-            </div>
-            <div style="flex:1;">
-              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;">
-                <span style="font-size:9px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.05em;">Sidur</span>
-                <span style="font-size:10px;font-weight:800;color:var(--navy-700);">${pctSidur}%</span>
-              </div>
-              <div style="height:6px;background:var(--sand-200);border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:${pctSidur}%;background:linear-gradient(90deg,#a855f7,#7c3aed);border-radius:99px;transition:width .8s ease;"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Row 3: Quick actions -->
-          <div style="display:flex;gap:8px;">
-            ${bmMeta ? `<button onclick="event.stopPropagation();(async()=>{showToast('Cargando...','cyan');const ok=await startParashaSession('${bmParasha}',null);if(ok)showAliyahSelect('${bmParasha}');})()"
-              style="flex:1;background:var(--navy-800);color:white;border:none;border-radius:12px;
-                     padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;
-                     box-shadow:0 2px 0 var(--navy-900);display:flex;align-items:center;justify-content:center;gap:5px;">
-              📖 Mi parashá</button>` : ''}
-            <button onclick="event.stopPropagation();showSidurExplorer(0);"
-              style="flex:1;background:var(--sand-100);color:var(--navy-700);
-                     border:1.5px solid var(--sand-300);border-radius:12px;
-                     padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;
-                     display:flex;align-items:center;justify-content:center;gap:5px;">
-              📜 Explorar Sidur</button>
-          </div>
+          <button onclick="event.stopPropagation();showSidurExplorer(0);"
+            style="width:100%;background:var(--sand-100);color:var(--navy-700);
+                   border:1.5px solid var(--sand-300);border-radius:12px;
+                   padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;
+                   display:flex;align-items:center;justify-content:center;gap:5px;">
+            📜 Explorar Sidur
+          </button>
         </div>`;
       baseC.appendChild(bmDash);
     }
@@ -5568,62 +5794,75 @@ function renderHome(){
   const bottomBtns = document.createElement('div');
   bottomBtns.style.cssText = 'padding:0 14px 40px;display:flex;flex-direction:column;gap:10px;margin-top:4px;';
 
-  // ── Botón Explorador de Sidur ─────────────────────────────────
-  const sidurBtn = document.createElement('button');
-  sidurBtn.id = 'goto-sidur-btn';
-  sidurBtn.style.cssText = 'width:100%;padding:14px 16px;background:linear-gradient(135deg,#1B3A5C,#0D2540);' +
-    'border:none;border-radius:16px;cursor:pointer;' +
-    'display:flex;align-items:center;gap:12px;box-shadow:0 2px 12px rgba(13,31,53,0.18);';
-  // Calcular progreso del Sidur para mostrar en el botón
+  // ── Banner único: Sidur + Tefilot + Torá ─────────────────────────
+  const studyBanner = document.createElement('div');
+  studyBanner.style.cssText = 'background:white;border:1.5px solid var(--sand-300);border-radius:16px;' +
+    'overflow:hidden;box-shadow:0 2px 8px rgba(13,31,53,0.06);';
+
+  // Cabecera compacta
+  const studyHeader = document.createElement('div');
+  studyHeader.style.cssText = 'padding:12px 16px 10px;border-bottom:1px solid var(--sand-100);';
+  studyHeader.innerHTML =
+    '<div style="font-size:10px;font-weight:700;color:var(--sand-500);text-transform:uppercase;' +
+    'letter-spacing:0.1em;">📚 Estudio</div>';
+  studyBanner.appendChild(studyHeader);
+
+  // Fila de 3 acciones
+  const studyRow = document.createElement('div');
+  studyRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;';
+
   const _sidurStats = getSidurStats();
   const _sidurPctHome = _sidurStats.total > 0 ? Math.round((_sidurStats.mastered / _sidurStats.total) * 100) : 0;
-  sidurBtn.innerHTML =
-    '<div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,0.12);' +
-    'display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">📖</div>' +
-    '<div style="flex:1;text-align:left;">' +
-      '<div style="font-size:14px;font-weight:900;color:white;">Explorador de Sidur</div>' +
-      '<div style="font-size:11px;color:rgba(255,255,255,0.6);">Shemá, Amidá, Aleinu — ' + _sidurPctHome + '% dominado</div>' +
-    '</div>' +
-    '<span style="font-size:1rem;color:rgba(255,255,255,0.4);">›</span>';
-  sidurBtn.addEventListener('click', showSidurExplorer);
-  bottomBtns.appendChild(sidurBtn);
 
-  // Botón Tefilot
-  const tefilotBtn = document.createElement('button');
-  tefilotBtn.id = 'goto-tefilot-btn';
-  tefilotBtn.style.cssText = 'width:100%;padding:14px 16px;background:white;' +
-    'border:1.5px solid var(--sand-300);border-radius:16px;cursor:pointer;' +
-    'display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(13,31,53,0.05);';
-  tefilotBtn.innerHTML =
-    '<div style="width:40px;height:40px;border-radius:12px;background:var(--navy-800);' +
-    'display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🙏</div>' +
-    '<div style="flex:1;text-align:left;">' +
-      '<div style="font-size:14px;font-weight:900;color:var(--navy-800);">Tefilot</div>' +
-      '<div style="font-size:11px;color:var(--sand-500);">Amidá, Shemá, Kidush y más</div>' +
-    '</div>' +
-    '<span style="font-size:1rem;color:var(--sand-400);">›</span>';
-  tefilotBtn.addEventListener('click', showTefilotView);
-  bottomBtns.appendChild(tefilotBtn);
+  const _studyItems = [
+    {
+      icon: '📖', label: 'Sidur',
+      sub: _sidurPctHome + '% dom.',
+      onclick: showSidurExplorer
+    },
+    {
+      icon: '🙏', label: 'Tefilot',
+      sub: 'Amidá · Shemá',
+      onclick: showTefilotView
+    },
+    {
+      icon: '📜', label: 'Torá',
+      sub: '54 parashot',
+      onclick: null  // toggle panel
+    }
+  ];
 
-  // Botón Torá (despliega los 5 libros)
+  _studyItems.forEach((item, i) => {
+    const cell = document.createElement('button');
+    cell.style.cssText = 'background:none;border:none;cursor:pointer;padding:12px 8px;' +
+      'display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;' +
+      (i < 2 ? 'border-right:1px solid var(--sand-100);' : '');
+    cell.innerHTML =
+      '<span style="font-size:1.4rem;line-height:1;">' + item.icon + '</span>' +
+      '<span style="font-size:12px;font-weight:800;color:var(--navy-800);">' + item.label + '</span>' +
+      '<span style="font-size:10px;color:var(--sand-500);white-space:nowrap;">' + item.sub + '</span>';
+    if(item.onclick) {
+      cell.addEventListener('click', item.onclick);
+    } else {
+      // Torá: toggle panel
+      cell.addEventListener('click', () => {
+        _toraOpen = !_toraOpen;
+        if(_toraOpen){
+          toraPanel.style.borderTopWidth = '1px';
+          toraPanel.style.maxHeight = toraPanel.scrollHeight + 400 + 'px';
+        } else {
+          toraPanel.style.maxHeight = '0';
+          toraPanel.style.borderTopWidth = '0';
+        }
+      });
+    }
+    studyRow.appendChild(cell);
+  });
+  studyBanner.appendChild(studyRow);
+
+  // Panel de Torá colapsable (igual que antes)
   const toraWrap = document.createElement('div');
-  toraWrap.style.cssText = 'background:white;border:1.5px solid var(--sand-300);' +
-    'border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(13,31,53,0.05);';
-
-  // Cabecera del botón Torá
-  const toraBtn = document.createElement('button');
-  toraBtn.id = 'tora-toggle-btn';
-  toraBtn.style.cssText = 'width:100%;padding:14px 16px;background:white;border:none;cursor:pointer;' +
-    'display:flex;align-items:center;gap:12px;';
-  toraBtn.innerHTML =
-    '<div style="width:40px;height:40px;border-radius:12px;background:var(--navy-800);' +
-    'display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📖</div>' +
-    '<div style="flex:1;text-align:left;">' +
-      '<div style="font-size:14px;font-weight:900;color:var(--navy-800);">Lectura de la Torá</div>' +
-      '<div style="font-size:11px;color:var(--sand-500);">Los 5 libros · Parashot</div>' +
-    '</div>' +
-    '<span id="tora-chevron" style="font-size:12px;color:var(--sand-400);' +
-    'transition:transform .2s;font-weight:900;">▼</span>';
+  toraWrap.style.cssText = 'border-top:0px solid var(--sand-200);';
 
   // Panel colapsable con los 5 libros
   const toraPanel = document.createElement('div');
@@ -5707,23 +5946,10 @@ function renderHome(){
 
   // Toggle del panel Torá
   let _toraOpen = false;
-  toraBtn.addEventListener('click', () => {
-    _toraOpen = !_toraOpen;
-    const chev = document.getElementById('tora-chevron');
-    if(_toraOpen){
-      toraPanel.style.borderTopWidth = '1px';
-      toraPanel.style.maxHeight = toraPanel.scrollHeight + 400 + 'px';
-      if(chev) chev.style.transform = 'rotate(180deg)';
-    } else {
-      toraPanel.style.maxHeight = '0';
-      toraPanel.style.borderTopWidth = '0';
-      if(chev) chev.style.transform = '';
-    }
-  });
 
-  toraWrap.appendChild(toraBtn);
   toraWrap.appendChild(toraPanel);
-  bottomBtns.appendChild(toraWrap);
+  studyBanner.appendChild(toraWrap);
+  bottomBtns.appendChild(studyBanner);
 
   mixC.appendChild(bottomBtns);
 }
@@ -6104,16 +6330,16 @@ function startMiAliya(parashaId, aliyah){
   const data = parashaState.data;
   if(!data){ showToast('Cargá una parashá primero', 'warm'); return; }
 
-  const aliyahData = (data.aliyot || []).find(a => String(a.aliyah) === String(aliyah));
-  if(!aliyahData){ showToast('Aliyá no encontrada', 'red'); return; }
+  const alKr = buildAliyotFromKriyah(parashaId).find(a => String(a.aliyah) === String(aliyah));
+  if(!alKr){ showToast('Aliyá no encontrada', 'red'); return; }
 
-  const dict   = data.dictionary || {};
-  const verses = aliyahData.verses || [];
-  const refs   = aliyahData.refs  || [];
-  const meta   = PARASHA_CATALOG.find(p => p.id === parashaId);
-  const times  = getMiAliyaTimes();
+  const verseMap  = parashaState.verseMap;
+  const refsArr   = buildRefsFromRange(alKr.range, verseMap);
+  const versesArr = refsArr.map(ref => getVerseByRef(ref) || []);
+  const meta      = PARASHA_CATALOG.find(p => p.id === parashaId);
+  const times     = getMiAliyaTimes();
 
-  _renderMiAliyaModal(parashaId, aliyah, verses, refs, dict, meta, times);
+  _renderMiAliyaModal(parashaId, aliyah, versesArr, refsArr, {}, meta, times);
 }
 
 function _renderMiAliyaModal(parashaId, aliyah, verses, refs, dict, meta, times){
@@ -6137,7 +6363,9 @@ function _renderMiAliyaModal(parashaId, aliyah, verses, refs, dict, meta, times)
     const total  = verses.length;
     const verse  = verses[vIdx];
     const ref    = refs[vIdx] || `${meta?.esp} ${aliyah}:${vIdx+1}`;
-    const words  = Array.isArray(verse) ? verse.map(i => dict[String(i)] || '?') : verse.split(' ');
+    const words  = Array.isArray(verse)
+      ? (typeof verse[0] === 'string' ? verse : verse.map(i => dict[String(i)] || '?'))
+      : String(verse || '').split(' ').filter(Boolean);
     const text   = words.join(' ');
 
     const key    = `${parashaId}_${aliyah}_${vIdx}`;
@@ -6385,8 +6613,7 @@ async function showAliyahSelect(parashaId){
   }
 
   const data = parashaState.data;
-  const aliyot = data?.aliyot || [];
-  const dict   = data?.dictionary || {};
+  const verseMap = parashaState.verseMap;
   const listEl = document.getElementById('aliyah-list');
   listEl.innerHTML = '';
 
@@ -6466,21 +6693,16 @@ async function showAliyahSelect(parashaId){
     listEl.appendChild(infoEl);
   }
 
-  // ── Build aliyah list: use kriyah data for references ──
-  aliyot.forEach(al => {
-    const verseCount = al.verses?.length || 0;
-    const firstVerse = al.verses?.[0];
-    const hasAudio   = !!getAliyahAudio(parashaId, al.aliyah);
-    const preview = firstVerse
-      ? decodeVerse(firstVerse, dict).slice(0, 40) + '…'
-      : '';
-
-    // Look up biblical reference from kriyah data
-    var kriyahRef = '';
-    if(kriyahAliyot){
-      var match = kriyahAliyot.find(function(k){ return k.aliyah === String(al.aliyah); });
-      if(match) kriyahRef = match.reading;
-    }
+  // ── Build aliyah list from kriyah_data (single source of truth) ──
+  const krAliyotList = buildAliyotFromKriyah(parashaId);
+  krAliyotList.forEach(al => {
+    const refs        = buildRefsFromRange(al.range, verseMap);
+    const verseCount  = refs.length;
+    const firstWords  = refs.length ? (getVerseByRef(refs[0]) || []) : [];
+    const preview     = firstWords.slice(0, 6).join(' ') + (firstWords.length > 6 ? '…' : '');
+    const hasAudio    = !!getAliyahAudio(parashaId, al.aliyah);
+    const aliyahPool  = parashaState.index ? getAliyahWordPool(parashaId, al.aliyah) : [];
+    const readableInAliyah = aliyahPool.length;
 
     const btn = document.createElement('button');
     btn.style.cssText = [
@@ -6490,9 +6712,6 @@ async function showAliyahSelect(parashaId){
       'box-shadow:0 2px 6px rgba(13,31,53,0.05);cursor:pointer',
       'transition:border-color .15s,box-shadow .15s'
     ].join(';');
-    // Contar palabras legibles en esta aliyá (desde índice si disponible)
-    const aliyahPool = parashaState.index ? getAliyahWordPool(parashaId, al.aliyah) : [];
-    const readableInAliyah = aliyahPool.length;
 
     btn.innerHTML = '<div style="width:36px;height:36px;border-radius:50%;background:var(--navy-800);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
         '<span style="font-size:14px;font-weight:900;color:white;font-family:\'Fraunces\',serif;">' + al.aliyah + '</span>' +
@@ -6502,28 +6721,19 @@ async function showAliyahSelect(parashaId){
           '<span style="font-size:13px;font-weight:900;color:var(--navy-800);">Aliy\u00e1 ' + al.aliyah + '</span>' +
           (hasAudio ? '<span style="font-size:10px;background:rgba(74,155,111,0.12);color:var(--success);border-radius:99px;padding:2px 7px;font-weight:700;">\ud83c\udfb5 Audio</span>' : '') +
         '</div>' +
-        (kriyahRef ? '<div style="font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;">' + kriyahRef + '</div>' : '') +
+        (al.reading ? '<div style="font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;">' + al.reading + '</div>' : '') +
         '<div style="font-size:11px;color:var(--sand-500);margin-top:2px;">' + verseCount + ' vers\u00edculo' + (verseCount!==1?'s':'') + ' \u00b7 ' + readableInAliyah + ' palabras legibles</div>' +
         '<div style="font-family:\'Noto Serif Hebrew\',serif;font-size:12px;color:var(--navy-700);direction:rtl;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + preview + '</div>' +
       '</div>' +
       '<div style="font-size:1.2rem;color:var(--sand-400);">\u2192</div>';
 
-    btn.addEventListener('mouseenter', () => {
-      btn.style.borderColor = 'var(--gold-400)';
-      btn.style.boxShadow = '0 4px 14px rgba(196,150,60,0.15)';
-    });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.borderColor = 'var(--sand-300)';
-      btn.style.boxShadow = '0 2px 6px rgba(13,31,53,0.05)';
-    });
-    // Tap en la card → action sheet con las 3 opciones
-    btn.addEventListener('click', () => showAliyahActionSheet(parashaId, al.aliyah, verseCount, hasAudio));
     btn.addEventListener('mouseenter', () => { btn.style.borderColor='var(--gold-400)'; btn.style.boxShadow='0 4px 16px rgba(196,150,60,0.15)'; });
     btn.addEventListener('mouseleave', () => { btn.style.borderColor='var(--sand-300)'; btn.style.boxShadow='0 2px 8px rgba(13,31,53,0.06)'; });
     btn.addEventListener('mousedown',  () => { btn.style.transform='scale(0.98)'; });
     btn.addEventListener('mouseup',    () => { btn.style.transform=''; });
     btn.addEventListener('touchstart', () => { btn.style.transform='scale(0.98)'; btn.style.borderColor='var(--gold-400)'; }, {passive:true});
     btn.addEventListener('touchend',   () => { btn.style.transform=''; btn.style.borderColor='var(--sand-300)'; });
+    btn.addEventListener('click', () => showAliyahActionSheet(parashaId, al.aliyah, verseCount, hasAudio));
     listEl.appendChild(btn);
   });
 
@@ -6581,7 +6791,7 @@ function renderParashaRead(parashaId, aliyah){
     color:${!aliyah ? 'white':'var(--navy-700)'}`;
   allTab.addEventListener('click', () => renderParashaRead(parashaId, null));
   tabsEl.appendChild(allTab);
-  (data.aliyot || []).forEach(al => {
+  buildAliyotFromKriyah(parashaId).forEach(al => {
     const tab = document.createElement('button');
     tab.textContent = `Aliyá ${al.aliyah}`;
     tab.style.cssText = `padding:6px 14px;border-radius:99px;border:none;cursor:pointer;
@@ -6598,28 +6808,28 @@ function renderParashaRead(parashaId, aliyah){
     activeTab?.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
   }, 100);
 
-  // Recolectar versículos
-  const aliyot = aliyah
-    ? (data.aliyot || []).filter(a => String(a.aliyah) === String(aliyah))
-    : (data.aliyot || []);
-
-  const dict = data.dictionary || {};
-  const pData = getParashaProgress()[parashaId] || {};
+  // ── RENDER VERSES FROM KRIYAH_DATA (single source of truth) ──
+  const verseMap = parashaState.verseMap;
+  const pData    = getParashaProgress()[parashaId] || {};
 
   versesEl.innerHTML = '';
 
-  aliyot.forEach(al => {
+  const krAliyot = buildAliyotFromKriyah(parashaId);
+  const aliyotToRender = aliyah
+    ? krAliyot.filter(a => String(a.aliyah) === String(aliyah))
+    : krAliyot;
+
+  aliyotToRender.forEach(al => {
     // Encabezado de aliyá
     const alHeader = document.createElement('div');
     alHeader.style.cssText = 'font-size:10px;font-weight:700;color:var(--gold-600);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;';
-    alHeader.textContent = `✦ Aliyá ${al.aliyah}`;
+    alHeader.textContent = `✦ Aliyá ${al.aliyah}` + (al.reading ? `  ${al.reading}` : '');
     versesEl.appendChild(alHeader);
 
-    (al.verses || []).forEach((verseIndices, vi) => {
-      const ref  = al.refs?.[vi] || `${meta?.esp || ''} ${al.aliyah}:${vi+1}`;
-      const words = Array.isArray(verseIndices)
-        ? verseIndices.map(i => dict[String(i)] || '?')
-        : verseIndices.split(' ');
+    const refs = buildRefsFromRange(al.range, verseMap);
+    refs.forEach(ref => {
+      const words = getVerseByRef(ref);
+      if (!words || !words.length) return;
 
       const verseCard = document.createElement('div');
       verseCard.style.cssText = [
@@ -6692,8 +6902,8 @@ function renderParashaRead(parashaId, aliyah){
   pracBtn.textContent = '⭐ Practicar';
   pracBtn.onclick = () => {
     const aliyahNum = aliyah || 1;
-    const alData = parashaState.data?.aliyot?.find(a => a.aliyah === aliyahNum);
-    const vc = alData?.verses?.length || 0;
+    const alKr = buildAliyotFromKriyah(parashaId).find(a => String(a.aliyah) === String(aliyahNum));
+    const vc = alKr ? buildRefsFromRange(alKr.range, parashaState.verseMap).length : 0;
     const ha = !!getAliyahAudio(parashaId, aliyahNum);
     showAliyahActionSheet(parashaId, aliyahNum, vc, ha);
   };
