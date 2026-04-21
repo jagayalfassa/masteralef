@@ -3637,8 +3637,13 @@ function buildVerseMap(data) {
   var map  = new Map();
   (data.aliyot || []).forEach(function(al) {
     (al.verses || []).forEach(function(verseIndices, vi) {
-      var ref = al.refs && al.refs[vi];
-      if (!ref) return;
+      var rawRef = al.refs && al.refs[vi];
+      if (!rawRef) return;
+      // Normalize book abbreviation so verseMap keys match buildRefsFromRange output.
+      // e.g. "Gn 1:1" -> "Genesis 1:1", "Genesis 1:1" passes through unchanged.
+      var ref = rawRef.replace(/^([A-Za-z0-9]+)(\s)/, function(_, abbr, sp) {
+        return (_BOOK_ABBREV_MAP[abbr] || abbr) + sp;
+      });
       var words = Array.isArray(verseIndices)
         ? verseIndices.map(function(i) { return dict[String(i)] || null; }).filter(Boolean)
         : String(verseIndices).split(/\s+/).filter(Boolean);
