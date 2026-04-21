@@ -11,7 +11,6 @@ const CACHE_DYNAMIC = `alefmaster-dynamic-${CACHE_VERSION}`;
 // Shell de la app — se cachea en install.
 // Incluye los JSON críticos para el engine de lectura:
 //   · kriyah_data.json  → fuente única de rangos de aliyot
-//   · torah_complete_dict.json → fonética y traducciones (cargado en cada sesión)
 const PRECACHE = [
   './',
   './index.html',
@@ -20,7 +19,6 @@ const PRECACHE = [
   './icons/icon-512.png',
   './icons/icon-180.png',
   './data/kriyah_data.json',
-  './data/torah/torah_complete_dict.json',
 ];
 
 // ── INSTALL ───────────────────────────────────────────────────
@@ -95,12 +93,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // JSON críticos del engine (kriyah_data, torah_complete_dict) → Cache First ESTÁTICO
-  // Ya están en PRECACHE; esta regla garantiza que se sirvan offline sin round-trip.
-  if(
-    url.pathname.endsWith('kriyah_data.json') ||
-    url.pathname.endsWith('torah_complete_dict.json')
-  ){
+  // JSON crítico del engine (kriyah_data) → Cache First ESTÁTICO
+  // Ya está en PRECACHE; esta regla garantiza que se sirva offline sin round-trip.
+  if(url.pathname.endsWith('kriyah_data.json')){
     event.respondWith(cacheFirst(request, CACHE_STATIC));
     return;
   }
