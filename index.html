@@ -3706,24 +3706,29 @@ function buildAliyotFromKriyah(parashaId) {
   return result;
 }
 
-// Expand a chapter:verse range into individual refs that exist in verseMap.
+// Expand a chapter:verse range into individual refs that exist in verseMap or cache.verses.
 // Result is cached by canonical range string; multi-chapter ranges are supported.
-// Output: ["Gn 1:1", "Gn 1:2", ..., "Gn 1:5"]
+// Falls back to Sefaria verse cache when verseMap is empty (hybrid mode).
+// Output: ["Genesis 1:1", "Genesis 1:2", ..., "Genesis 1:5"]
 function buildRefsFromRange(range, verseMap) {
-  if (!range || !verseMap) return [];
+  if (!range) return [];
   var key = range.book + ' ' + range.chS + ':' + range.vS + '-' + range.chE + ':' + range.vE;
   if (parashaState.cache.refs.has(key)) {
     return parashaState.cache.refs.get(key);
   }
 
   var book = range.book, chS = range.chS, vS = range.vS, chE = range.chE, vE = range.vE;
+  var hasVerseMap = verseMap && verseMap.size > 0;
   var refs = [];
   for (var ch = chS; ch <= chE; ch++) {
     var startV = (ch === chS) ? vS : 1;
     var endV   = (ch === chE) ? vE : 220; // safe upper bound per chapter
     for (var v = startV; v <= endV; v++) {
       var ref = book + ' ' + ch + ':' + v;
-      if (!verseMap.has(ref)) {
+      var exists = hasVerseMap
+        ? verseMap.has(ref)
+        : parashaState.cache.verses.has(ref); // Sefaria mode
+      if (!exists) {
         if (v > startV) break;  // gap after first verse → end of chapter
         continue;               // sparse numbering → keep scanning
       }
@@ -3747,6 +3752,81 @@ function getVerseByRef(ref) {
   var text  = Array.isArray(words) ? words.join(' ') : String(words || '');
   parashaState.cache.verses.set(ref, text);
   return text;
+}
+
+// ── SEFARIA HYBRID LAYER ─────────────────────────────────────────
+// Provides Torah text via Sefaria API when local parasha JSON lacks refs.
+// Architecture: getVerseByRef stays SYNC — Sefaria pre-populates cache async.
+// Flow: startParashaSession → fetchAndCacheParasha (bg) → re-render
+
+var _TORAH_LS_KEY   = 'AM_TORAH_V1';
+var _sefariaFetched = new Set(); // chapters fetched this session
+
+// Restore verse cache from localStorage (call once at app init)
+function _loadVerseCache() {
+  try {
+    var raw = localStorage.getItem(_TORAH_LS_KEY);
+    if (!raw) return;
+    var obj = JSON.parse(raw);
+    var n = 0;
+    Object.entries(obj).forEach(function(kv) {
+      if (!parashaState.cache.verses.has(kv[0])) { parashaState.cache.verses.set(kv[0], kv[1]); n++; }
+    });
+    if (n) dbg('[cache] restored', n, 'verses from localStorage');
+  } catch(e) { dbg('[cache] localStorage load error:', e.message); }
+}
+
+// Persist current verse cache to localStorage
+function _saveVerseCache() {
+  try {
+    localStorage.setItem(_TORAH_LS_KEY, JSON.stringify(Object.fromEntries(parashaState.cache.verses)));
+  } catch(e) { dbg('[cache] localStorage save error:', e.message); }
+}
+
+// Fetch one Torah chapter from Sefaria and populate cache.verses.
+// Chapter-level requests: 1 API call ≈ 30 verses cached.
+async function _sefariaFetchChapter(book, chapter) {
+  var ck = book + '.' + chapter;
+  if (_sefariaFetched.has(ck)) return;
+  _sefariaFetched.add(ck);
+  var url = 'https://www.sefaria.org/api/texts/' +
+            encodeURIComponent(book + ' ' + chapter) +
+            '?lang=he&commentary=0&context=0&pad=0';
+  try {
+    var res = await fetch(url);
+    if (!res.ok) { _sefariaFetched.delete(ck); return; }
+    var data = await res.json();
+    var verses = data.he;
+    if (!Array.isArray(verses)) return;
+    verses.forEach(function(text, i) {
+      var ref = book + ' ' + chapter + ':' + (i + 1);
+      var normalized = Array.isArray(text) ? text.join(' ') : String(text || '').trim();
+      if (normalized) parashaState.cache.verses.set(ref, normalized);
+    });
+    dbg('[sefaria] cached', book, chapter, '—', verses.length, 'verses');
+  } catch(e) {
+    _sefariaFetched.delete(ck);
+    dbg('[sefaria] error:', book, chapter, e.message);
+  }
+}
+
+// Fetch all chapters needed for a parasha's aliyot from Sefaria.
+// Called when verseMap is empty (parasha JSON has no refs/verses).
+async function fetchAndCacheParasha(parashaId) {
+  var aliyot = buildAliyotFromKriyah(parashaId);
+  var chapters = new Map();
+  aliyot.forEach(function(a) {
+    if (!a.range) return;
+    for (var ch = a.range.chS; ch <= a.range.chE; ch++) {
+      chapters.set(a.range.book + '|' + ch, { book: a.range.book, ch: ch });
+    }
+  });
+  await Promise.all(Array.from(chapters.values()).map(function(c) {
+    return _sefariaFetchChapter(c.book, c.ch);
+  }));
+  _saveVerseCache();
+  parashaState.cache.refs = new Map(); // invalidate so buildRefsFromRange re-evaluates
+  dbg('[sefaria] parasha', parashaId, 'ready —', parashaState.cache.verses.size, 'total verses');
 }
 
 // Detectar qué año trienal corresponde a una fecha para una parashá
@@ -4238,6 +4318,7 @@ async function startParashaSession(parashaId, aliyah = 1){
     parashaState.verseMap = buildVerseMap(data);
     // Invalidate all derived caches when a new parasha loads
     parashaState.cache = { aliyot: new Map(), refs: new Map(), verses: new Map() };
+    _loadVerseCache(); // restore any Sefaria-fetched verses from localStorage
     parashaState.index = buildParashaIndex(data, null);
     // Prewarm: populate all caches for instant first render
     (function _prewarm(){
@@ -6880,6 +6961,17 @@ function renderParashaRead(parashaId, aliyah){
   const aliyotToRender = aliyah
     ? krAliyot.filter(a => String(a.aliyah) === String(aliyah))
     : krAliyot;
+
+  // ── Sefaria fallback: if no verses cached yet, fetch and re-render ──
+  {
+    const sampleRefs = krAliyot[0] ? buildRefsFromRange(krAliyot[0].range, parashaState.verseMap) : [];
+    const hasVerses  = sampleRefs.some(r => !!getVerseByRef(r));
+    if (!hasVerses) {
+      versesEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--sand-400);font-size:0.95rem;line-height:1.6;">Cargando texto…<br><span style=\"font-size:0.8rem;opacity:0.7;\">Descargando desde Sefaria</span></div>';
+      fetchAndCacheParasha(parashaId).then(() => renderParashaRead(parashaId, aliyah));
+      return;
+    }
+  }
 
   aliyotToRender.forEach(al => {
     // Encabezado de aliyá
