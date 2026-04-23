@@ -3478,7 +3478,7 @@ function parashaWordsToExerciseFormat(parashaId, words){
 
 // ── LOAD PARASHA ──────────────────────────────────────────────────
 // Carga un dataset de parashá desde /data/torah/{id}.json
-// Retorna Promise<parashaData | null>
+// Si el archivo no existe, devuelve un stub mínimo para que Sefaria provea el texto.
 async function loadParasha(parashaId){
   dbg("Loading parasha:", parashaId);
   if(typeof setMascotState === 'function') setMascotState('loading');
@@ -3491,9 +3491,17 @@ async function loadParasha(parashaId){
     if(typeof setMascotState === 'function') setMascotState('idle');
     return data;
   } catch(e){
-    dbg("Error loading parasha:", e.message);
-    if(typeof setMascotState === 'function') setMascotState('error', 1500);
-    return null;
+    dbg("Parasha JSON not found, using Sefaria stub:", parashaId, e.message);
+    if(typeof setMascotState === 'function') setMascotState('idle');
+    // Minimal stub: text comes from Sefaria, exercise words unavailable
+    const meta = (typeof PARASHA_CATALOG !== 'undefined')
+      ? PARASHA_CATALOG.find(p => p.id === parashaId) : null;
+    return {
+      parasha:    meta ? meta.esp : parashaId,
+      dictionary: {},
+      aliyot:     [],
+      _stub:      true,
+    };
   }
 }
 
@@ -6963,12 +6971,22 @@ function renderParashaRead(parashaId, aliyah){
     : krAliyot;
 
   // ── Sefaria fallback: if no verses cached yet, fetch and re-render ──
+  // _sefariaAttempted flag prevents infinite loop if Sefaria also fails.
   {
     const sampleRefs = krAliyot[0] ? buildRefsFromRange(krAliyot[0].range, parashaState.verseMap) : [];
     const hasVerses  = sampleRefs.some(r => !!getVerseByRef(r));
+    if (!hasVerses && !renderParashaRead._sefariaAttempted) {
+      renderParashaRead._sefariaAttempted = true;
+      versesEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--sand-400);font-size:0.95rem;line-height:1.6;">Cargando texto…<br><span style="font-size:0.8rem;opacity:0.7;">Descargando desde Sefaria</span></div>';
+      fetchAndCacheParasha(parashaId).then(() => {
+        renderParashaRead._sefariaAttempted = false;
+        renderParashaRead(parashaId, aliyah);
+      });
+      return;
+    }
     if (!hasVerses) {
-      versesEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--sand-400);font-size:0.95rem;line-height:1.6;">Cargando texto…<br><span style=\"font-size:0.8rem;opacity:0.7;\">Descargando desde Sefaria</span></div>';
-      fetchAndCacheParasha(parashaId).then(() => renderParashaRead(parashaId, aliyah));
+      // Sefaria failed — show degraded message, don't loop
+      versesEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--sand-400);font-size:0.95rem;">No se pudo cargar el texto.<br><span style="font-size:0.8rem;">Verificá tu conexión e intentá de nuevo.</span></div>';
       return;
     }
   }
