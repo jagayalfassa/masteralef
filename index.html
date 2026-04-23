@@ -3678,10 +3678,18 @@ var _BOOK_ABBREV_MAP = {
 // Returns null if parsing fails.
 function parseReadingRange(reading) {
   if (!reading) return null;
-  var m = String(reading).trim().match(/^([A-Za-z0-9]+)\s+(\d+):(\d+)-(\d+):(\d+)/);
-  if (!m) return null;
-  var book = _BOOK_ABBREV_MAP[m[1]] || m[1]; // normalize abbrev → full name
-  return { book: book, chS: +m[2], vS: +m[3], chE: +m[4], vE: +m[5] };
+  var s = String(reading).trim();
+  // Full format:  "Gn 1:1-2:3"  → chS:1 vS:1 chE:2 vE:3
+  var m = s.match(/^([A-Za-z0-9]+)\s+(\d+):(\d+)-(\d+):(\d+)/);
+  if (m) {
+    return { book: _BOOK_ABBREV_MAP[m[1]] || m[1], chS:+m[2], vS:+m[3], chE:+m[4], vE:+m[5] };
+  }
+  // Short format: "Is 42:5-21"  → same chapter for start and end
+  var m2 = s.match(/^([A-Za-z0-9]+)\s+(\d+):(\d+)-(\d+)$/);
+  if (m2) {
+    return { book: _BOOK_ABBREV_MAP[m2[1]] || m2[1], chS:+m2[2], vS:+m2[3], chE:+m2[2], vE:+m2[4] };
+  }
+  return null;
 }
 
 // Build structured aliyot list from kriyah_data using the current reading type.
@@ -3800,8 +3808,11 @@ async function _sefariaFetchChapter(book, chapter) {
   var url = 'https://www.sefaria.org/api/texts/' +
             encodeURIComponent(book + ' ' + chapter) +
             '?lang=he&commentary=0&context=0&pad=0';
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, 10000); // 10s timeout
   try {
-    var res = await fetch(url);
+    var res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
     if (!res.ok) { _sefariaFetched.delete(ck); return; }
     var data = await res.json();
     var verses = data.he;
@@ -3813,6 +3824,7 @@ async function _sefariaFetchChapter(book, chapter) {
     });
     dbg('[sefaria] cached', book, chapter, '—', verses.length, 'verses');
   } catch(e) {
+    clearTimeout(timer);
     _sefariaFetched.delete(ck);
     dbg('[sefaria] error:', book, chapter, e.message);
   }
@@ -4327,6 +4339,8 @@ async function startParashaSession(parashaId, aliyah = 1){
     // Invalidate all derived caches when a new parasha loads
     parashaState.cache = { aliyot: new Map(), refs: new Map(), verses: new Map() };
     _loadVerseCache(); // restore any Sefaria-fetched verses from localStorage
+    _sefariaFetched.clear();                       // allow re-fetch for new parasha
+    renderParashaRead._sefariaAttempted = false;   // reset loop guard for new parasha
     parashaState.index = buildParashaIndex(data, null);
     // Prewarm: populate all caches for instant first render
     (function _prewarm(){
