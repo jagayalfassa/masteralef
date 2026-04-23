@@ -6999,36 +6999,26 @@ function renderParashaRead(parashaId, aliyah){
     // full-parasha aliyah numbers. Instead collect ALL verses from ALL data.aliyot
     // entries that fall within this kriyah range.
     // dataAl kept for backwards compat (refs, etc) — use first overlapping aliyah.
-    const dataAl = (data.aliyot || []).find(function(a){
-      if (!a.refs || !a.refs.length || !al.range) return String(a.aliyah) === String(al.aliyah);
-      // Check if any ref in this aliyah overlaps with al.range
-      return a.refs.some(function(rawRef) {
-        var refNorm = rawRef.replace(/^([A-Za-z0-9]+)\s/, function(_, abbr) {
-          return (_BOOK_ABBREV_MAP[abbr] || abbr) + ' ';
-        });
-        var rm = refNorm.match(/(\d+):(\d+)$/);
-        if (!rm) return false;
-        var ch = +rm[1], v = +rm[2], r = al.range;
-        var afterStart = ch > r.chS || (ch === r.chS && v >= r.vS);
-        var beforeEnd  = ch < r.chE || (ch === r.chE && v <= r.vE);
-        return afterStart && beforeEnd;
-      });
+    // Extract ch:v from a ref string — works regardless of book name language.
+    // "Levítico 1:5" → {ch:1, v:5}  |  "Éxodo 6:2" → {ch:6, v:2}
+    function _chv(rawRef) {
+      var m = rawRef && rawRef.match(/(\d+):(\d+)\s*$/);
+      return m ? { ch: +m[1], v: +m[2] } : null;
+    }
+    function _inRange(rawRef, r) {
+      var p = _chv(rawRef);
+      if (!p || !r) return false;
+      var afterStart = p.ch > r.chS || (p.ch === r.chS && p.v >= r.vS);
+      var beforeEnd  = p.ch < r.chE || (p.ch === r.chE && p.v <= r.vE);
+      return afterStart && beforeEnd;
+    }
+    // Collect ALL data.aliyot whose refs overlap the kriyah range
+    const allDataAliyot = (data.aliyot || []).filter(function(a) {
+      if (!al.range) return String(a.aliyah) === String(al.aliyah);
+      if (!a.refs || !a.refs.length) return false;
+      return a.refs.some(function(ref) { return _inRange(ref, al.range); });
     });
-    // Collect verses from ALL data.aliyot entries that overlap this range
-    const allDataAliyot = al.range ? (data.aliyot || []).filter(function(a) {
-      if (!a.refs || !a.refs.length) return String(a.aliyah) === String(al.aliyah);
-      return a.refs.some(function(rawRef) {
-        var refNorm = rawRef.replace(/^([A-Za-z0-9]+)\s/, function(_, abbr) {
-          return (_BOOK_ABBREV_MAP[abbr] || abbr) + ' ';
-        });
-        var rm = refNorm.match(/(\d+):(\d+)$/);
-        if (!rm) return false;
-        var ch = +rm[1], v = +rm[2], r = al.range;
-        var afterStart = ch > r.chS || (ch === r.chS && v >= r.vS);
-        var beforeEnd  = ch < r.chE || (ch === r.chE && v <= r.vE);
-        return afterStart && beforeEnd;
-      });
-    }) : (dataAl ? [dataAl] : []);
+    const dataAl = allDataAliyot[0] || null;
 
     // Encabezado de aliyá
     const alHeader = document.createElement('div');
@@ -7057,26 +7047,10 @@ function renderParashaRead(parashaId, aliyah){
       allDataAliyot.forEach(function(dAl) {
         (dAl.verses || []).forEach(function(verseIndices, vi) {
           var rawRef = dAl.refs && dAl.refs[vi];
-          var include = true;
-          if (range && rawRef) {
-            var refNorm = rawRef.replace(/^([A-Za-z0-9]+) /, function(_, abbr) {
-              return (_BOOK_ABBREV_MAP[abbr] || abbr) + ' ';
-            });
-            var rm = refNorm.match(/(\d+):(\d+)$/);
-            if (rm) {
-              var ch = +rm[1], v = +rm[2];
-              var afterStart = ch > range.chS || (ch === range.chS && v >= range.vS);
-              var beforeEnd  = ch < range.chE || (ch === range.chE && v <= range.vE);
-              include = afterStart && beforeEnd;
-            }
-          } else if (range && !rawRef) {
-            var maxVerses = (range.chS === range.chE) ? (range.vE - range.vS + 1) : 50;
-            include = vi < maxVerses;
-          }
+          // Filter by range using ch:v only (book names differ between JSON and kriyah_data)
+          var include = rawRef ? _inRange(rawRef, range) : true;
           if (!include) return;
-          var displayRef = rawRef
-            ? rawRef.replace(/^([A-Za-z0-9]+) /, function(_, a){ return (_BOOK_ABBREV_MAP[a]||a)+' '; })
-            : (al.reading || '');
+          var displayRef = rawRef || (al.reading || '');
           var words = Array.isArray(verseIndices)
             ? (typeof verseIndices[0] === 'string'
                 ? verseIndices
