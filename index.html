@@ -3811,22 +3811,31 @@ async function _sefariaFetchChapter(book, chapter) {
   var controller = new AbortController();
   var timer = setTimeout(function() { controller.abort(); }, 10000); // 10s timeout
   try {
+    console.log('[Sefaria] fetching:', url);
     var res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
-    if (!res.ok) { _sefariaFetched.delete(ck); return; }
+    if (!res.ok) {
+      console.warn('[Sefaria] HTTP error:', res.status, book, chapter);
+      _sefariaFetched.delete(ck);
+      return;
+    }
     var data = await res.json();
+    console.log('[Sefaria] DATA received:', book, chapter, 'he type:', typeof data.he, Array.isArray(data.he) ? data.he.length + ' verses' : 'NOT array');
     var verses = data.he;
-    if (!Array.isArray(verses)) return;
+    if (!Array.isArray(verses)) {
+      console.warn('[Sefaria] data.he is not array:', book, chapter, data.he);
+      return;
+    }
     verses.forEach(function(text, i) {
       var ref = book + ' ' + chapter + ':' + (i + 1);
       var normalized = Array.isArray(text) ? text.join(' ') : String(text || '').trim();
       if (normalized) parashaState.cache.verses.set(ref, normalized);
     });
-    dbg('[sefaria] cached', book, chapter, '—', verses.length, 'verses');
+    console.log('[Sefaria] cached OK:', book, chapter, verses.length, 'verses. Total cache:', parashaState.cache.verses.size);
   } catch(e) {
     clearTimeout(timer);
     _sefariaFetched.delete(ck);
-    dbg('[sefaria] error:', book, chapter, e.message);
+    console.error('[Sefaria] FETCH ERROR:', book, chapter, e.name, e.message);
   }
 }
 
