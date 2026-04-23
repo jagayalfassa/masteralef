@@ -7011,21 +7011,54 @@ function renderParashaRead(parashaId, aliyah){
       ? buildRefsFromRange(al.range, verseMap)
       : (parashaState.cache.verses.size > 0 ? buildRefsFromRange(al.range, verseMap) : []);
 
-    const versesToRender = refs.length > 0
-      ? refs.map(function(ref) {
-          var text = getVerseByRef(ref);
-          var words = text ? text.split(' ').filter(Boolean) : [];
-          return { ref: ref, words: words };
-        })
-      : (dataAl && dataAl.verses ? dataAl.verses.map(function(verseIndices, vi) {
-          var ref = (dataAl.refs && dataAl.refs[vi]) || (al.reading ? al.reading.split('-')[0].trim() + '+' + vi : '');
-          var words = Array.isArray(verseIndices)
-            ? (typeof verseIndices[0] === 'string'
-                ? verseIndices
-                : verseIndices.map(function(i){ return dict[String(i)] || null; }).filter(Boolean))
-            : String(verseIndices || '').split(' ').filter(Boolean);
-          return { ref: ref, words: words };
-        }) : []);
+    // Build verse list filtered by kriyah range (al.range = {book,chS,vS,chE,vE}).
+    // Priority: verseMap refs → cache.verses refs → data.aliyot filtered by range.
+    var versesToRender = [];
+    if (refs.length > 0) {
+      // verseMap or cache.verses path
+      versesToRender = refs.map(function(ref) {
+        var text = getVerseByRef(ref);
+        var words = text ? text.split(' ').filter(Boolean) : [];
+        return { ref: ref, words: words };
+      });
+    } else if (dataAl && dataAl.verses && dataAl.verses.length) {
+      // data.aliyot path — filter verses to match kriyah range
+      var range = al.range; // {book, chS, vS, chE, vE}
+      dataAl.verses.forEach(function(verseIndices, vi) {
+        var rawRef = dataAl.refs && dataAl.refs[vi];
+        // Determine if this verse falls within the kriyah range
+        var include = true;
+        if (range && rawRef) {
+          // Parse ref: normalize book abbrev then extract ch:v
+          var refNorm = rawRef.replace(/^([A-Za-z0-9]+)\s/, function(_, abbr) {
+            return (_BOOK_ABBREV_MAP[abbr] || abbr) + ' ';
+          });
+          var rm = refNorm.match(/(\d+):(\d+)$/);
+          if (rm) {
+            var ch = +rm[1], v = +rm[2];
+            var afterStart = ch > range.chS || (ch === range.chS && v >= range.vS);
+            var beforeEnd  = ch < range.chE || (ch === range.chE && v <= range.vE);
+            include = afterStart && beforeEnd;
+          }
+        } else if (range && !rawRef) {
+          // No refs in JSON — use index to slice: take only vE-vS+1 verses from start
+          var maxVerses = (range.chS === range.chE)
+            ? (range.vE - range.vS + 1)
+            : 50; // multi-chapter: show all (can't slice without refs)
+          include = vi < maxVerses;
+        }
+        if (!include) return;
+        var displayRef = rawRef
+          ? rawRef.replace(/^([A-Za-z0-9]+)\s/, function(_, a){ return (_BOOK_ABBREV_MAP[a]||a)+' '; })
+          : (al.reading || '');
+        var words = Array.isArray(verseIndices)
+          ? (typeof verseIndices[0] === 'string'
+              ? verseIndices
+              : verseIndices.map(function(i){ return dict[String(i)] || null; }).filter(Boolean))
+          : String(verseIndices || '').split(' ').filter(Boolean);
+        if (words.length) versesToRender.push({ ref: displayRef, words: words });
+      });
+    }
 
     versesToRender.forEach(function(verseData) {
       var ref   = verseData.ref;
