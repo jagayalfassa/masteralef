@@ -6979,29 +6979,55 @@ function renderParashaRead(parashaId, aliyah){
     ? krAliyot.filter(a => String(a.aliyah) === String(aliyah))
     : krAliyot;
 
-  // ── Sefaria fallback: if no verses cached yet, fetch and re-render ──
-  // _sefariaAttempted flag prevents infinite loop if Sefaria also fails.
-  // Check ALL aliyot, not just the first — partial cache triggers a re-fetch.
+  // ── Sefaria fallback: check verses directly in cache (bypass refs cache) ──
+  // IMPORTANT: do NOT use buildRefsFromRange here — its cache may be stale.
+  // Instead check cache.verses directly using the known chapter ranges.
   {
-    const _totalRefs  = krAliyot.reduce((n, a) => n + buildRefsFromRange(a.range, parashaState.verseMap).length, 0);
-    const _cachedRefs = krAliyot.reduce((n, a) => n + buildRefsFromRange(a.range, parashaState.verseMap).filter(r => !!getVerseByRef(r)).length, 0);
-    const hasVerses   = _totalRefs > 0 && (_cachedRefs / _totalRefs) > 0.5; // >50% verses present
-    if (!hasVerses && !renderParashaRead._sefariaAttempted) {
+    var _sefariaNeeded = false;
+    var _verseCount = 0;
+    if (parashaState.verseMap && parashaState.verseMap.size > 0) {
+      // Local JSON data available — check verseMap directly
+      _verseCount = parashaState.verseMap.size;
+    } else {
+      // Sefaria mode — count verses in cache.verses for this parasha's chapters
+      var _chapters = new Set();
+      krAliyot.forEach(function(a) {
+        if (!a.range) return;
+        for (var ch = a.range.chS; ch <= a.range.chE; ch++) {
+          _chapters.add(a.range.book + '|' + ch);
+        }
+      });
+      _chapters.forEach(function(ck) {
+        var parts = ck.split('|');
+        var b = parts[0], c = parseInt(parts[1]);
+        // Check if verse 1 of this chapter is cached
+        if (parashaState.cache.verses.has(b + ' ' + c + ':1')) _verseCount++;
+      });
+      _sefariaNeeded = _verseCount < _chapters.size;
+      console.log('[Render] chapters needed:', _chapters.size, 'cached:', _verseCount, 'sefariaNeeded:', _sefariaNeeded);
+    }
+
+    if (_sefariaNeeded && !renderParashaRead._sefariaAttempted) {
       renderParashaRead._sefariaAttempted = true;
+      console.log('[Render] triggering Sefaria fetch for', parashaId);
       versesEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--sand-400);font-size:0.95rem;line-height:1.6;">Cargando texto…<br><span style="font-size:0.8rem;opacity:0.7;">Descargando desde Sefaria</span></div>';
-      fetchAndCacheParasha(parashaId).then(() => {
+      fetchAndCacheParasha(parashaId).then(function() {
         renderParashaRead._sefariaAttempted = false;
-        renderParashaRead(parashaId, aliyah);
+        parashaState.cache.refs = new Map(); // force refs recompute
+        console.log('[Render] re-render after fetch, cache.verses size:', parashaState.cache.verses.size);
+        setTimeout(function() { renderParashaRead(parashaId, aliyah); }, 0);
       });
       return;
     }
-    if (!hasVerses) {
+    if (_sefariaNeeded) {
       // Sefaria failed — show degraded message, don't loop
+      console.warn('[Render] Sefaria failed, showing error state');
       versesEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--sand-400);font-size:0.95rem;">No se pudo cargar el texto.<br><span style="font-size:0.8rem;">Verificá tu conexión e intentá de nuevo.</span></div>';
       return;
     }
   }
 
+  console.log('[Render] rendering', aliyotToRender.length, 'aliyot, cache.verses size:', parashaState.cache.verses.size);
   aliyotToRender.forEach(al => {
     // Encabezado de aliyá
     const alHeader = document.createElement('div');
