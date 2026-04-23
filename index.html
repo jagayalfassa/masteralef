@@ -3776,7 +3776,6 @@ function getVerseByRef(ref) {
 // Flow: startParashaSession → fetchAndCacheParasha (bg) → re-render
 
 var _TORAH_LS_KEY   = 'AM_TORAH_V1';
-var _sefariaFetched = new Set(); // chapters fetched this session
 
 // Restore verse cache from localStorage (call once at app init)
 function _loadVerseCache() {
@@ -3802,28 +3801,29 @@ function _saveVerseCache() {
 // Fetch one Torah chapter from Sefaria and populate cache.verses.
 // Chapter-level requests: 1 API call ≈ 30 verses cached.
 async function _sefariaFetchChapter(book, chapter) {
-  var ck = book + '.' + chapter;
-  if (_sefariaFetched.has(ck)) return;
-  _sefariaFetched.add(ck);
+  // Guard: skip if verse 1 already in cache (handles re-visits to same parasha)
+  var firstRef = book + ' ' + chapter + ':1';
+  if (parashaState.cache.verses.has(firstRef)) {
+    console.log('[Sefaria] already cached, skipping:', book, chapter);
+    return;
+  }
   var url = 'https://www.sefaria.org/api/texts/' +
             encodeURIComponent(book + ' ' + chapter) +
             '?lang=he&commentary=0&context=0&pad=0';
   var controller = new AbortController();
-  var timer = setTimeout(function() { controller.abort(); }, 10000); // 10s timeout
+  var timer = setTimeout(function() { controller.abort(); }, 12000); // 12s timeout
   try {
-    console.log('[Sefaria] fetching:', url);
+    console.log('[Sefaria] fetching:', book, chapter);
     var res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
     if (!res.ok) {
       console.warn('[Sefaria] HTTP error:', res.status, book, chapter);
-      _sefariaFetched.delete(ck);
       return;
     }
     var data = await res.json();
-    console.log('[Sefaria] DATA received:', book, chapter, 'he type:', typeof data.he, Array.isArray(data.he) ? data.he.length + ' verses' : 'NOT array');
     var verses = data.he;
-    if (!Array.isArray(verses)) {
-      console.warn('[Sefaria] data.he is not array:', book, chapter, data.he);
+    if (!Array.isArray(verses) || verses.length === 0) {
+      console.warn('[Sefaria] no verses for:', book, chapter, data);
       return;
     }
     verses.forEach(function(text, i) {
@@ -3831,10 +3831,9 @@ async function _sefariaFetchChapter(book, chapter) {
       var normalized = Array.isArray(text) ? text.join(' ') : String(text || '').trim();
       if (normalized) parashaState.cache.verses.set(ref, normalized);
     });
-    console.log('[Sefaria] cached OK:', book, chapter, verses.length, 'verses. Total cache:', parashaState.cache.verses.size);
+    console.log('[Sefaria] cached OK:', book, chapter, verses.length, 'verses. Total:', parashaState.cache.verses.size);
   } catch(e) {
     clearTimeout(timer);
-    _sefariaFetched.delete(ck);
     console.error('[Sefaria] FETCH ERROR:', book, chapter, e.name, e.message);
   }
 }
@@ -4048,23 +4047,11 @@ function setTriennialYear(year){
 // ── CARGAR DICCIONARIO DE TORÁ ────────────────────────────────────
 // Carga torah_complete_dict.json una sola vez y lo cachea en parashaState.
 // Retorna Promise<dict|null>
-async function loadTorahDict(){
-  if(parashaState.torahDict) return parashaState.torahDict;
-  if(parashaState._dictLoading) return null;
-  parashaState._dictLoading = true;
-  try {
-    const r = await fetch('data/torah/torah_complete_dict.json');
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    parashaState.torahDict = await r.json();
-    dbg('Torah dict loaded:', Object.keys(parashaState.torahDict).length, 'words');
-    return parashaState.torahDict;
-  } catch(e) {
-    dbg('Torah dict load failed:', e.message);
-    parashaState.torahDict = {};
-    return {};
-  } finally {
-    parashaState._dictLoading = false;
-  }
+// torah_complete_dict.json no existe en el repo.
+// Transliteración funciona via _generateBasicTranslit sin diccionario.
+function loadTorahDict(){
+  parashaState.torahDict = parashaState.torahDict || {};
+  return Promise.resolve(parashaState.torahDict);
 }
 
 // ── LOOKUP FONÉTICA Y TRADUCCIÓN ──────────────────────────────────
@@ -4348,7 +4335,6 @@ async function startParashaSession(parashaId, aliyah = 1){
     // Invalidate all derived caches when a new parasha loads
     parashaState.cache = { aliyot: new Map(), refs: new Map(), verses: new Map() };
     _loadVerseCache(); // restore any Sefaria-fetched verses from localStorage
-    _sefariaFetched.clear();                       // allow re-fetch for new parasha
     renderParashaRead._sefariaAttempted = false;   // reset loop guard for new parasha
     parashaState.index = buildParashaIndex(data, null);
     // Prewarm: populate all caches for instant first render
@@ -6995,9 +6981,11 @@ function renderParashaRead(parashaId, aliyah){
 
   // ── Sefaria fallback: if no verses cached yet, fetch and re-render ──
   // _sefariaAttempted flag prevents infinite loop if Sefaria also fails.
+  // Check ALL aliyot, not just the first — partial cache triggers a re-fetch.
   {
-    const sampleRefs = krAliyot[0] ? buildRefsFromRange(krAliyot[0].range, parashaState.verseMap) : [];
-    const hasVerses  = sampleRefs.some(r => !!getVerseByRef(r));
+    const _totalRefs  = krAliyot.reduce((n, a) => n + buildRefsFromRange(a.range, parashaState.verseMap).length, 0);
+    const _cachedRefs = krAliyot.reduce((n, a) => n + buildRefsFromRange(a.range, parashaState.verseMap).filter(r => !!getVerseByRef(r)).length, 0);
+    const hasVerses   = _totalRefs > 0 && (_cachedRefs / _totalRefs) > 0.5; // >50% verses present
     if (!hasVerses && !renderParashaRead._sefariaAttempted) {
       renderParashaRead._sefariaAttempted = true;
       versesEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--sand-400);font-size:0.95rem;line-height:1.6;">Cargando texto…<br><span style="font-size:0.8rem;opacity:0.7;">Descargando desde Sefaria</span></div>';
