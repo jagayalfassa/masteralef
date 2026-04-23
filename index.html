@@ -3640,6 +3640,16 @@ function getKriyahAliyot(parashaId, readingType, bmDate, triennialYear){
 
 // Build a flat verse lookup map from data.aliyot (called ONCE at parasha load).
 // Returns Map<"Gn 1:1", string[]> — ref → decoded words array.
+// Strip any residual HTML from a Hebrew word (last-resort defense against dirty cache).
+function _cleanWord(w) {
+  if (!w || typeof w !== 'string') return '';
+  if (w.indexOf('<') === -1 && w.indexOf('&') === -1 && w.indexOf('{') === -1) return w;
+  w = w.replace(/<[^>]*>/g, '').replace(/<.*/,'');
+  w = w.replace(/&[a-z]+;/g, '').replace(/\{[פסנ]\}/g, '');
+  if (w.indexOf('class=') !== -1) return ''; // orphaned HTML attribute
+  return w.trim();
+}
+
 function buildVerseMap(data) {
   var dict = data.dictionary || {};
   var map  = new Map();
@@ -3647,14 +3657,12 @@ function buildVerseMap(data) {
     (al.verses || []).forEach(function(verseIndices, vi) {
       var rawRef = al.refs && al.refs[vi];
       if (!rawRef) return;
-      // Normalize book abbreviation so verseMap keys match buildRefsFromRange output.
-      // e.g. "Gn 1:1" -> "Genesis 1:1", "Genesis 1:1" passes through unchanged.
       var ref = rawRef.replace(/^([A-Za-z0-9]+)(\s)/, function(_, abbr, sp) {
         return (_BOOK_ABBREV_MAP[abbr] || abbr) + sp;
       });
       var words = Array.isArray(verseIndices)
-        ? verseIndices.map(function(i) { return dict[String(i)] || null; }).filter(Boolean)
-        : String(verseIndices).split(/\s+/).filter(Boolean);
+        ? verseIndices.map(function(i) { return _cleanWord(dict[String(i)] || ''); }).filter(Boolean)
+        : String(verseIndices).split(/\s+/).map(_cleanWord).filter(Boolean);
       if (words.length > 0 && !map.has(ref)) map.set(ref, words);
     });
   });
@@ -7051,9 +7059,9 @@ function renderParashaRead(parashaId, aliyah){
           var displayRef = rawRef || (al.reading || '');
           var words = Array.isArray(verseIndices)
             ? (typeof verseIndices[0] === 'string'
-                ? verseIndices
-                : verseIndices.map(function(i){ return dict[String(i)] || null; }).filter(Boolean))
-            : String(verseIndices || '').split(' ').filter(Boolean);
+                ? verseIndices.map(_cleanWord).filter(Boolean)
+                : verseIndices.map(function(i){ return _cleanWord(dict[String(i)] || ''); }).filter(Boolean))
+            : String(verseIndices || '').split(' ').map(_cleanWord).filter(Boolean);
           if (words.length) versesToRender.push({ ref: displayRef, words: words });
         });
       });
