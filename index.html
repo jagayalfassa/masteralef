@@ -3741,9 +3741,9 @@ function buildRefsFromRange(range, verseMap) {
     var endV   = (ch === chE) ? vE : 220; // safe upper bound per chapter
     for (var v = startV; v <= endV; v++) {
       var ref = book + ' ' + ch + ':' + v;
-      var exists = hasVerseMap
-        ? verseMap.has(ref)
-        : parashaState.cache.verses.has(ref); // Sefaria mode
+      // Check verseMap first, then Sefaria cache (covers chapters missing from JSON)
+      var exists = (hasVerseMap && verseMap.has(ref)) ||
+                   parashaState.cache.verses.has(ref);
       if (!exists) {
         if (v > startV) break;  // gap after first verse → end of chapter
         continue;               // sparse numbering → keep scanning
@@ -6979,16 +6979,14 @@ function renderParashaRead(parashaId, aliyah){
     ? krAliyot.filter(a => String(a.aliyah) === String(aliyah))
     : krAliyot;
 
-  // Sefaria enrichment runs in background when local JSON lacks refs.
-  // It does NOT block rendering — data.aliyot is the primary source.
-  if (!parashaState.verseMap || parashaState.verseMap.size === 0) {
-    if (!renderParashaRead._sefariaAttempted) {
-      renderParashaRead._sefariaAttempted = true;
-      fetchAndCacheParasha(parashaId).then(function() {
-        renderParashaRead._sefariaAttempted = false;
-        parashaState.cache.refs = new Map();
-      });
-    }
+  // Sefaria fills chapters missing from local JSON (runs in background, non-blocking).
+  // Always check — some parashot have gaps in their JSON data.
+  if (!renderParashaRead._sefariaAttempted) {
+    renderParashaRead._sefariaAttempted = true;
+    fetchAndCacheParasha(parashaId).then(function() {
+      renderParashaRead._sefariaAttempted = false;
+      parashaState.cache.refs = new Map(); // recompute refs with enriched data
+    });
   }
 
   // Render loop: use data.aliyot + dictionary directly (reliable, no external deps).
