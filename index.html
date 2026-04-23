@@ -6979,67 +6979,59 @@ function renderParashaRead(parashaId, aliyah){
     ? krAliyot.filter(a => String(a.aliyah) === String(aliyah))
     : krAliyot;
 
-  // ── Sefaria fallback: check verses directly in cache (bypass refs cache) ──
-  // IMPORTANT: do NOT use buildRefsFromRange here — its cache may be stale.
-  // Instead check cache.verses directly using the known chapter ranges.
-  {
-    var _sefariaNeeded = false;
-    var _verseCount = 0;
-    if (parashaState.verseMap && parashaState.verseMap.size > 0) {
-      // Local JSON data available — check verseMap directly
-      _verseCount = parashaState.verseMap.size;
-    } else {
-      // Sefaria mode — count verses in cache.verses for this parasha's chapters
-      var _chapters = new Set();
-      krAliyot.forEach(function(a) {
-        if (!a.range) return;
-        for (var ch = a.range.chS; ch <= a.range.chE; ch++) {
-          _chapters.add(a.range.book + '|' + ch);
-        }
-      });
-      _chapters.forEach(function(ck) {
-        var parts = ck.split('|');
-        var b = parts[0], c = parseInt(parts[1]);
-        // Check if verse 1 of this chapter is cached
-        if (parashaState.cache.verses.has(b + ' ' + c + ':1')) _verseCount++;
-      });
-      _sefariaNeeded = _verseCount < _chapters.size;
-      console.log('[Render] chapters needed:', _chapters.size, 'cached:', _verseCount, 'sefariaNeeded:', _sefariaNeeded);
-    }
-
-    if (_sefariaNeeded && !renderParashaRead._sefariaAttempted) {
+  // Sefaria enrichment runs in background when local JSON lacks refs.
+  // It does NOT block rendering — data.aliyot is the primary source.
+  if (!parashaState.verseMap || parashaState.verseMap.size === 0) {
+    if (!renderParashaRead._sefariaAttempted) {
       renderParashaRead._sefariaAttempted = true;
-      console.log('[Render] triggering Sefaria fetch for', parashaId);
-      versesEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--sand-400);font-size:0.95rem;line-height:1.6;">Cargando texto…<br><span style="font-size:0.8rem;opacity:0.7;">Descargando desde Sefaria</span></div>';
       fetchAndCacheParasha(parashaId).then(function() {
         renderParashaRead._sefariaAttempted = false;
-        parashaState.cache.refs = new Map(); // force refs recompute
-        console.log('[Render] re-render after fetch, cache.verses size:', parashaState.cache.verses.size);
-        setTimeout(function() { renderParashaRead(parashaId, aliyah); }, 0);
+        parashaState.cache.refs = new Map();
       });
-      return;
-    }
-    if (_sefariaNeeded) {
-      // Sefaria failed — show degraded message, don't loop
-      console.warn('[Render] Sefaria failed, showing error state');
-      versesEl.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--sand-400);font-size:0.95rem;">No se pudo cargar el texto.<br><span style="font-size:0.8rem;">Verificá tu conexión e intentá de nuevo.</span></div>';
-      return;
     }
   }
 
-  console.log('[Render] rendering', aliyotToRender.length, 'aliyot, cache.verses size:', parashaState.cache.verses.size);
+  // Render loop: use data.aliyot + dictionary directly (reliable, no external deps).
+  // kriyah_data provides range labels only. verseMap/Sefaria used as secondary enrichment.
+  const dict = data.dictionary || {};
   aliyotToRender.forEach(al => {
+    // Find matching aliyah in data.aliyot (JSON file)
+    const dataAl = (data.aliyot || []).find(function(a){
+      return String(a.aliyah) === String(al.aliyah);
+    });
+
     // Encabezado de aliyá
     const alHeader = document.createElement('div');
     alHeader.style.cssText = 'font-size:10px;font-weight:700;color:var(--gold-600);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;';
-    alHeader.textContent = `✦ Aliyá ${al.aliyah}` + (al.reading ? `  ${al.reading}` : '');
+    alHeader.textContent = '✦ Aliyá ' + al.aliyah + (al.reading ? '  ' + al.reading : '');
     versesEl.appendChild(alHeader);
 
-    const refs = buildRefsFromRange(al.range, verseMap);
-    refs.forEach(ref => {
-      const verseText = getVerseByRef(ref);
-      if (!verseText) return;
-      const words = verseText.split(' ').filter(Boolean);
+    // Get verse list: prefer verseMap/cache refs, fall back to data.aliyot verses
+    const refs = (verseMap && verseMap.size > 0)
+      ? buildRefsFromRange(al.range, verseMap)
+      : (parashaState.cache.verses.size > 0 ? buildRefsFromRange(al.range, verseMap) : []);
+
+    const versesToRender = refs.length > 0
+      ? refs.map(function(ref) {
+          var text = getVerseByRef(ref);
+          var words = text ? text.split(' ').filter(Boolean) : [];
+          return { ref: ref, words: words };
+        })
+      : (dataAl && dataAl.verses ? dataAl.verses.map(function(verseIndices, vi) {
+          var ref = (dataAl.refs && dataAl.refs[vi]) || (al.reading ? al.reading.split('-')[0].trim() + '+' + vi : '');
+          var words = Array.isArray(verseIndices)
+            ? (typeof verseIndices[0] === 'string'
+                ? verseIndices
+                : verseIndices.map(function(i){ return dict[String(i)] || null; }).filter(Boolean))
+            : String(verseIndices || '').split(' ').filter(Boolean);
+          return { ref: ref, words: words };
+        }) : []);
+
+    versesToRender.forEach(function(verseData) {
+      var ref   = verseData.ref;
+      var words = verseData.words;
+      if (!words.length) return;
+      var verseText = words.join(' ');
 
       const verseCard = document.createElement('div');
       verseCard.style.cssText = [
