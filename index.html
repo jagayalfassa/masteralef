@@ -6995,10 +6995,40 @@ function renderParashaRead(parashaId, aliyah){
   // kriyah_data provides range labels only. verseMap/Sefaria used as secondary enrichment.
   const dict = data.dictionary || {};
   aliyotToRender.forEach(al => {
-    // Find matching aliyah in data.aliyot (JSON file)
+    // Do NOT match by aliyah number — triennial subdivisions don't align with
+    // full-parasha aliyah numbers. Instead collect ALL verses from ALL data.aliyot
+    // entries that fall within this kriyah range.
+    // dataAl kept for backwards compat (refs, etc) — use first overlapping aliyah.
     const dataAl = (data.aliyot || []).find(function(a){
-      return String(a.aliyah) === String(al.aliyah);
+      if (!a.refs || !a.refs.length || !al.range) return String(a.aliyah) === String(al.aliyah);
+      // Check if any ref in this aliyah overlaps with al.range
+      return a.refs.some(function(rawRef) {
+        var refNorm = rawRef.replace(/^([A-Za-z0-9]+)\s/, function(_, abbr) {
+          return (_BOOK_ABBREV_MAP[abbr] || abbr) + ' ';
+        });
+        var rm = refNorm.match(/(\d+):(\d+)$/);
+        if (!rm) return false;
+        var ch = +rm[1], v = +rm[2], r = al.range;
+        var afterStart = ch > r.chS || (ch === r.chS && v >= r.vS);
+        var beforeEnd  = ch < r.chE || (ch === r.chE && v <= r.vE);
+        return afterStart && beforeEnd;
+      });
     });
+    // Collect verses from ALL data.aliyot entries that overlap this range
+    const allDataAliyot = al.range ? (data.aliyot || []).filter(function(a) {
+      if (!a.refs || !a.refs.length) return String(a.aliyah) === String(al.aliyah);
+      return a.refs.some(function(rawRef) {
+        var refNorm = rawRef.replace(/^([A-Za-z0-9]+)\s/, function(_, abbr) {
+          return (_BOOK_ABBREV_MAP[abbr] || abbr) + ' ';
+        });
+        var rm = refNorm.match(/(\d+):(\d+)$/);
+        if (!rm) return false;
+        var ch = +rm[1], v = +rm[2], r = al.range;
+        var afterStart = ch > r.chS || (ch === r.chS && v >= r.vS);
+        var beforeEnd  = ch < r.chE || (ch === r.chE && v <= r.vE);
+        return afterStart && beforeEnd;
+      });
+    }) : (dataAl ? [dataAl] : []);
 
     // Encabezado de aliyá
     const alHeader = document.createElement('div');
@@ -7021,42 +7051,39 @@ function renderParashaRead(parashaId, aliyah){
         var words = text ? text.split(' ').filter(Boolean) : [];
         return { ref: ref, words: words };
       });
-    } else if (dataAl && dataAl.verses && dataAl.verses.length) {
-      // data.aliyot path — filter verses to match kriyah range
-      var range = al.range; // {book, chS, vS, chE, vE}
-      dataAl.verses.forEach(function(verseIndices, vi) {
-        var rawRef = dataAl.refs && dataAl.refs[vi];
-        // Determine if this verse falls within the kriyah range
-        var include = true;
-        if (range && rawRef) {
-          // Parse ref: normalize book abbrev then extract ch:v
-          var refNorm = rawRef.replace(/^([A-Za-z0-9]+)\s/, function(_, abbr) {
-            return (_BOOK_ABBREV_MAP[abbr] || abbr) + ' ';
-          });
-          var rm = refNorm.match(/(\d+):(\d+)$/);
-          if (rm) {
-            var ch = +rm[1], v = +rm[2];
-            var afterStart = ch > range.chS || (ch === range.chS && v >= range.vS);
-            var beforeEnd  = ch < range.chE || (ch === range.chE && v <= range.vE);
-            include = afterStart && beforeEnd;
+    } else if (allDataAliyot.length > 0) {
+      // data.aliyot path — collect verses from all overlapping aliyot, filtered by range
+      var range = al.range;
+      allDataAliyot.forEach(function(dAl) {
+        (dAl.verses || []).forEach(function(verseIndices, vi) {
+          var rawRef = dAl.refs && dAl.refs[vi];
+          var include = true;
+          if (range && rawRef) {
+            var refNorm = rawRef.replace(/^([A-Za-z0-9]+) /, function(_, abbr) {
+              return (_BOOK_ABBREV_MAP[abbr] || abbr) + ' ';
+            });
+            var rm = refNorm.match(/(\d+):(\d+)$/);
+            if (rm) {
+              var ch = +rm[1], v = +rm[2];
+              var afterStart = ch > range.chS || (ch === range.chS && v >= range.vS);
+              var beforeEnd  = ch < range.chE || (ch === range.chE && v <= range.vE);
+              include = afterStart && beforeEnd;
+            }
+          } else if (range && !rawRef) {
+            var maxVerses = (range.chS === range.chE) ? (range.vE - range.vS + 1) : 50;
+            include = vi < maxVerses;
           }
-        } else if (range && !rawRef) {
-          // No refs in JSON — use index to slice: take only vE-vS+1 verses from start
-          var maxVerses = (range.chS === range.chE)
-            ? (range.vE - range.vS + 1)
-            : 50; // multi-chapter: show all (can't slice without refs)
-          include = vi < maxVerses;
-        }
-        if (!include) return;
-        var displayRef = rawRef
-          ? rawRef.replace(/^([A-Za-z0-9]+)\s/, function(_, a){ return (_BOOK_ABBREV_MAP[a]||a)+' '; })
-          : (al.reading || '');
-        var words = Array.isArray(verseIndices)
-          ? (typeof verseIndices[0] === 'string'
-              ? verseIndices
-              : verseIndices.map(function(i){ return dict[String(i)] || null; }).filter(Boolean))
-          : String(verseIndices || '').split(' ').filter(Boolean);
-        if (words.length) versesToRender.push({ ref: displayRef, words: words });
+          if (!include) return;
+          var displayRef = rawRef
+            ? rawRef.replace(/^([A-Za-z0-9]+) /, function(_, a){ return (_BOOK_ABBREV_MAP[a]||a)+' '; })
+            : (al.reading || '');
+          var words = Array.isArray(verseIndices)
+            ? (typeof verseIndices[0] === 'string'
+                ? verseIndices
+                : verseIndices.map(function(i){ return dict[String(i)] || null; }).filter(Boolean))
+            : String(verseIndices || '').split(' ').filter(Boolean);
+          if (words.length) versesToRender.push({ ref: displayRef, words: words });
+        });
       });
     }
 
