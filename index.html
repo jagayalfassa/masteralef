@@ -3769,13 +3769,16 @@ function buildRefsFromRange(range, verseMap) {
 // Input:  "Gn 1:1"
 // Output: "בְּרֵאשִׁית בָּרָא אֱלֹהִים ..."  or  "" if not found
 function getVerseByRef(ref) {
+  // Local JSON always wins — it is clean and pre-decoded.
+  // Sefaria cache used only for chapters not present in local JSON.
+  if (parashaState.verseMap && parashaState.verseMap.has(ref)) {
+    var words = parashaState.verseMap.get(ref) || [];
+    return Array.isArray(words) ? words.join(' ') : String(words || '');
+  }
   if (parashaState.cache.verses.has(ref)) {
     return parashaState.cache.verses.get(ref);
   }
-  var words = (parashaState.verseMap && parashaState.verseMap.get(ref)) || [];
-  var text  = Array.isArray(words) ? words.join(' ') : String(words || '');
-  parashaState.cache.verses.set(ref, text);
-  return text;
+  return '';
 }
 
 // ── SEFARIA HYBRID LAYER ─────────────────────────────────────────
@@ -3836,8 +3839,18 @@ async function _sefariaFetchChapter(book, chapter) {
     }
     verses.forEach(function(text, i) {
       var ref = book + ' ' + chapter + ':' + (i + 1);
-      var normalized = Array.isArray(text) ? text.join(' ') : String(text || '').trim();
-      if (normalized) parashaState.cache.verses.set(ref, normalized);
+      var raw = Array.isArray(text) ? text.join(' ') : String(text || '').trim();
+      // Strip HTML tags and entities from Sefaria response
+      var clean = raw
+        .replace(/<[^>]*>/g, '')      // remove HTML tags
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&thinsp;/g, '')
+        .replace(/&amp;/g, '״')
+        .replace(/&[a-z]+;/g, '')
+        .replace(/\{[פסנ]\}/g, '') // {פ} {ס} {נ}
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (clean) parashaState.cache.verses.set(ref, clean);
     });
     console.log('[Sefaria] cached OK:', book, chapter, verses.length, 'verses. Total:', parashaState.cache.verses.size);
   } catch(e) {
