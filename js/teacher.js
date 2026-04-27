@@ -34,26 +34,34 @@ function openTeacherPanel(){
 async function loadTeacherDashboard(){
   if(!_sb || !_authUser) return;
   try {
-    // Cargar clase del teacher
-    const { data: cls } = await _sb
-      .from('classes')
-      .select('*')
-      .eq('teacher_id', _authUser.id)
-      .maybeSingle();
-    _tdClassData = cls;
+    // Cargar TODAS las clases del teacher (multi-clase)
+    await tdLoadAllClasses();
+    _tdClassData = tdGetActiveClass();
+    const cls = _tdClassData;
 
     const nameEl = document.getElementById('td-class-name');
     const instLabel = _authProfile?._institution?.name;
-    if(nameEl) nameEl.textContent = cls?.name || (instLabel ? instLabel : 'Mi clase');
+    if(nameEl){
+      if(_tdAllClasses.length > 1){
+        // Selector inline de clases
+        nameEl.innerHTML = tdRenderClassSelector();
+      } else {
+        nameEl.textContent = cls?.name || (instLabel ? instLabel : 'Mi clase');
+      }
+    }
 
-    // Cargar alumnos vinculados a esta clase
+    // Cargar alumnos de la clase activa (o institución si no hay clase)
     let students = [];
     if(cls){
       const { data: members } = await _sb
         .from('class_members')
         .select('student_id, profiles!inner(id, email, name)')
         .eq('class_id', cls.id);
-      students = (members || []).map(m => m.profiles);
+      // Deduplicar por id (alumno puede estar en múltiples clases)
+      const seen = new Set();
+      students = (members || [])
+        .map(m => m.profiles)
+        .filter(p => { if(seen.has(p.id)) return false; seen.add(p.id); return true; });
     } else {
       // Sin clase creada: mostrar alumnos de la misma institución
       const instId = _authProfile?.institution_id;
@@ -430,6 +438,14 @@ function tdOpenStudent(studentId){
     <!-- Acción: enviar mensaje -->
     <div style="background:white;border:1.5px solid var(--sand-300);border-radius:12px;padding:14px;">
       <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📩 Enviar mensaje a ${name}</div>
+      <div style="margin-bottom:8px;">
+        <div style="font-size:10px;color:var(--sand-500);margin-bottom:5px;font-weight:600;">Plantillas rápidas:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+          ${TD_MSG_TEMPLATES.map(t => `<button onclick="tdApplyTemplate('${studentId}','${t.key}')"
+            style="font-size:10px;padding:4px 9px;border-radius:99px;border:1.5px solid var(--sand-300);
+                   background:white;color:var(--navy-700);cursor:pointer;font-weight:600;">${t.label}</button>`).join('')}
+        </div>
+      </div>
       <textarea id="td-msg-student-${studentId}" placeholder="Escribe un mensaje de aliento..."
         style="width:100%;padding:10px;border:1.5px solid var(--sand-300);border-radius:10px;
                font-size:13px;min-height:72px;resize:none;font-family:inherit;color:var(--navy-800);outline:none;box-sizing:border-box;"></textarea>
@@ -638,11 +654,18 @@ function tdRenderClassSettings(){
         <div style="flex:1;background:var(--sand-100);border:2px dashed var(--sand-400);border-radius:10px;
                     padding:12px;text-align:center;font-size:1.5rem;font-weight:900;
                     color:var(--navy-800);letter-spacing:0.15em;font-family:'Fraunces',serif;">${code}</div>
-        <button onclick="navigator.clipboard?.writeText('${code}').then(()=>showToast('Código copiado','green'))"
-          style="padding:12px 16px;border:none;border-radius:10px;background:var(--sand-200);
-                 color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
-          Copiar
-        </button>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button onclick="navigator.clipboard?.writeText('${code}').then(()=>showToast('Código copiado','green'))"
+            style="padding:10px 14px;border:none;border-radius:10px;background:var(--sand-200);
+                   color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
+            Copiar
+          </button>
+          <button onclick="tdRegenCode()"
+            style="padding:8px 14px;border-radius:10px;border:1.5px solid var(--sand-300);
+                   background:white;color:var(--navy-600);font-size:11px;font-weight:700;cursor:pointer;">
+            🔄 Nuevo
+          </button>
+        </div>
       </div>
       <!-- Leaderboard toggle -->
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--sand-200);display:flex;align-items:center;justify-content:space-between;">
@@ -903,8 +926,9 @@ async function noInstJoin(){
     if(status) status.textContent = 'Error: ' + e.message;
     if(typeof setMascotState === 'function') setMascotState('error', 1500);
   }
+}
 
-  // ╔═══════════════════════════════════════════════════════════╗
+// ╔═══════════════════════════════════════════════════════════╗
 // ║  EXTENSIONES v2 — Search, Filter, Templates, Regen       ║
 // ╚═══════════════════════════════════════════════════════════╝
 
