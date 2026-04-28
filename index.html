@@ -3478,7 +3478,7 @@ function parashaWordsToExerciseFormat(parashaId, words){
 
 // ── LOAD PARASHA ──────────────────────────────────────────────────
 // Carga un dataset de parashá desde /data/torah/{id}.json
-// Retorna Promise<parashaData | null>
+// Si el archivo no existe, devuelve un stub mínimo para que Sefaria provea el texto.
 async function loadParasha(parashaId){
   dbg("Loading parasha:", parashaId);
   if(typeof setMascotState === 'function') setMascotState('loading');
@@ -3491,9 +3491,17 @@ async function loadParasha(parashaId){
     if(typeof setMascotState === 'function') setMascotState('idle');
     return data;
   } catch(e){
-    dbg("Error loading parasha:", e.message);
-    if(typeof setMascotState === 'function') setMascotState('error', 1500);
-    return null;
+    dbg("Parasha JSON not found, using Sefaria stub:", parashaId, e.message);
+    if(typeof setMascotState === 'function') setMascotState('idle');
+    // Minimal stub: text comes from Sefaria, exercise words unavailable
+    const meta = (typeof PARASHA_CATALOG !== 'undefined')
+      ? PARASHA_CATALOG.find(p => p.id === parashaId) : null;
+    return {
+      parasha:    meta ? meta.esp : parashaId,
+      dictionary: {},
+      aliyot:     [],
+      _stub:      true,
+    };
   }
 }
 
@@ -3632,30 +3640,64 @@ function getKriyahAliyot(parashaId, readingType, bmDate, triennialYear){
 
 // Build a flat verse lookup map from data.aliyot (called ONCE at parasha load).
 // Returns Map<"Gn 1:1", string[]> — ref → decoded words array.
+// Strip any residual HTML from a Hebrew word (last-resort defense against dirty cache).
+function _cleanWord(w) {
+  if (!w || typeof w !== 'string') return '';
+  if (w.indexOf('<') === -1 && w.indexOf('&') === -1 && w.indexOf('{') === -1) return w;
+  w = w.replace(/<[^>]*>/g, '').replace(/<.*/,'');
+  w = w.replace(/&[a-z]+;/g, '').replace(/\{[פסנ]\}/g, '');
+  if (w.indexOf('class=') !== -1) return ''; // orphaned HTML attribute
+  return w.trim();
+}
+
 function buildVerseMap(data) {
   var dict = data.dictionary || {};
   var map  = new Map();
   (data.aliyot || []).forEach(function(al) {
     (al.verses || []).forEach(function(verseIndices, vi) {
-      var ref = al.refs && al.refs[vi];
-      if (!ref) return;
+      var rawRef = al.refs && al.refs[vi];
+      if (!rawRef) return;
+      var ref = rawRef.replace(/^([A-Za-z0-9]+)(\s)/, function(_, abbr, sp) {
+        return (_BOOK_ABBREV_MAP[abbr] || abbr) + sp;
+      });
       var words = Array.isArray(verseIndices)
-        ? verseIndices.map(function(i) { return dict[String(i)] || null; }).filter(Boolean)
-        : String(verseIndices).split(/\s+/).filter(Boolean);
+        ? verseIndices.map(function(i) { return _cleanWord(dict[String(i)] || ''); }).filter(Boolean)
+        : String(verseIndices).split(/\s+/).map(_cleanWord).filter(Boolean);
       if (words.length > 0 && !map.has(ref)) map.set(ref, words);
     });
   });
   return map;
 }
 
+// Normalizes kriyah_data book abbreviations ("Gn", "Ex"...) to the full names
+// used in parasha JSON refs ("Genesis", "Exodus"...) so verseMap lookups match.
+var _BOOK_ABBREV_MAP = {
+  'Gn': 'Genesis', 'Ex': 'Exodus', 'Lv': 'Leviticus', 'Nm': 'Numbers', 'Dt': 'Deuteronomy',
+  // Haftara books
+  'Is': 'Isaiah', 'Jr': 'Jeremiah', 'Ez': 'Ezekiel', 'Ho': 'Hosea', 'Jl': 'Joel',
+  'Am': 'Amos', 'Ob': 'Obadiah', 'Js': 'Joshua', 'Jg': 'Judges',
+  'Mi': 'Micah', 'Nachum': 'Nahum', 'Zp': 'Zephaniah', 'Hg': 'Haggai',
+  'Zc': 'Zechariah', 'Ml': 'Malachi', '1S': '1 Samuel', '1K': '1 Kings',
+  'I1S': '1 Samuel', 'I1K': '1 Kings',
+};
+
 // Parse a biblical reading string into a structured range object.
-// Input:  "Gn 1:1-1:5"  →  { book:"Gn", chS:1, vS:1, chE:1, vE:5 }
+// Input:  "Gn 1:1-1:5"  →  { book:"Genesis", chS:1, vS:1, chE:1, vE:5 }
 // Returns null if parsing fails.
 function parseReadingRange(reading) {
   if (!reading) return null;
-  var m = String(reading).trim().match(/^([A-Za-z0-9]+)\s+(\d+):(\d+)-(\d+):(\d+)/);
-  if (!m) return null;
-  return { book: m[1], chS: +m[2], vS: +m[3], chE: +m[4], vE: +m[5] };
+  var s = String(reading).trim();
+  // Full format:  "Gn 1:1-2:3"  → chS:1 vS:1 chE:2 vE:3
+  var m = s.match(/^([A-Za-z0-9]+)\s+(\d+):(\d+)-(\d+):(\d+)/);
+  if (m) {
+    return { book: _BOOK_ABBREV_MAP[m[1]] || m[1], chS:+m[2], vS:+m[3], chE:+m[4], vE:+m[5] };
+  }
+  // Short format: "Is 42:5-21"  → same chapter for start and end
+  var m2 = s.match(/^([A-Za-z0-9]+)\s+(\d+):(\d+)-(\d+)$/);
+  if (m2) {
+    return { book: _BOOK_ABBREV_MAP[m2[1]] || m2[1], chS:+m2[2], vS:+m2[3], chE:+m2[2], vE:+m2[4] };
+  }
+  return null;
 }
 
 // Build structured aliyot list from kriyah_data using the current reading type.
@@ -3688,24 +3730,29 @@ function buildAliyotFromKriyah(parashaId) {
   return result;
 }
 
-// Expand a chapter:verse range into individual refs that exist in verseMap.
+// Expand a chapter:verse range into individual refs that exist in verseMap or cache.verses.
 // Result is cached by canonical range string; multi-chapter ranges are supported.
-// Output: ["Gn 1:1", "Gn 1:2", ..., "Gn 1:5"]
+// Falls back to Sefaria verse cache when verseMap is empty (hybrid mode).
+// Output: ["Genesis 1:1", "Genesis 1:2", ..., "Genesis 1:5"]
 function buildRefsFromRange(range, verseMap) {
-  if (!range || !verseMap) return [];
+  if (!range) return [];
   var key = range.book + ' ' + range.chS + ':' + range.vS + '-' + range.chE + ':' + range.vE;
   if (parashaState.cache.refs.has(key)) {
     return parashaState.cache.refs.get(key);
   }
 
   var book = range.book, chS = range.chS, vS = range.vS, chE = range.chE, vE = range.vE;
+  var hasVerseMap = verseMap && verseMap.size > 0;
   var refs = [];
   for (var ch = chS; ch <= chE; ch++) {
     var startV = (ch === chS) ? vS : 1;
     var endV   = (ch === chE) ? vE : 220; // safe upper bound per chapter
     for (var v = startV; v <= endV; v++) {
       var ref = book + ' ' + ch + ':' + v;
-      if (!verseMap.has(ref)) {
+      // Check verseMap first, then Sefaria cache (covers chapters missing from JSON)
+      var exists = (hasVerseMap && verseMap.has(ref)) ||
+                   parashaState.cache.verses.has(ref);
+      if (!exists) {
         if (v > startV) break;  // gap after first verse → end of chapter
         continue;               // sparse numbering → keep scanning
       }
@@ -3722,13 +3769,113 @@ function buildRefsFromRange(range, verseMap) {
 // Input:  "Gn 1:1"
 // Output: "בְּרֵאשִׁית בָּרָא אֱלֹהִים ..."  or  "" if not found
 function getVerseByRef(ref) {
+  // Local JSON always wins — it is clean and pre-decoded.
+  // Sefaria cache used only for chapters not present in local JSON.
+  if (parashaState.verseMap && parashaState.verseMap.has(ref)) {
+    var words = parashaState.verseMap.get(ref) || [];
+    return Array.isArray(words) ? words.join(' ') : String(words || '');
+  }
   if (parashaState.cache.verses.has(ref)) {
     return parashaState.cache.verses.get(ref);
   }
-  var words = (parashaState.verseMap && parashaState.verseMap.get(ref)) || [];
-  var text  = Array.isArray(words) ? words.join(' ') : String(words || '');
-  parashaState.cache.verses.set(ref, text);
-  return text;
+  return '';
+}
+
+// ── SEFARIA HYBRID LAYER ─────────────────────────────────────────
+// Provides Torah text via Sefaria API when local parasha JSON lacks refs.
+// Architecture: getVerseByRef stays SYNC — Sefaria pre-populates cache async.
+// Flow: startParashaSession → fetchAndCacheParasha (bg) → re-render
+
+var _TORAH_LS_KEY   = 'AM_TORAH_V1';
+
+// Restore verse cache from localStorage (call once at app init)
+function _loadVerseCache() {
+  try {
+    var raw = localStorage.getItem(_TORAH_LS_KEY);
+    if (!raw) return;
+    var obj = JSON.parse(raw);
+    var n = 0;
+    Object.entries(obj).forEach(function(kv) {
+      if (!parashaState.cache.verses.has(kv[0])) { parashaState.cache.verses.set(kv[0], kv[1]); n++; }
+    });
+    if (n) dbg('[cache] restored', n, 'verses from localStorage');
+  } catch(e) { dbg('[cache] localStorage load error:', e.message); }
+}
+
+// Persist current verse cache to localStorage
+function _saveVerseCache() {
+  try {
+    localStorage.setItem(_TORAH_LS_KEY, JSON.stringify(Object.fromEntries(parashaState.cache.verses)));
+  } catch(e) { dbg('[cache] localStorage save error:', e.message); }
+}
+
+// Fetch one Torah chapter from Sefaria and populate cache.verses.
+// Chapter-level requests: 1 API call ≈ 30 verses cached.
+async function _sefariaFetchChapter(book, chapter) {
+  // Guard: skip if verse 1 already in cache (handles re-visits to same parasha)
+  var firstRef = book + ' ' + chapter + ':1';
+  if (parashaState.cache.verses.has(firstRef)) {
+    console.log('[Sefaria] already cached, skipping:', book, chapter);
+    return;
+  }
+  var url = 'https://www.sefaria.org/api/texts/' +
+            encodeURIComponent(book + ' ' + chapter) +
+            '?lang=he&commentary=0&context=0&pad=0';
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, 12000); // 12s timeout
+  try {
+    console.log('[Sefaria] fetching:', book, chapter);
+    var res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) {
+      console.warn('[Sefaria] HTTP error:', res.status, book, chapter);
+      return;
+    }
+    var data = await res.json();
+    var verses = data.he;
+    if (!Array.isArray(verses) || verses.length === 0) {
+      console.warn('[Sefaria] no verses for:', book, chapter, data);
+      return;
+    }
+    verses.forEach(function(text, i) {
+      var ref = book + ' ' + chapter + ':' + (i + 1);
+      var raw = Array.isArray(text) ? text.join(' ') : String(text || '').trim();
+      // Strip HTML tags and entities from Sefaria response
+      var clean = raw
+        .replace(/<[^>]*>/g, '')      // remove HTML tags
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&thinsp;/g, '')
+        .replace(/&amp;/g, '״')
+        .replace(/&[a-z]+;/g, '')
+        .replace(/\{[פסנ]\}/g, '') // {פ} {ס} {נ}
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (clean) parashaState.cache.verses.set(ref, clean);
+    });
+    console.log('[Sefaria] cached OK:', book, chapter, verses.length, 'verses. Total:', parashaState.cache.verses.size);
+  } catch(e) {
+    clearTimeout(timer);
+    console.error('[Sefaria] FETCH ERROR:', book, chapter, e.name, e.message);
+  }
+}
+
+// Fetch all chapters needed for a parasha's aliyot from Sefaria.
+// Called when verseMap is empty (parasha JSON has no refs/verses).
+async function fetchAndCacheParasha(parashaId) {
+  var aliyot = buildAliyotFromKriyah(parashaId);
+  var chapters = new Map();
+  aliyot.forEach(function(a) {
+    if (!a.range) return;
+    for (var ch = a.range.chS; ch <= a.range.chE; ch++) {
+      chapters.set(a.range.book + '|' + ch, { book: a.range.book, ch: ch });
+    }
+  });
+  await Promise.all(Array.from(chapters.values()).map(function(c) {
+    return _sefariaFetchChapter(c.book, c.ch);
+  }));
+  _saveVerseCache();
+  parashaState.cache.refs = new Map(); // invalidate so buildRefsFromRange re-evaluates
+  dbg('[sefaria] parasha', parashaId, 'ready —', parashaState.cache.verses.size, 'total verses');
 }
 
 // Detectar qué año trienal corresponde a una fecha para una parashá
@@ -3921,23 +4068,11 @@ function setTriennialYear(year){
 // ── CARGAR DICCIONARIO DE TORÁ ────────────────────────────────────
 // Carga torah_complete_dict.json una sola vez y lo cachea en parashaState.
 // Retorna Promise<dict|null>
-async function loadTorahDict(){
-  if(parashaState.torahDict) return parashaState.torahDict;
-  if(parashaState._dictLoading) return null;
-  parashaState._dictLoading = true;
-  try {
-    const r = await fetch('data/torah/torah_complete_dict.json');
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    parashaState.torahDict = await r.json();
-    dbg('Torah dict loaded:', Object.keys(parashaState.torahDict).length, 'words');
-    return parashaState.torahDict;
-  } catch(e) {
-    dbg('Torah dict load failed:', e.message);
-    parashaState.torahDict = {};
-    return {};
-  } finally {
-    parashaState._dictLoading = false;
-  }
+// torah_complete_dict.json no existe en el repo.
+// Transliteración funciona via _generateBasicTranslit sin diccionario.
+function loadTorahDict(){
+  parashaState.torahDict = parashaState.torahDict || {};
+  return Promise.resolve(parashaState.torahDict);
 }
 
 // ── LOOKUP FONÉTICA Y TRADUCCIÓN ──────────────────────────────────
@@ -4220,6 +4355,8 @@ async function startParashaSession(parashaId, aliyah = 1){
     parashaState.verseMap = buildVerseMap(data);
     // Invalidate all derived caches when a new parasha loads
     parashaState.cache = { aliyot: new Map(), refs: new Map(), verses: new Map() };
+    _loadVerseCache(); // restore any Sefaria-fetched verses from localStorage
+    renderParashaRead._sefariaAttempted = false;   // reset loop guard for new parasha
     parashaState.index = buildParashaIndex(data, null);
     // Prewarm: populate all caches for instant first render
     (function _prewarm(){
@@ -6116,15 +6253,11 @@ async function loadKaraokeTimestamps() {
   return _karaokeTimestamps;
 }
 
-// Busca timestamps para parasha+year+aliyah en el JSON cargado
-// Key format en el JSON: "{parasha}_y{year}_a{aliyah}"
 function getKaraokeTimestampKey(parashaId, aliyah, trienalYear) {
   const year = trienalYear || 1;
   return `${parashaId}_y${year}_a${aliyah}`;
 }
 
-// startKaraoke con audio real + timestamps si están disponibles
-// Reemplaza el onclick del botón de karaoke
 async function startKaraokeAudio() {
   if (karaokeState.running && !karaokeState.paused) { pauseKaraoke(); return; }
   if (karaokeState.paused) { resumeKaraoke(); return; }
@@ -6133,22 +6266,17 @@ async function startKaraokeAudio() {
   const aliyah      = parashaState.currentAliyah;
   const trienalYear = parashaState.trienalYear || 1;
 
-  // Intentar cargar timestamps
   const tsData = await loadKaraokeTimestamps();
   const key    = getKaraokeTimestampKey(parashaId, aliyah, trienalYear);
   const entry  = tsData && tsData[key];
 
   if (!entry || !entry.words || !entry.words.length) {
-    // Fallback: karaoke visual sin audio
-    startKaraoke();
-    return;
+    startKaraoke(); return;
   }
 
-  // Obtener audio
   const audioUrl = getAliyahAudio(parashaId, aliyah, trienalYear);
   if (!audioUrl) { startKaraoke(); return; }
 
-  // Preparar spans
   karaokeState.running      = true;
   karaokeState.paused       = false;
   karaokeState.wordIdx      = 0;
@@ -6158,32 +6286,24 @@ async function startKaraokeAudio() {
 
   if (!karaokeState.totalWords) { showToast('Sin palabras para guiar', 'warm'); return; }
 
-  // Crear audio
   const audio = new Audio(audioUrl);
   karaokeState.audio = audio;
 
-  const tsWords = entry.words; // [{word, start, end, verse}, ...]
+  const tsWords = entry.words;
   let lastHighlightedIdx = -1;
 
   audio.addEventListener('timeupdate', function() {
     if (!karaokeState.running || karaokeState.paused) return;
     const t = audio.currentTime;
-
-    // Encontrar la palabra correspondiente al tiempo actual
     let tsIdx = -1;
     for (let i = 0; i < tsWords.length; i++) {
       if (t >= tsWords[i].start && t < tsWords[i].end) { tsIdx = i; break; }
     }
-    // Si pasó el último
     if (tsIdx === -1 && tsWords.length && t >= tsWords[tsWords.length - 1].end) {
       tsIdx = tsWords.length;
     }
-
-    // Mapear tsIdx → span idx (puede diferir si texto tiene más/menos palabras)
     const spanIdx = Math.min(tsIdx, karaokeState.totalWords - 1);
     if (spanIdx === lastHighlightedIdx || spanIdx < 0) return;
-
-    // Limpiar anterior
     if (lastHighlightedIdx >= 0 && lastHighlightedIdx < karaokeState.words.length) {
       _clearWordHighlight(karaokeState.words[lastHighlightedIdx]);
     }
@@ -6198,7 +6318,6 @@ async function startKaraokeAudio() {
   });
 
   audio.addEventListener('error', function() {
-    // Fallback a modo visual
     karaokeState.hasRealAudio = false;
     karaokeState.audio = null;
     _karaokeAdvance();
@@ -6979,18 +7098,91 @@ function renderParashaRead(parashaId, aliyah){
     ? krAliyot.filter(a => String(a.aliyah) === String(aliyah))
     : krAliyot;
 
+  // Sefaria fills chapters missing from local JSON (runs in background, non-blocking).
+  // Always check — some parashot have gaps in their JSON data.
+  if (!renderParashaRead._sefariaAttempted) {
+    renderParashaRead._sefariaAttempted = true;
+    fetchAndCacheParasha(parashaId).then(function() {
+      renderParashaRead._sefariaAttempted = false;
+      parashaState.cache.refs = new Map(); // recompute refs with enriched data
+    });
+  }
+
+  // Render loop: use data.aliyot + dictionary directly (reliable, no external deps).
+  // kriyah_data provides range labels only. verseMap/Sefaria used as secondary enrichment.
+  const dict = data.dictionary || {};
   aliyotToRender.forEach(al => {
+    // Do NOT match by aliyah number — triennial subdivisions don't align with
+    // full-parasha aliyah numbers. Instead collect ALL verses from ALL data.aliyot
+    // entries that fall within this kriyah range.
+    // dataAl kept for backwards compat (refs, etc) — use first overlapping aliyah.
+    // Extract ch:v from a ref string — works regardless of book name language.
+    // "Levítico 1:5" → {ch:1, v:5}  |  "Éxodo 6:2" → {ch:6, v:2}
+    function _chv(rawRef) {
+      var m = rawRef && rawRef.match(/(\d+):(\d+)\s*$/);
+      return m ? { ch: +m[1], v: +m[2] } : null;
+    }
+    function _inRange(rawRef, r) {
+      var p = _chv(rawRef);
+      if (!p || !r) return false;
+      var afterStart = p.ch > r.chS || (p.ch === r.chS && p.v >= r.vS);
+      var beforeEnd  = p.ch < r.chE || (p.ch === r.chE && p.v <= r.vE);
+      return afterStart && beforeEnd;
+    }
+    // Collect ALL data.aliyot whose refs overlap the kriyah range
+    const allDataAliyot = (data.aliyot || []).filter(function(a) {
+      if (!al.range) return String(a.aliyah) === String(al.aliyah);
+      if (!a.refs || !a.refs.length) return false;
+      return a.refs.some(function(ref) { return _inRange(ref, al.range); });
+    });
+    const dataAl = allDataAliyot[0] || null;
+
     // Encabezado de aliyá
     const alHeader = document.createElement('div');
     alHeader.style.cssText = 'font-size:10px;font-weight:700;color:var(--gold-600);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;';
-    alHeader.textContent = `✦ Aliyá ${al.aliyah}` + (al.reading ? `  ${al.reading}` : '');
+    alHeader.textContent = '✦ Aliyá ' + al.aliyah + (al.reading ? '  ' + al.reading : '');
     versesEl.appendChild(alHeader);
 
-    const refs = buildRefsFromRange(al.range, verseMap);
-    refs.forEach(ref => {
-      const verseText = getVerseByRef(ref);
-      if (!verseText) return;
-      const words = verseText.split(' ').filter(Boolean);
+    // Get verse list: prefer verseMap/cache refs, fall back to data.aliyot verses
+    const refs = (verseMap && verseMap.size > 0)
+      ? buildRefsFromRange(al.range, verseMap)
+      : (parashaState.cache.verses.size > 0 ? buildRefsFromRange(al.range, verseMap) : []);
+
+    // Build verse list filtered by kriyah range (al.range = {book,chS,vS,chE,vE}).
+    // Priority: verseMap refs → cache.verses refs → data.aliyot filtered by range.
+    var versesToRender = [];
+    if (refs.length > 0) {
+      // verseMap or cache.verses path
+      versesToRender = refs.map(function(ref) {
+        var text = getVerseByRef(ref);
+        var words = text ? text.split(' ').filter(Boolean) : [];
+        return { ref: ref, words: words };
+      });
+    } else if (allDataAliyot.length > 0) {
+      // data.aliyot path — collect verses from all overlapping aliyot, filtered by range
+      var range = al.range;
+      allDataAliyot.forEach(function(dAl) {
+        (dAl.verses || []).forEach(function(verseIndices, vi) {
+          var rawRef = dAl.refs && dAl.refs[vi];
+          // Filter by range using ch:v only (book names differ between JSON and kriyah_data)
+          var include = rawRef ? _inRange(rawRef, range) : true;
+          if (!include) return;
+          var displayRef = rawRef || (al.reading || '');
+          var words = Array.isArray(verseIndices)
+            ? (typeof verseIndices[0] === 'string'
+                ? verseIndices.map(_cleanWord).filter(Boolean)
+                : verseIndices.map(function(i){ return _cleanWord(dict[String(i)] || ''); }).filter(Boolean))
+            : String(verseIndices || '').split(' ').map(_cleanWord).filter(Boolean);
+          if (words.length) versesToRender.push({ ref: displayRef, words: words });
+        });
+      });
+    }
+
+    versesToRender.forEach(function(verseData) {
+      var ref   = verseData.ref;
+      var words = verseData.words;
+      if (!words.length) return;
+      var verseText = words.join(' ');
 
       const verseCard = document.createElement('div');
       verseCard.style.cssText = [
