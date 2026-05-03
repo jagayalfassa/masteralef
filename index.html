@@ -913,6 +913,12 @@ to   { transform: translateY(0);    opacity: 1; }
       display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--sand-200);">
       🔔 Recordatorios
     </button>
+    <button onclick="_closeMenu();openTropeTrainer()"
+      style="width:100%;padding:14px 16px;border:none;background:none;
+             text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);cursor:pointer;
+             display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--sand-200);">
+      🎵 Cantilación de la Torá
+    </button>
     <button id="teacher-panel-btn" style="display:none;width:100%;padding:14px 16px;border:none;background:none;
       text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);cursor:pointer;
       align-items:center;gap:10px;">
@@ -1316,6 +1322,34 @@ to   { transform: translateY(0);    opacity: 1; }
 <div id="view-home" class="w-full max-w-lg mx-auto overflow-y-auto custom-scroll pb-safe" style="min-height:100%;">
   <div id="base-series-container"></div>
   <div id="mix-series-container"></div>
+
+  <!-- Trope Trainer promo card -->
+  <div style="padding:0 16px 28px;">
+    <button onclick="openTropeTrainer()"
+      style="width:100%;background:linear-gradient(135deg,var(--navy-800) 0%,var(--navy-700) 100%);
+             border:none;border-radius:18px;padding:18px 20px;cursor:pointer;
+             display:flex;align-items:center;gap:16px;
+             box-shadow:0 4px 0 var(--navy-900),0 6px 20px rgba(13,31,53,0.25);
+             text-align:left;transition:transform .1s ease;"
+      onmousedown="this.style.transform='translateY(2px)'"
+      onmouseup="this.style.transform=''"
+      ontouchstart="this.style.transform='translateY(2px)'"
+      ontouchend="this.style.transform=''">
+      <div style="width:52px;height:52px;border-radius:14px;
+                  background:rgba(212,168,67,0.18);border:1.5px solid var(--gold-500);
+                  display:flex;align-items:center;justify-content:center;
+                  font-size:1.6rem;flex-shrink:0;">🎵</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'Fraunces',serif;font-size:1rem;font-weight:900;
+                    color:white;margin-bottom:3px;">Cantilación de la Torá</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.65);line-height:1.5;">
+          Aprendé los ta'amei hamikrá ·
+          <span style="font-family:'Noto Serif Hebrew',serif;">טַעֲמֵי הַמִּקְרָא</span>
+        </div>
+      </div>
+      <div style="color:var(--gold-400);font-size:1.2rem;flex-shrink:0;">›</div>
+    </button>
+  </div>
 </div>
 
 <!-- INTRO: letter presentation -->
@@ -1727,6 +1761,63 @@ to   { transform: translateY(0);    opacity: 1; }
   <div id="read-verses" style="flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;"></div>
   <div style="padding:12px 18px 24px;border-top:1.5px solid var(--sand-300);background:white;">
     <button id="read-back-btn" style="width:100%;padding:14px;border-radius:14px;background:var(--sand-200);color:var(--navy-700);font-size:14px;font-weight:25;border:1.5px solid var(--sand-300);">← Volver</button>
+  </div>
+</div>
+
+<!-- ── TROPE TRAINER — Entrenador de Cantilación ──────────── -->
+<div id="view-trope-trainer" class="hidden w-full max-w-sm mx-auto flex flex-col"
+     style="display:none;min-height:calc(100vh - 60px);">
+
+  <!-- Header fijo -->
+  <div style="padding:14px 18px 12px;border-bottom:1.5px solid var(--sand-300);
+              background:white;position:sticky;top:0;z-index:2;flex-shrink:0;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-size:10px;font-weight:800;color:var(--sand-500);
+                    text-transform:uppercase;letter-spacing:0.12em;margin-bottom:3px;">
+          Ta'amei HaMikrá · <span style="font-family:'Noto Serif Hebrew',serif;
+            font-size:11px;color:var(--gold-500);">טַעֲמֵי הַמִּקְרָא</span>
+        </div>
+        <h2 style="font-family:'Fraunces',serif;font-size:1.15rem;font-weight:900;
+                   color:var(--navy-800);margin:0;line-height:1.2;">
+          Cantilación de la Torá
+        </h2>
+      </div>
+      <button onclick="showView('home')"
+        style="width:34px;height:34px;border-radius:50%;background:var(--sand-200);
+               border:none;cursor:pointer;font-size:15px;display:flex;
+               align-items:center;justify-content:center;flex-shrink:0;
+               color:var(--navy-700);">✕</button>
+    </div>
+  </div>
+
+  <!-- Tabs: Aprender / Quiz / Leer -->
+  <div style="display:flex;background:var(--sand-100);
+              border-bottom:1.5px solid var(--sand-200);flex-shrink:0;">
+    <button id="tt-tab-learn" onclick="ttSwitchMode('learn')"
+      style="flex:1;padding:11px 4px;border:none;background:white;color:var(--navy-800);
+             font-size:12px;font-weight:800;cursor:pointer;
+             border-bottom:2.5px solid var(--navy-800);">
+      📚 Aprender
+    </button>
+    <button id="tt-tab-quiz" onclick="ttSwitchMode('quiz')"
+      style="flex:1;padding:11px 4px;border:none;background:transparent;color:var(--sand-500);
+             font-size:12px;font-weight:600;cursor:pointer;
+             border-bottom:2.5px solid transparent;">
+      🎯 Quiz
+    </button>
+    <button id="tt-tab-read" onclick="ttSwitchMode('read')"
+      style="flex:1;padding:11px 4px;border:none;background:transparent;color:var(--sand-500);
+             font-size:12px;font-weight:600;cursor:pointer;
+             border-bottom:2.5px solid transparent;">
+      📖 Leer
+    </button>
+  </div>
+
+  <!-- Contenido — generado por trope_trainer.js -->
+  <div id="tt-content"
+       style="flex:1;overflow-y:auto;display:flex;flex-direction:column;
+              -webkit-overflow-scrolling:touch;">
   </div>
 </div>
 
@@ -4516,7 +4607,7 @@ function setLessonPoolSize(key, lessonIdx, size){
   window._lessonPoolCache[key + '_poolSize_' + lessonIdx] = size;
 }
 function showView(v){
-  const ALL_VIEWS = ["view-home","view-pre-training","view-training","view-game","view-intro","view-celebration","view-welcome","view-letra-quiz","view-vowel-present","view-onboarding","view-parasha-select","view-aliyah-select","view-parasha-read","view-shop","view-tefilot","view-tefila-read","view-auth","view-teacher","view-no-institution","view-speed-read","view-sidur","view-lectura"];
+  const ALL_VIEWS = ["view-home","view-pre-training","view-training","view-game","view-intro","view-celebration","view-welcome","view-letra-quiz","view-vowel-present","view-onboarding","view-parasha-select","view-aliyah-select","view-parasha-read","view-shop","view-tefilot","view-tefila-read","view-auth","view-teacher","view-no-institution","view-speed-read","view-sidur","view-lectura","view-trope-trainer"];
   ALL_VIEWS.forEach(id=>{
     const el=document.getElementById(id);
     if(el){ el.classList.add("hidden"); el.style.display="none"; el.style.opacity=""; }
@@ -16635,6 +16726,7 @@ setMascotState('idle');
   <!-- Módulos JS separados — cargados con defer después del main -->
 
   <script src="./js/teacher.js" defer></script>
+  <script src="./js/trope_trainer.js" defer></script>
 
 </body>
 </html>
