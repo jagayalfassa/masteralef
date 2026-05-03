@@ -34,34 +34,26 @@ function openTeacherPanel(){
 async function loadTeacherDashboard(){
   if(!_sb || !_authUser) return;
   try {
-    // Cargar TODAS las clases del teacher (multi-clase)
-    await tdLoadAllClasses();
-    _tdClassData = tdGetActiveClass();
-    const cls = _tdClassData;
+    // Cargar clase del teacher
+    const { data: cls } = await _sb
+      .from('classes')
+      .select('*')
+      .eq('teacher_id', _authUser.id)
+      .maybeSingle();
+    _tdClassData = cls;
 
     const nameEl = document.getElementById('td-class-name');
     const instLabel = _authProfile?._institution?.name;
-    if(nameEl){
-      if(_tdAllClasses.length > 1){
-        // Selector inline de clases
-        nameEl.innerHTML = tdRenderClassSelector();
-      } else {
-        nameEl.textContent = cls?.name || (instLabel ? instLabel : 'Mi clase');
-      }
-    }
+    if(nameEl) nameEl.textContent = cls?.name || (instLabel ? instLabel : 'Mi clase');
 
-    // Cargar alumnos de la clase activa (o institución si no hay clase)
+    // Cargar alumnos vinculados a esta clase
     let students = [];
     if(cls){
       const { data: members } = await _sb
         .from('class_members')
         .select('student_id, profiles!inner(id, email, name)')
         .eq('class_id', cls.id);
-      // Deduplicar por id (alumno puede estar en múltiples clases)
-      const seen = new Set();
-      students = (members || [])
-        .map(m => m.profiles)
-        .filter(p => { if(seen.has(p.id)) return false; seen.add(p.id); return true; });
+      students = (members || []).map(m => m.profiles);
     } else {
       // Sin clase creada: mostrar alumnos de la misma institución
       const instId = _authProfile?.institution_id;
@@ -438,14 +430,6 @@ function tdOpenStudent(studentId){
     <!-- Acción: enviar mensaje -->
     <div style="background:white;border:1.5px solid var(--sand-300);border-radius:12px;padding:14px;">
       <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📩 Enviar mensaje a ${name}</div>
-      <div style="margin-bottom:8px;">
-        <div style="font-size:10px;color:var(--sand-500);margin-bottom:5px;font-weight:600;">Plantillas rápidas:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;">
-          ${TD_MSG_TEMPLATES.map(t => `<button onclick="tdApplyTemplate('${studentId}','${t.key}')"
-            style="font-size:10px;padding:4px 9px;border-radius:99px;border:1.5px solid var(--sand-300);
-                   background:white;color:var(--navy-700);cursor:pointer;font-weight:600;">${t.label}</button>`).join('')}
-        </div>
-      </div>
       <textarea id="td-msg-student-${studentId}" placeholder="Escribe un mensaje de aliento..."
         style="width:100%;padding:10px;border:1.5px solid var(--sand-300);border-radius:10px;
                font-size:13px;min-height:72px;resize:none;font-family:inherit;color:var(--navy-800);outline:none;box-sizing:border-box;"></textarea>
@@ -654,18 +638,11 @@ function tdRenderClassSettings(){
         <div style="flex:1;background:var(--sand-100);border:2px dashed var(--sand-400);border-radius:10px;
                     padding:12px;text-align:center;font-size:1.5rem;font-weight:900;
                     color:var(--navy-800);letter-spacing:0.15em;font-family:'Fraunces',serif;">${code}</div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <button onclick="navigator.clipboard?.writeText('${code}').then(()=>showToast('Código copiado','green'))"
-            style="padding:10px 14px;border:none;border-radius:10px;background:var(--sand-200);
-                   color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
-            Copiar
-          </button>
-          <button onclick="tdRegenCode()"
-            style="padding:8px 14px;border-radius:10px;border:1.5px solid var(--sand-300);
-                   background:white;color:var(--navy-600);font-size:11px;font-weight:700;cursor:pointer;">
-            🔄 Nuevo
-          </button>
-        </div>
+        <button onclick="navigator.clipboard?.writeText('${code}').then(()=>showToast('Código copiado','green'))"
+          style="padding:12px 16px;border:none;border-radius:10px;background:var(--sand-200);
+                 color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;">
+          Copiar
+        </button>
       </div>
       <!-- Leaderboard toggle -->
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--sand-200);display:flex;align-items:center;justify-content:space-between;">
@@ -695,6 +672,43 @@ function tdRenderClassSettings(){
         Crear clase
       </button>
     </div>`}
+
+    ${cls ? `
+    <!-- Link de invitación -->
+    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:6px;">🔗 Link de invitación</div>
+      <div style="font-size:11px;color:var(--sand-500);margin-bottom:8px;">Compartí este link y al abrirlo el alumno queda unido automáticamente.</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div style="flex:1;background:var(--sand-100);border:1px solid var(--sand-300);border-radius:8px;
+                    padding:8px 10px;font-size:11px;color:var(--navy-600);word-break:break-all;font-family:monospace;">
+          ${window.location.origin}/?join=${cls.code}
+        </div>
+        <button onclick="navigator.clipboard?.writeText('${window.location.origin}/?join=${cls.code}').then(()=>showToast('Link copiado','green'))"
+          style="padding:8px 12px;border:none;border-radius:8px;background:var(--sand-200);
+                 color:var(--navy-700);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">
+          Copiar
+        </button>
+      </div>
+    </div>
+
+    <!-- Agregar alumno manualmente -->
+    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:6px;">➕ Agregar alumno</div>
+      <div style="font-size:11px;color:var(--sand-500);margin-bottom:8px;">Ingresá el email del alumno registrado en AlefMaster.</div>
+      <div style="display:flex;gap:8px;">
+        <input id="td-add-student-email" type="email" placeholder="email@ejemplo.com"
+          style="flex:1;padding:10px 12px;border:1.5px solid var(--sand-300);border-radius:10px;
+                 font-size:13px;color:var(--navy-800);outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'"
+          onkeydown="if(event.key==='Enter') tdAddStudentByEmail()">
+        <button onclick="tdAddStudentByEmail()"
+          style="padding:10px 14px;border:none;border-radius:10px;background:var(--navy-800);
+                 color:white;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">
+          Agregar
+        </button>
+      </div>
+      <div id="td-add-student-status" style="font-size:11px;min-height:14px;margin-top:6px;color:var(--sand-500);"></div>
+    </div>` : ''}
 
     <!-- Mensaje a toda la clase -->
     <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
@@ -928,253 +942,117 @@ async function noInstJoin(){
   }
 }
 
-// ╔═══════════════════════════════════════════════════════════╗
-// ║  EXTENSIONES v2 — Search, Filter, Templates, Regen       ║
-// ╚═══════════════════════════════════════════════════════════╝
+// ── Agregar alumno manualmente por email ──────────────────────
+async function tdAddStudentByEmail(){
+  if(!_sb || !_authUser || !_tdClassData) return;
+  const input  = document.getElementById('td-add-student-email');
+  const status = document.getElementById('td-add-student-status');
+  const email  = input?.value.trim().toLowerCase();
+  if(!email){ if(status) status.textContent = 'Ingresá un email'; return; }
+  if(status) status.textContent = 'Buscando...';
 
-// ── Estado de filtros ─────────────────────────────────────────
-let _tdFilter = 'all';   // 'all' | 'active' | 'warning' | 'inactive'
-let _tdSearch = '';
-let _tdSort   = 'risk';  // 'risk' | 'progress' | 'last_activity'
+  try {
+    // Buscar el perfil por email
+    const { data: profiles, error: pErr } = await _sb
+      .from('profiles')
+      .select('id, name, email')
+      .eq('email', email)
+      .limit(1);
 
-// ── Render con search + filter + sort ────────────────────────
-function tdRenderStudentListFiltered(){
-  const container = document.getElementById('td-content');
-  if(!container) return;
-
-  // Filtrar
-  let list = _tdStudents.filter(s => {
-    if(_tdFilter !== 'all' && tdActivityStatus(s) !== _tdFilter) return false;
-    if(_tdSearch){
-      const q = _tdSearch.toLowerCase();
-      const name  = (s.name  || '').toLowerCase();
-      const email = (s.email || '').toLowerCase();
-      if(!name.includes(q) && !email.includes(q)) return false;
+    if(pErr || !profiles?.length){
+      if(status) status.textContent = '❌ No se encontró un alumno con ese email';
+      return;
     }
-    return true;
-  });
+    const student = profiles[0];
 
-  // Ordenar
-  list = list.sort((a, b) => {
-    if(_tdSort === 'risk'){
-      const order = { inactive:0, warning:1, active:2 };
-      return order[tdActivityStatus(a)] - order[tdActivityStatus(b)];
+    // Verificar que no esté ya en la clase
+    const { data: existing } = await _sb
+      .from('class_members')
+      .select('id')
+      .eq('class_id', _tdClassData.id)
+      .eq('student_id', student.id)
+      .maybeSingle();
+
+    if(existing){
+      if(status) status.textContent = '⚠️ Ese alumno ya está en la clase';
+      return;
     }
-    if(_tdSort === 'progress'){
-      return tdCalcProgress(b) - tdCalcProgress(a);
+
+    // Agregar a la clase
+    const { error: mErr } = await _sb.from('class_members').insert({
+      class_id:   _tdClassData.id,
+      student_id: student.id,
+      joined_at:  new Date().toISOString(),
+    });
+
+    if(mErr){ if(status) status.textContent = '❌ Error: ' + mErr.message; return; }
+
+    if(status) status.textContent = '✓ ' + (student.name || email) + ' agregado a la clase';
+    if(input) input.value = '';
+    showToast('✓ Alumno agregado', 'green');
+    trackEvent('teacher_student_added_manual');
+
+    // Refrescar lista de alumnos
+    await loadTeacherDashboard();
+    tdSwitchTab('students');
+
+  } catch(e){ if(status) status.textContent = '❌ Error: ' + e.message; }
+}
+
+// ── Unirse a clase por código (para alumnos) ──────────────────
+async function joinClassByCode(code){
+  if(!_sb || !_authUser) return;
+  const cleanCode = (code || '').trim().toUpperCase();
+  if(!cleanCode){ showToast('Ingresá el código de clase', 'warn'); return; }
+
+  try {
+    // Buscar la clase
+    const { data: cls } = await _sb
+      .from('classes')
+      .select('id, name, teacher_id')
+      .eq('code', cleanCode)
+      .maybeSingle();
+
+    if(!cls){ showToast('Código inválido — verificá y volvé a intentar', 'warn'); return; }
+
+    // Verificar si ya está en la clase
+    const { data: existing } = await _sb
+      .from('class_members')
+      .select('id')
+      .eq('class_id', cls.id)
+      .eq('student_id', _authUser.id)
+      .maybeSingle();
+
+    if(existing){ showToast('Ya estás en esta clase (' + cls.name + ')', 'info'); return; }
+
+    // Unirse
+    const { error } = await _sb.from('class_members').insert({
+      class_id:   cls.id,
+      student_id: _authUser.id,
+      joined_at:  new Date().toISOString(),
+    });
+
+    if(error){ showToast('Error: ' + error.message, 'warn'); return; }
+    showToast('✓ Te uniste a ' + cls.name, 'green');
+    trackEvent('student_joined_class', { code: cleanCode });
+
+  } catch(e){ showToast('Error: ' + e.message, 'warn'); }
+}
+
+// ── Auto-join desde URL (?join=CODIGO) ────────────────────────
+(function checkJoinParam(){
+  const params = new URLSearchParams(window.location.search);
+  const code   = params.get('join');
+  if(!code) return;
+  // Esperar a que el auth esté listo
+  const tryJoin = () => {
+    if(_authUser){
+      joinClassByCode(code);
+      // Limpiar URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else {
+      setTimeout(tryJoin, 500);
     }
-    if(_tdSort === 'last_activity'){
-      const ta = a.prog?.updated_at ? new Date(a.prog.updated_at).getTime() : 0;
-      const tb = b.prog?.updated_at ? new Date(b.prog.updated_at).getTime() : 0;
-      return tb - ta;
-    }
-    return 0;
-  });
-
-  // Header con controles
-  const filterBtns = ['all','active','warning','inactive'].map(f => {
-    const labels = { all:'Todos', active:'Activos', warning:'Alertas', inactive:'Inactivos' };
-    const active = _tdFilter === f;
-    return `<button onclick="_tdFilter='${f}';tdRenderStudentListFiltered()"
-      style="padding:5px 10px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;
-             border:1.5px solid ${active ? 'var(--navy-800)' : 'var(--sand-300)'};
-             background:${active ? 'var(--navy-800)' : 'white'};
-             color:${active ? 'white' : 'var(--sand-500)'};">
-      ${labels[f]}
-    </button>`;
-  }).join('');
-
-  let html = `
-    <!-- Search + filters -->
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-      <input type="search" placeholder="Buscar alumno..." value="${_tdSearch}"
-        oninput="_tdSearch=this.value;tdRenderStudentListFiltered()"
-        style="width:100%;padding:10px 14px;border:1.5px solid var(--sand-300);border-radius:10px;
-               font-size:13px;color:var(--navy-800);outline:none;box-sizing:border-box;"
-        onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'">
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">${filterBtns}</div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span style="font-size:11px;color:var(--sand-500);">Ordenar:</span>
-        <select onchange="_tdSort=this.value;tdRenderStudentListFiltered()"
-          style="font-size:11px;padding:4px 8px;border:1.5px solid var(--sand-300);border-radius:8px;
-                 color:var(--navy-700);background:white;outline:none;">
-          <option value="risk" ${_tdSort==='risk'?'selected':''}>Por riesgo</option>
-          <option value="last_activity" ${_tdSort==='last_activity'?'selected':''}>Última actividad</option>
-          <option value="progress" ${_tdSort==='progress'?'selected':''}>Progreso</option>
-        </select>
-        <span style="font-size:11px;color:var(--sand-400);margin-left:auto;">${list.length} alumno${list.length!==1?'s':''}</span>
-      </div>
-    </div>`;
-
-  if(!list.length){
-    html += `<div style="text-align:center;padding:32px 16px;color:var(--sand-400);font-size:13px;">
-      ${_tdSearch ? `Sin resultados para "${_tdSearch}"` : 'Sin alumnos en esta categoría'}
-    </div>`;
-    container.innerHTML = html;
-    return;
-  }
-
-  // Reutilizar render de tarjeta existente (mismo HTML que tdRenderStudentList)
-  const STATUS_CONFIG = {
-    active:   { icon:'✅', label:'Activo hoy',  color:'#065F46', bg:'#D1FAE5' },
-    warning:  { icon:'⚠️', label:'2-3 días',    color:'#92400E', bg:'#FEF3C7' },
-    inactive: { icon:'❌', label:'+5 días',      color:'#991B1B', bg:'#FEE2E2' },
   };
-
-  html += list.map(s => {
-    const status = tdActivityStatus(s);
-    const cfg    = STATUS_CONFIG[status];
-    const pct    = tdCalcProgress(s);
-    const name   = s.name || s.email?.split('@')[0] || 'Alumno';
-    const last   = s.prog?.updated_at
-      ? new Date(s.prog.updated_at).toLocaleDateString('es', { day:'numeric', month:'short' })
-      : 'Nunca';
-
-    return `<div onclick="tdOpenStudent('${s.id}')"
-      style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;
-             padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;margin-bottom:8px;"
-      onmouseenter="this.style.boxShadow='var(--shadow-2)'" onmouseleave="this.style.boxShadow=''">
-      <div style="width:40px;height:40px;border-radius:50%;background:${cfg.bg};
-                  display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">${cfg.icon}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;color:var(--navy-800);font-size:14px;
-                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
-        <div style="font-size:11px;color:var(--sand-500);margin-top:2px;">Última sesión: ${last}</div>
-        <div style="margin-top:6px;background:var(--sand-200);height:5px;border-radius:99px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:${pct>=70?'var(--success)':pct>=30?'var(--gold-500)':'var(--sand-400)'};border-radius:99px;"></div>
-        </div>
-      </div>
-      <div style="text-align:right;flex-shrink:0;">
-        <div style="font-size:1rem;font-weight:900;color:var(--navy-800);font-family:'Fraunces',serif;">${pct}%</div>
-        <div style="font-size:10px;font-weight:700;color:${cfg.color};background:${cfg.bg};
-                    padding:2px 7px;border-radius:99px;margin-top:3px;">${cfg.label}</div>
-      </div>
-    </div>`;
-  }).join('');
-
-  container.innerHTML = html;
-}
-
-// ── Reemplazar tdRenderStudentList con versión filtrada ───────
-// En tdSwitchTab ya llama tdRenderStudentList() — sobreescribir:
-const _tdRenderStudentList_orig = window.tdRenderStudentList;
-window.tdRenderStudentList = function(){
-  // Resetear filtros al cambiar de tab
-  _tdSearch = '';
-  _tdFilter = 'all';
-  tdRenderStudentListFiltered();
-};
-
-// ── Templates de mensajes ─────────────────────────────────────
-const TD_MSG_TEMPLATES = [
-  { key: 'reminder_practice', label: '⏰ Recordatorio',
-    body: '¡Hola! Te escribo para recordarte que practicar un poco cada día hace una gran diferencia. ¡Volvé a AlefMaster cuando puedas!' },
-  { key: 'good_progress',     label: '🌟 Buen progreso',
-    body: '¡Excelente trabajo esta semana! Tu dedicación se nota. Seguí así.' },
-  { key: 'needs_practice',    label: '📌 Retomar práctica',
-    body: 'Hace unos días que no practicás. Te recuerdo que es importante mantener la regularidad para llegar bien preparado/a.' },
-  { key: 'bm_reminder',       label: '✡️ Tu Bar/Bat Mitzvá',
-    body: 'Se acerca tu fecha importante. Asegurate de practicar seguido para llegar con confianza. ¡Estás más cerca de lo que creés!' },
-];
-
-function tdRenderTemplateSelector(studentId, studentName){
-  return `
-    <div style="margin-bottom:8px;">
-      <div style="font-size:11px;color:var(--sand-500);margin-bottom:6px;">Plantillas rápidas:</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;">
-        ${TD_MSG_TEMPLATES.map(t => `
-          <button onclick="tdApplyTemplate('${studentId}','${t.key}')"
-            style="font-size:10px;padding:4px 8px;border-radius:99px;border:1.5px solid var(--sand-300);
-                   background:white;color:var(--navy-700);cursor:pointer;font-weight:600;">
-            ${t.label}
-          </button>`).join('')}
-      </div>
-    </div>`;
-}
-
-function tdApplyTemplate(studentId, templateKey){
-  const tpl = TD_MSG_TEMPLATES.find(t => t.key === templateKey);
-  if(!tpl) return;
-  const ta = document.getElementById(`td-msg-student-${studentId}`);
-  if(ta){ ta.value = tpl.body; ta.focus(); }
-}
-
-// ── Regenerar código de clase ─────────────────────────────────
-async function tdRegenCode(){
-  if(!_sb || !_authUser || !_tdClassData) return;
-  const newCode = (Math.random().toString(36).substring(2,8)).toUpperCase();
-  const { error } = await _sb.from('classes')
-    .update({ code: newCode })
-    .eq('id', _tdClassData.id);
-  if(error){ showToast('Error: ' + error.message, 'warn'); return; }
-  _tdClassData.code = newCode;
-  showToast('✓ Código regenerado: ' + newCode, 'green');
-  trackEvent('teacher_code_regenerated');
-  tdRenderClassSettings();
-}
-
-// ── Soporte multi-clase: cargar todas las clases del teacher ──
-let _tdAllClasses = [];
-let _tdActiveClassIdx = 0;
-
-async function tdLoadAllClasses(){
-  if(!_sb || !_authUser) return [];
-  const { data } = await _sb.from('classes')
-    .select('*')
-    .eq('teacher_id', _authUser.id)
-    .order('created_at', { ascending: false });
-  _tdAllClasses = data || [];
-  return _tdAllClasses;
-}
-
-// Clase activa
-function tdGetActiveClass(){
-  return _tdAllClasses[_tdActiveClassIdx] || null;
-}
-
-// Selector de clase (aparece en header si hay más de una)
-function tdRenderClassSelector(){
-  if(_tdAllClasses.length <= 1) return '';
-  return `
-    <select onchange="_tdActiveClassIdx=+this.value;_tdClassData=tdGetActiveClass();loadTeacherDashboard()"
-      style="font-size:12px;padding:4px 8px;border:1.5px solid var(--sand-300);border-radius:8px;
-             color:var(--navy-700);background:white;outline:none;max-width:160px;">
-      ${_tdAllClasses.map((c,i) => `<option value="${i}">${c.name}</option>`).join('')}
-    </select>`;
-}
-
-// ── Reminders: config simple ──────────────────────────────────
-async function tdSendAutoReminders(){
-  // Detectar inactivos y enviar recordatorio automático
-  if(!_sb || !_authUser || !_tdClassData) return;
-  const inactive = _tdStudents.filter(s => tdActivityStatus(s) === 'inactive');
-  if(!inactive.length){ showToast('No hay alumnos inactivos', 'info'); return; }
-
-  const tpl = TD_MSG_TEMPLATES.find(t => t.key === 'reminder_practice');
-  const rows = inactive.map(s => ({
-    user_id:    s.id,
-    title:      '⏰ Tu profesor te manda un recordatorio',
-    body:       tpl.body,
-    type:       'teacher',
-    read:       false,
-    created_at: new Date().toISOString(),
-  }));
-
-  const { error } = await _sb.from('notifications').insert(rows);
-  if(error){ showToast('Error: ' + error.message, 'warn'); return; }
-
-  // Registrar en messages para historial
-  await _sb.from('messages').insert(inactive.map(s => ({
-    teacher_id:    _authUser.id,
-    student_id:    s.id,
-    class_id:      _tdClassData?.id,
-    institution_id:_authProfile?.institution_id,
-    content:       tpl.body,
-    type:          'auto',
-    template_key:  'reminder_practice',
-    created_at:    new Date().toISOString(),
-  }))).catch(() => {});
-
-  showToast(`✓ Recordatorio enviado a ${inactive.length} alumno${inactive.length!==1?'s':''}`, 'green');
-  trackEvent('teacher_auto_reminder', { count: inactive.length });
-}
+  setTimeout(tryJoin, 1000);
+})();
