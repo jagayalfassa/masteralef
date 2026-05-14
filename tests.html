@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AlefMaster · Smoke Tests</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0f14;
+      color: #c8cdd8;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      min-height: 100vh;
+      padding: 32px 24px 48px;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 32px;
+      border-bottom: 1px solid #1e2230;
+      padding-bottom: 20px;
+    }
+    header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #e8eaf0;
+      letter-spacing: .04em;
+    }
+    header .subtitle {
+      font-size: 11px;
+      color: #4a5068;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    #run-btn {
+      margin-left: auto;
+      background: #1a1e2c;
+      border: 1px solid #2a2f45;
+      color: #8892b0;
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: border-color .15s, color .15s;
+    }
+    #run-btn:hover { border-color: #4a6fa5; color: #a8b8d8; }
+    #run-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    #origin-warn {
+      background: #1c1608;
+      border: 1px solid #3d2f00;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      color: #c8a84a;
+      font-size: 12px;
+      display: none;
+    }
+
+    #results {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .test-row {
+      display: grid;
+      grid-template-columns: 28px 1fr 72px 52px;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #10121a;
+      border: 1px solid #1a1e2c;
+      border-radius: 5px;
+      transition: border-color .2s;
+    }
+    .test-row.pass { border-color: #1a3a28; }
+    .test-row.fail { border-color: #3a1a1a; }
+    .test-row.running { border-color: #1a2a3a; }
+
+    .test-num {
+      font-size: 10px;
+      color: #3a4060;
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .test-name {
+      color: #8892b0;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .test-row.pass .test-name { color: #c8e0d8; }
+    .test-row.fail .test-name { color: #e0c8c8; }
+    .test-row.running .test-name { color: #c8d8e8; }
+
+    .test-status {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-align: center;
+    }
+    .status-waiting  { color: #2a3050; }
+    .status-running  { color: #4a82c8; }
+    .status-pass     { color: #3aad6e; }
+    .status-fail     { color: #cc4444; }
+
+    .test-time {
+      font-size: 10px;
+      color: #3a4060;
+      text-align: right;
+    }
+
+    .test-log {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: #4a5580;
+      padding-top: 4px;
+      padding-left: 36px;
+      line-height: 1.5;
+      display: none;
+    }
+    .test-row.fail .test-log { display: block; color: #8a4040; }
+    .test-row.pass .test-log { display: block; color: #2a6040; }
+
+    #summary {
+      margin-top: 24px;
+      padding: 14px 16px;
+      background: #10121a;
+      border: 1px solid #1a1e2c;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+    }
+    .sum-all-pass { border-color: #1a3a28; color: #3aad6e; }
+    .sum-has-fail { border-color: #3a1a1a; color: #cc4444; }
+    #summary span { color: #4a5068; }
+
+    /* spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border: 2px solid #1a2a3a;
+      border-top-color: #4a82c8;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+
+    /* hidden iframe container */
+    #iframe-container { display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>AlefMaster</h1>
+  <span class="subtitle">smoke tests · pre-deploy</span>
+  <button id="run-btn" onclick="runAll()">▶ Ejecutar</button>
+</header>
+
+<div id="origin-warn">
+  ⚠️ Estás en <code>file://</code>. Los tests de fetch y iframe requieren un servidor HTTP.
+  Abrí desde GitHub Pages o con <code>npx serve .</code>
+</div>
+
+<div id="results"></div>
+<div id="summary" style="display:none"></div>
+
+<div id="iframe-container">
+  <iframe id="app-iframe" src="" sandbox="allow-scripts allow-same-origin"></iframe>
+</div>
+
+<script>
+'use strict';
+
+// ─── Config ────────────────────────────────────────────────────────────────
+const SUPABASE_URL  = 'https://gxofwhomnjjffhmoffgl.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4b2Z3aG9tbmpqZmZobW9mZmdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNDQ4NTEsImV4cCI6MjA5MDkyMDg1MX0.SPWJZFPMDNHmifet9TyS-QCPbuR_Eo9pkST6jN0wLcI';
+const STORAGE_KEY   = 'heb_pro_v19_shekels';
+const LS_TEST_KEY   = '__am_smoke_test__';
+
+// ─── Utilities ─────────────────────────────────────────────────────────────
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function withTimeout(promise, ms) {
+  const t = new Promise((_, rej) =>
+    setTimeout(() => rej(new Error('Timeout ' + ms + 'ms')), ms)
+  );
+  return Promise.race([promise, t]);
+}
+
+let _iframeReady = null;  // shared promise resolving to the iframe element
+
+function loadAppIframe() {
+  if (_iframeReady) return _iframeReady;
+  _iframeReady = new Promise((resolve, reject) => {
+    const iframe = document.getElementById('app-iframe');
+    iframe.onload = () => resolve(iframe);
+    iframe.onerror = () => reject(new Error('iframe no cargó'));
+    iframe.src = './index.html';
+  });
+  return _iframeReady;
+}
+
+// ─── Test definitions ───────────────────────────────────────────────────────
+const TESTS = [
+
+  // ① Splash desaparece ─────────────────────────────────────────────────────
+  {
+    id: 1,
+    name: 'App arranca y splash desaparece',
+    timeout: 6000,
+    async fn() {
+      const iframe = await loadAppIframe();
+      // Poll hasta 5s
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        await wait(150);
+        try {
+          const doc   = iframe.contentDocument;
+          const splash = doc && doc.getElementById('app-splash');
+          if (!splash)
+            return 'Splash removido del DOM ✓';
+          if (splash.style.opacity === '0' || splash.style.visibility === 'hidden')
+            return 'Splash oculto (opacity/visibility) ✓';
+        } catch(e) { throw new Error('Sin acceso al iframe: ' + e.message); }
+      }
+      // Timeout propio: ver qué estado tiene el splash
+      const doc    = iframe.contentDocument;
+      const splash  = doc && doc.getElementById('app-splash');
+      if (!splash) return 'Splash removido del DOM ✓';
+      const op = splash.style.opacity;
+      const vi = splash.style.visibility;
+      throw new Error('Splash sigue visible tras 5s — opacity:"' + op + '" visibility:"' + vi + '"');
+    }
+  },
+
+  // ② Supabase responde ─────────────────────────────────────────────────────
+  {
+    id: 2,
+    name: 'Supabase responde (sin auth real)',
+    timeout: 5000,
+    async fn() {
+      // Golpear el endpoint REST — cualquier respuesta significa red OK
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), 4000);
+      let res;
+      try {
+        res = await fetch(SUPABASE_URL + '/rest/v1/', {
+          signal: ctrl.signal,
+          headers: { 'apikey': SUPABASE_ANON, 'Accept': 'application/json' }
+        });
+      } finally { clearTimeout(tid); }
+      // 200 = OK, 401 = sin auth pero servidor activo — ambos son éxito
+      if (res.status === 200 || res.status === 401 || res.status === 404)
+        return 'HTTP ' + res.status + ' — Supabase alcanzable ✓';
+      throw new Error('Status inesperado: ' + res.status);
+    }
+  },
+
+  // ③ ALL_DATA contiene A1, A2, B1 ─────────────────────────────────────────
+  {
+    id: 3,
+    name: 'ALL_DATA: series A1, A2, B1 existen',
+    timeout: 5000,
+    async fn() {
+      // Leer index.html como texto y buscar las keys sin ejecutar nada
+      const res = await fetch('./index.html');
+      if (!res.ok) throw new Error('No se pudo fetch index.html: ' + res.status);
+      const html = await res.text();
+
+      const required = ['"A1":{"type":"BASE"', '"A2":{"type":"BASE"', '"B1":{"type":"BASE"'];
+      const missing  = required.filter(k => !html.includes(k));
+      if (missing.length > 0)
+        throw new Error('Keys faltantes: ' + missing.join(', '));
+
+      // Contar cuántas series hay en total (regex sobre "type":"BASE" + "type":"MIX")
+      const total = (html.match(/"type":"BASE"/g) || []).length
+                  + (html.match(/"type":"MIX"/g)  || []).length;
+
+      return 'A1 ✓  A2 ✓  B1 ✓  — ' + total + ' series en total';
+    }
+  },
+
+  // ④ Ejercicio de letra renderiza ──────────────────────────────────────────
+  {
+    id: 4,
+    name: 'Ejercicio de letra: DOM renderizado',
+    timeout: 7000,
+    async fn() {
+      // Reusar iframe del test 1; esperar hasta 6s si aún no está listo
+      const iframe = await withTimeout(loadAppIframe(), 6000);
+      const doc    = iframe.contentDocument;
+      if (!doc) throw new Error('contentDocument inaccesible');
+
+      const wordEl   = doc.getElementById('hebrew-word');
+      const modeEl   = doc.getElementById('mode-select');
+      const gameView = doc.getElementById('view-game');
+
+      if (!wordEl)   throw new Error('#hebrew-word no encontrado en DOM');
+      if (!modeEl)   throw new Error('#mode-select no encontrado en DOM');
+      if (!gameView) throw new Error('#view-game no encontrado en DOM');
+
+      // Verificar que #hebrew-word tiene contenido hebreo (U+05D0–U+05EA range)
+      const txt = wordEl.textContent || wordEl.innerHTML;
+      const hasHebrew = /[\u05D0-\u05EA\u05F0-\u05F4]/.test(txt);
+      if (!hasHebrew) throw new Error('#hebrew-word sin texto hebreo: "' + txt.slice(0,20) + '"');
+
+      return '#hebrew-word ✓  #mode-select ✓  #view-game ✓  contenido hebreo ✓';
+    }
+  },
+
+  // ⑤ localStorage progreso lee/escribe sin corrupción ─────────────────────
+  {
+    id: 5,
+    name: 'localStorage: progreso lee/escribe sin corrupción',
+    timeout: 1000,
+    async fn() {
+      const KEY = LS_TEST_KEY;
+
+      // Limpiar antes
+      localStorage.removeItem(KEY);
+
+      // Escribir objeto complejo (similar a estado real)
+      const payload = {
+        progress: { 'A1_0': 3, 'A2_1': 1 },
+        shekels:  42,
+        ts:       Date.now()
+      };
+      localStorage.setItem(KEY, JSON.stringify(payload));
+
+      // Leer de vuelta
+      const raw = localStorage.getItem(KEY);
+      if (!raw) throw new Error('getItem devolvió null — no se guardó');
+
+      let parsed;
+      try { parsed = JSON.parse(raw); }
+      catch(e) { throw new Error('JSON corrupto: ' + e.message); }
+
+      // Verificar integridad
+      if (parsed.shekels !== 42)
+        throw new Error('Valor incorrecto: shekels=' + parsed.shekels);
+      if (parsed.progress['A1_0'] !== 3)
+        throw new Error('Valor incorrecto: A1_0=' + parsed.progress['A1_0']);
+
+      // Limpiar
+      localStorage.removeItem(KEY);
+      if (localStorage.getItem(KEY) !== null)
+        throw new Error('removeItem no funcionó');
+
+      // Verificar que key real de progreso es parseable (no corrupta)
+      const realRaw = localStorage.getItem(STORAGE_KEY);
+      if (realRaw !== null) {
+        try { JSON.parse(realRaw); }
+        catch(e) { throw new Error('KEY real corrompida: ' + e.message); }
+        return 'Escritura ✓  Lectura ✓  Integridad ✓  Key de producción parseable ✓';
+      }
+
+      return 'Escritura ✓  Lectura ✓  Integridad ✓  (key producción ausente — sin sesión previa)';
+    }
+  },
+
+  // ⑥ Parashá bereshit carga su JSON ───────────────────────────────────────
+  {
+    id: 6,
+    name: 'Parashá bereshit: carga JSON',
+    timeout: 5000,
+    async fn() {
+      const res = await fetch('./data/torah/bereshit.json');
+      if (!res.ok)
+        throw new Error('HTTP ' + res.status + ' al cargar bereshit.json');
+
+      let data;
+      try { data = await res.json(); }
+      catch(e) { throw new Error('JSON inválido: ' + e.message); }
+
+      if (!data.parasha)
+        throw new Error('Campo "parasha" ausente en el JSON');
+
+      const aliyotCount = Array.isArray(data.aliyot) ? data.aliyot.length : '—';
+      const dictCount   = data.dictionary ? Object.keys(data.dictionary).length : 0;
+
+      return '"' + data.parasha + '" ✓  aliyot: ' + aliyotCount + '  palabras: ' + dictCount;
+    }
+  },
+
+  // ⑦ teacher.js carga sin errores ─────────────────────────────────────────
+  {
+    id: 7,
+    name: 'teacher.js: carga sin errores (rol docente)',
+    timeout: 5000,
+    async fn() {
+      // Inyectar globals que teacher.js necesita (solo para parse/carga)
+      const MOCKS = {
+        _sb:                  null,
+        _authUser:            null,
+        _authProfile:         { role: 'teacher', _institution: { id: 'inst-1', name: 'Test' } },
+        _requireInstitution:  () => true,
+        ALL_DATA:             { A1: { type: 'BASE', words: [] } },
+        showToast:            () => {},
+        showView:             () => {},
+        dbg:                  () => {},
+        trackEvent:           () => {},
+      };
+
+      // Verificar que no existan ya (no queremos pisar globals reales)
+      const already = Object.keys(MOCKS).filter(k => typeof window[k] !== 'undefined');
+
+      // Aplicar mocks solo para los que no existan
+      const applied = [];
+      for (const [k, v] of Object.entries(MOCKS)) {
+        if (typeof window[k] === 'undefined') { window[k] = v; applied.push(k); }
+      }
+
+      let loaded = false;
+      try {
+        await new Promise((resolve, reject) => {
+          const s   = document.createElement('script');
+          s.src     = './js/teacher.js';
+          s.onload  = () => { loaded = true; resolve(); };
+          s.onerror = ()  => reject(new Error('teacher.js no encontrado en ./js/teacher.js'));
+          document.head.appendChild(s);
+        });
+      } finally {
+        // Limpiar mocks aplicados
+        applied.forEach(k => { try { delete window[k]; } catch(e) {} });
+      }
+
+      // Verificar funciones críticas
+      const expected = ['openTeacherPanel', 'loadTeacherDashboard', 'tdRenderSummary',
+                        'tdRenderStudentList', 'tdCreateClass'];
+      const missing  = expected.filter(fn => typeof window[fn] !== 'function');
+      if (missing.length > 0)
+        throw new Error('Funciones no definidas: ' + missing.join(', '));
+
+      const found = expected.filter(fn => typeof window[fn] === 'function').length;
+      return 'Script cargado ✓  ' + found + '/' + expected.length + ' funciones docente ✓'
+           + (already.length ? '  (globals ya existentes: ' + already.join(', ') + ')' : '');
+    }
+  }
+
+]; // end TESTS
+
+// ─── UI ────────────────────────────────────────────────────────────────────
+function renderRows() {
+  const container = document.getElementById('results');
+  container.innerHTML = '';
+  TESTS.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'test-row';
+    row.id = 'row-' + t.id;
+    row.innerHTML = `
+      <div class="test-num">${t.id}</div>
+      <div class="test-name">${t.name}</div>
+      <div class="test-status status-waiting" id="status-${t.id}">ESPERA</div>
+      <div class="test-time" id="time-${t.id}">—</div>
+      <div class="test-log" id="log-${t.id}"></div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function setStatus(id, state, text) {
+  const el = document.getElementById('status-' + id);
+  if (!el) return;
+  el.className = 'test-status status-' + state;
+  if (state === 'running') {
+    el.innerHTML = '<span class="spinner"></span>';
+  } else {
+    el.textContent = text;
+  }
+}
+
+function setTime(id, ms) {
+  const el = document.getElementById('time-' + id);
+  if (el) el.textContent = ms < 1000 ? ms + 'ms' : (ms/1000).toFixed(1) + 's';
+}
+
+function setLog(id, msg) {
+  const el = document.getElementById('log-' + id);
+  if (el) el.textContent = msg;
+}
+
+function setRowClass(id, cls) {
+  const el = document.getElementById('row-' + id);
+  if (el) { el.className = 'test-row ' + cls; }
+}
+
+// ─── Runner ────────────────────────────────────────────────────────────────
+async function runAll() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Corriendo…';
+
+  // Reset iframe
+  _iframeReady = null;
+  document.getElementById('app-iframe').src = '';
+
+  document.getElementById('summary').style.display = 'none';
+  renderRows();
+
+  let passed = 0, failed = 0;
+  const t0 = Date.now();
+
+  for (const test of TESTS) {
+    setRowClass(test.id, 'running');
+    setStatus(test.id, 'running', '');
+    const start = Date.now();
+    try {
+      const msg = await withTimeout(test.fn(), test.timeout);
+      const elapsed = Date.now() - start;
+      setStatus(test.id, 'pass', 'PASS');
+      setTime(test.id, elapsed);
+      setLog(test.id, msg || '');
+      setRowClass(test.id, 'pass');
+      passed++;
+    } catch(e) {
+      const elapsed = Date.now() - start;
+      setStatus(test.id, 'fail', 'FAIL');
+      setTime(test.id, elapsed);
+      setLog(test.id, '✗ ' + (e.message || String(e)));
+      setRowClass(test.id, 'fail');
+      failed++;
+    }
+  }
+
+  const total = Date.now() - t0;
+  const allPass = failed === 0;
+
+  const sum = document.getElementById('summary');
+  sum.style.display = 'flex';
+  sum.className = allPass ? 'sum-all-pass' : 'sum-has-fail';
+  sum.innerHTML = allPass
+    ? `<strong>✓ ${passed}/${TESTS.length} PASS</strong> <span>— ${(total/1000).toFixed(1)}s totales — listo para deploy</span>`
+    : `<strong>✗ ${failed} FAIL · ${passed} PASS</strong> <span>— ${(total/1000).toFixed(1)}s — no deployar hasta resolver los rojos</span>`;
+
+  btn.disabled = false;
+  btn.textContent = '↺ Re-ejecutar';
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+if (location.protocol === 'file:') {
+  document.getElementById('origin-warn').style.display = 'block';
+}
+renderRows();
+</script>
+</body>
+</html>
