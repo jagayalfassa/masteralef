@@ -2,6 +2,8 @@
 
 <html lang="es">
 <head>
+  <!-- Sentry: observabilidad en producción — 1 línea, sin frameworks -->
+  <script src="https://browser.sentry-cdn.com/7.114.0/bundle.min.js" crossorigin="anonymous"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
@@ -1975,7 +1977,61 @@ to   { transform: translateY(0);    opacity: 1; }
 
 <script>
 // ── Error handling global ──────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// SENTRY OBSERVABILITY — init temprano, antes de cualquier handler
+// ════════════════════════════════════════════════════════════════
+(function(){
+  if(typeof Sentry === 'undefined') return;
+  var ua = navigator.userAgent;
+  window._amDevice = /iPhone|iPad|iPod/.test(ua) ? 'iOS'
+                   : /Android/.test(ua) ? 'Android' : 'desktop';
+  window._amView = 'splash';
+
+  Sentry.init({
+    dsn: 'https://aad9b19914d89fe3045a5ca414354417@o4511389368451072.ingest.us.sentry.io/4511389376446464',
+    sampleRate: 1.0,
+    tracesSampleRate: 0,
+    beforeSend: function(event) {
+      try {
+        var uid = window._authUser  && window._authUser.id  || null;
+        var iid = window._authProfile && window._authProfile._institution && window._authProfile._institution.id || null;
+        if(uid) Sentry.setUser({ id: uid });
+        Sentry.setTag('device',        window._amDevice || 'unknown');
+        Sentry.setTag('view',          window._amView   || 'unknown');
+        Sentry.setTag('institutionId', iid              || 'none');
+      } catch(e){}
+      return event;
+    }
+  });
+})();
+
+// ── trackError: wrapper centralizado Sentry ───────────────────
+function trackError(ctx, err, extra) {
+  try {
+    if(typeof Sentry === 'undefined') return;
+    Sentry.withScope(function(scope) {
+      scope.setTag('ctx',    ctx);
+      scope.setTag('view',   window._amView   || 'unknown');
+      scope.setTag('device', window._amDevice || 'unknown');
+      scope.setExtra('userId',        window._authUser && window._authUser.id || null);
+      scope.setExtra('institutionId', window._authProfile && window._authProfile._institution && window._authProfile._institution.id || null);
+      if(extra) { Object.keys(extra).forEach(function(k){ scope.setExtra(k, extra[k]); }); }
+      scope.setExtra('raw', String(err));
+      Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
+    });
+  } catch(e) { /* nunca romper por el error reporter */ }
+}
+
+// ── trackEvent: breadcrumbs para eventos de usuario ──────────
+function trackEvent(name, data) {
+  try {
+    if(typeof Sentry === 'undefined') return;
+    Sentry.addBreadcrumb({ category: 'user', message: name, level: 'info', data: data || {} });
+  } catch(e) {}
+}
+
 window.onerror = function(msg, src, line, col, err){
+  try { if(err) trackError('global_onerror', err, {src: src, line: line}); } catch(e){}
   try { if(console && console.error) console.error('[AlefMaster] Error global:', msg, '@', src + ':' + line); } catch(e){}
   // Solo ocultar splash si _hideSplash ya fue definido
   try {
@@ -1986,6 +2042,9 @@ window.onerror = function(msg, src, line, col, err){
   return true;
 };
 window.addEventListener('unhandledrejection', function(e){
+  try {
+    if(e.reason) trackError('unhandledrejection', e.reason);
+  } catch(ex){}
   try {
     const msg = String(e.reason?.message || e.reason || '');
     if(console && console.error) console.error('[AlefMaster] Promise rechazada:', msg);
@@ -3491,6 +3550,7 @@ async function loadParasha(parashaId){
     if(typeof setMascotState === 'function') setMascotState('idle');
     return data;
   } catch(e){
+    trackError('parasha_load_error', e, { parashaId: parashaId });
     dbg("Parasha JSON not found, using Sefaria stub:", parashaId, e.message);
     if(typeof setMascotState === 'function') setMascotState('idle');
     // Minimal stub: text comes from Sefaria, exercise words unavailable
@@ -4516,6 +4576,7 @@ function setLessonPoolSize(key, lessonIdx, size){
   window._lessonPoolCache[key + '_poolSize_' + lessonIdx] = size;
 }
 function showView(v){
+  window._amView = v;  // sentry: track active view
   const ALL_VIEWS = ["view-home","view-pre-training","view-training","view-game","view-intro","view-celebration","view-welcome","view-letra-quiz","view-vowel-present","view-onboarding","view-parasha-select","view-aliyah-select","view-parasha-read","view-shop","view-tefilot","view-tefila-read","view-auth","view-teacher","view-no-institution","view-speed-read","view-sidur","view-lectura"];
   ALL_VIEWS.forEach(id=>{
     const el=document.getElementById(id);
@@ -6248,7 +6309,7 @@ async function loadKaraokeTimestamps() {
   try {
     const r = await fetch('/karaoke/karaoke_timestamps_batch.json');
     if (r.ok) { _karaokeTimestamps = await r.json(); }
-  } catch(e) { /* sin timestamps — modo timer */ }
+  } catch(e) { trackError('karaoke_timestamps_fetch', e); /* sin timestamps — modo timer */ }
   _karaokeTimestampsLoading = false;
   return _karaokeTimestamps;
 }
@@ -6323,7 +6384,8 @@ async function startKaraokeAudio() {
     _karaokeAdvance();
   });
 
-  audio.play().catch(() => {
+  audio.play().catch(function(err) {
+    trackError('audio_play_failed', err, { src: audio.src, ctx: 'karaoke' });
     karaokeState.hasRealAudio = false;
     karaokeState.audio = null;
     _karaokeAdvance();
@@ -8618,6 +8680,7 @@ function renderShopChests(container){
 function startSeries(key, lessonIdx){
   if(!ALL_DATA[key]){ showToast('Serie no disponible','warn'); showView('home'); return; }
   state.activeSeries=key;
+  trackEvent('lesson_started', { series: key, lessonIdx: lessonIdx });
   const lessons=getLessons(key);
   if(lessonIdx===undefined){
     lessonIdx=lessons.findIndex((_,i)=>!lessonDone(key,i));
@@ -12511,10 +12574,16 @@ async function _fetchClassRanking(){
     const userIds = members.map(m => m.student_id);
 
     // 4. Get profiles and progress
-    const [profResult, progResult] = await Promise.all([
-      _sb.from('profiles').select('id, name').in('id', userIds),
-      _sb.from('user_progress').select('user_id, progress, shekels, updated_at').in('user_id', userIds),
-    ]);
+    let profResult, progResult;
+    try {
+      [profResult, progResult] = await Promise.all([
+        _sb.from('profiles').select('id, name').in('id', userIds),
+        _sb.from('user_progress').select('user_id, progress, shekels, updated_at').in('user_id', userIds),
+      ]);
+    } catch(e) {
+      trackError('rls_teacher_dashboard', e, { classId: classId });
+      throw e;
+    }
 
     const profiles = profResult.data || [];
     const progData = progResult.data || [];
@@ -14511,7 +14580,7 @@ async function getAuthUser(){
 async function authLogin(email, password){
   if(!_sb) throw new Error('Supabase no configurado');
   const { data, error } = await _sb.auth.signInWithPassword({ email, password });
-  if(error) throw error;
+  if(error){ trackError('auth_login', error, { email: email }); throw error; }
   _authUser = data.user;
   await _loadProfile(_authUser.id);
   return data.user;
@@ -14524,7 +14593,7 @@ async function authSignup(email, password, name, role, institutionId){
     email, password,
     options: { data: { name, role } },
   });
-  if(error) throw error;
+  if(error){ trackError('auth_signup', error, { email: email, role: role }); throw error; }
   _authUser = data.user;
   if(_authUser){
     await _sb.from('profiles').upsert({
@@ -14603,7 +14672,7 @@ async function _loadProfile(userId){
     }
     dbg('[Auth] Perfil:', _authProfile?.name, '/', _authProfile?.role,
         '/ inst:', _authProfile?._institution?.name || 'sin institución');
-  } catch(e){ dbg('[Auth] _loadProfile error:', e.message); }
+  } catch(e){ trackError('rls_profile', e, { userId: userId }); dbg('[Auth] _loadProfile error:', e.message); }
 }
 
 // ── Guardar progreso en Supabase (reemplaza syncProgress cuando hay auth) ──
@@ -16290,7 +16359,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if('serviceWorker' in navigator){
     window.addEventListener('load', async () => {
       try {
-        const reg = await navigator.serviceWorker.register('./sw.js');
+        const reg = await navigator.serviceWorker.register('./sw.js').catch(err => { trackError('sw_register', err); throw err; });
         dbg('SW registered:', reg.scope);
 
         // Detectar nueva versión disponible
