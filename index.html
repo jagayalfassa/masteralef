@@ -2,8 +2,6 @@
 
 <html lang="es">
 <head>
-  <!-- Sentry: observabilidad en producción — 1 línea, sin frameworks -->
-  <script src="https://browser.sentry-cdn.com/7.114.0/bundle.min.js" crossorigin="anonymous"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
@@ -1977,61 +1975,7 @@ to   { transform: translateY(0);    opacity: 1; }
 
 <script>
 // ── Error handling global ──────────────────────────────────────
-// ════════════════════════════════════════════════════════════════
-// SENTRY OBSERVABILITY — init temprano, antes de cualquier handler
-// ════════════════════════════════════════════════════════════════
-(function(){
-  if(typeof Sentry === 'undefined') return;
-  var ua = navigator.userAgent;
-  window._amDevice = /iPhone|iPad|iPod/.test(ua) ? 'iOS'
-                   : /Android/.test(ua) ? 'Android' : 'desktop';
-  window._amView = 'splash';
-
-  Sentry.init({
-    dsn: 'https://aad9b19914d89fe3045a5ca414354417@o4511389368451072.ingest.us.sentry.io/4511389376446464',
-    sampleRate: 1.0,
-    tracesSampleRate: 0,
-    beforeSend: function(event) {
-      try {
-        var uid = window._authUser  && window._authUser.id  || null;
-        var iid = window._authProfile && window._authProfile._institution && window._authProfile._institution.id || null;
-        if(uid) Sentry.setUser({ id: uid });
-        Sentry.setTag('device',        window._amDevice || 'unknown');
-        Sentry.setTag('view',          window._amView   || 'unknown');
-        Sentry.setTag('institutionId', iid              || 'none');
-      } catch(e){}
-      return event;
-    }
-  });
-})();
-
-// ── trackError: wrapper centralizado Sentry ───────────────────
-function trackError(ctx, err, extra) {
-  try {
-    if(typeof Sentry === 'undefined') return;
-    Sentry.withScope(function(scope) {
-      scope.setTag('ctx',    ctx);
-      scope.setTag('view',   window._amView   || 'unknown');
-      scope.setTag('device', window._amDevice || 'unknown');
-      scope.setExtra('userId',        window._authUser && window._authUser.id || null);
-      scope.setExtra('institutionId', window._authProfile && window._authProfile._institution && window._authProfile._institution.id || null);
-      if(extra) { Object.keys(extra).forEach(function(k){ scope.setExtra(k, extra[k]); }); }
-      scope.setExtra('raw', String(err));
-      Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
-    });
-  } catch(e) { /* nunca romper por el error reporter */ }
-}
-
-// ── trackEvent: breadcrumbs para eventos de usuario ──────────
-function trackEvent(name, data) {
-  try {
-    if(typeof Sentry === 'undefined') return;
-    Sentry.addBreadcrumb({ category: 'user', message: name, level: 'info', data: data || {} });
-  } catch(e) {}
-}
-
 window.onerror = function(msg, src, line, col, err){
-  try { if(err) trackError('global_onerror', err, {src: src, line: line}); } catch(e){}
   try { if(console && console.error) console.error('[AlefMaster] Error global:', msg, '@', src + ':' + line); } catch(e){}
   // Solo ocultar splash si _hideSplash ya fue definido
   try {
@@ -2042,9 +1986,6 @@ window.onerror = function(msg, src, line, col, err){
   return true;
 };
 window.addEventListener('unhandledrejection', function(e){
-  try {
-    if(e.reason) trackError('unhandledrejection', e.reason);
-  } catch(ex){}
   try {
     const msg = String(e.reason?.message || e.reason || '');
     if(console && console.error) console.error('[AlefMaster] Promise rechazada:', msg);
@@ -3550,7 +3491,6 @@ async function loadParasha(parashaId){
     if(typeof setMascotState === 'function') setMascotState('idle');
     return data;
   } catch(e){
-    trackError('parasha_load_error', e, { parashaId: parashaId });
     dbg("Parasha JSON not found, using Sefaria stub:", parashaId, e.message);
     if(typeof setMascotState === 'function') setMascotState('idle');
     // Minimal stub: text comes from Sefaria, exercise words unavailable
@@ -4576,7 +4516,6 @@ function setLessonPoolSize(key, lessonIdx, size){
   window._lessonPoolCache[key + '_poolSize_' + lessonIdx] = size;
 }
 function showView(v){
-  window._amView = v;  // sentry: track active view
   const ALL_VIEWS = ["view-home","view-pre-training","view-training","view-game","view-intro","view-celebration","view-welcome","view-letra-quiz","view-vowel-present","view-onboarding","view-parasha-select","view-aliyah-select","view-parasha-read","view-shop","view-tefilot","view-tefila-read","view-auth","view-teacher","view-no-institution","view-speed-read","view-sidur","view-lectura"];
   ALL_VIEWS.forEach(id=>{
     const el=document.getElementById(id);
@@ -6309,7 +6248,7 @@ async function loadKaraokeTimestamps() {
   try {
     const r = await fetch('/karaoke/karaoke_timestamps_batch.json');
     if (r.ok) { _karaokeTimestamps = await r.json(); }
-  } catch(e) { trackError('karaoke_timestamps_fetch', e); /* sin timestamps — modo timer */ }
+  } catch(e) { /* sin timestamps — modo timer */ }
   _karaokeTimestampsLoading = false;
   return _karaokeTimestamps;
 }
@@ -6384,8 +6323,7 @@ async function startKaraokeAudio() {
     _karaokeAdvance();
   });
 
-  audio.play().catch(function(err) {
-    trackError('audio_play_failed', err, { src: audio.src, ctx: 'karaoke' });
+  audio.play().catch(() => {
     karaokeState.hasRealAudio = false;
     karaokeState.audio = null;
     _karaokeAdvance();
@@ -8680,7 +8618,6 @@ function renderShopChests(container){
 function startSeries(key, lessonIdx){
   if(!ALL_DATA[key]){ showToast('Serie no disponible','warn'); showView('home'); return; }
   state.activeSeries=key;
-  trackEvent('lesson_started', { series: key, lessonIdx: lessonIdx });
   const lessons=getLessons(key);
   if(lessonIdx===undefined){
     lessonIdx=lessons.findIndex((_,i)=>!lessonDone(key,i));
@@ -12574,16 +12511,10 @@ async function _fetchClassRanking(){
     const userIds = members.map(m => m.student_id);
 
     // 4. Get profiles and progress
-    let profResult, progResult;
-    try {
-      [profResult, progResult] = await Promise.all([
-        _sb.from('profiles').select('id, name').in('id', userIds),
-        _sb.from('user_progress').select('user_id, progress, shekels, updated_at').in('user_id', userIds),
-      ]);
-    } catch(e) {
-      trackError('rls_teacher_dashboard', e, { classId: classId });
-      throw e;
-    }
+    const [profResult, progResult] = await Promise.all([
+      _sb.from('profiles').select('id, name').in('id', userIds),
+      _sb.from('user_progress').select('user_id, progress, shekels, updated_at').in('user_id', userIds),
+    ]);
 
     const profiles = profResult.data || [];
     const progData = progResult.data || [];
@@ -14580,7 +14511,7 @@ async function getAuthUser(){
 async function authLogin(email, password){
   if(!_sb) throw new Error('Supabase no configurado');
   const { data, error } = await _sb.auth.signInWithPassword({ email, password });
-  if(error){ trackError('auth_login', error, { email: email }); throw error; }
+  if(error) throw error;
   _authUser = data.user;
   await _loadProfile(_authUser.id);
   return data.user;
@@ -14593,7 +14524,7 @@ async function authSignup(email, password, name, role, institutionId){
     email, password,
     options: { data: { name, role } },
   });
-  if(error){ trackError('auth_signup', error, { email: email, role: role }); throw error; }
+  if(error) throw error;
   _authUser = data.user;
   if(_authUser){
     await _sb.from('profiles').upsert({
@@ -14672,7 +14603,7 @@ async function _loadProfile(userId){
     }
     dbg('[Auth] Perfil:', _authProfile?.name, '/', _authProfile?.role,
         '/ inst:', _authProfile?._institution?.name || 'sin institución');
-  } catch(e){ trackError('rls_profile', e, { userId: userId }); dbg('[Auth] _loadProfile error:', e.message); }
+  } catch(e){ dbg('[Auth] _loadProfile error:', e.message); }
 }
 
 // ── Guardar progreso en Supabase (reemplaza syncProgress cuando hay auth) ──
@@ -15787,179 +15718,590 @@ const _perf = {
 })();
 
 // ╔═══════════════════════════════════════════════════════════╗
-// ║  WELCOME + ONBOARDING FLOW — imágenes de fondo           ║
+// ║  ONBOARDING INTERACTIVO — Patrón Duolingo                ║
+// ║  s0: ALEF aparece · s2: voz · s5: quiz · s45: cuenta    ║
 // ╚═══════════════════════════════════════════════════════════╝
 
-const OB_WELCOME_KEY    = 'welcome_seen';
-const OB_DONE_KEY       = 'onboarding_done';
+const OB_WELCOME_KEY = 'welcome_seen';
+const OB_DONE_KEY    = 'onboarding_done';
 
-// Config de cada paso: imagen de fondo, texto del CTA, texto secundario
-const OB_STEPS = [
-  {
-    key:       'welcome',
-    bg:        'img/welcome-bg.png',
-    cta:       'Empezar',
-    secondary: 'Ya tengo cuenta',
-    dots:      false,
-  },
-  {
-    key:       1,
-    bg:        'img/onboarding-1.png',
-    cta:       'Siguiente →',
-    secondary: null,
-    dots:      true,
-  },
-  {
-    key:       2,
-    bg:        'img/onboarding-2.png',
-    cta:       'Siguiente →',
-    secondary: null,
-    dots:      true,
-  },
-  {
-    key:       3,
-    bg:        'img/onboarding-3.png',
-    cta:       'Empezar ahora',
-    secondary: null,
-    dots:      true,
-  },
+// ── Las 3 letras del onboarding ───────────────────────────────
+const OB_ROUNDS = [
+  { letter:'א', name:'Alef',  fon:'alef',  sound:'A', options:['א','בּ','מ'], correct:0 },
+  { letter:'בּ', name:'Bet',   fon:'bet',   sound:'B', options:['ל','בּ','שׁ'], correct:1 },
+  { letter:'מ', name:'Mem',   fon:'mem',   sound:'M', options:['נ','ר','מ'],  correct:2 },
 ];
 
-let _obEl       = null;  // el overlay DOM
-let _obStepIdx  = 0;     // índice del paso actual
+// ── Estado ────────────────────────────────────────────────────
+let _obEl       = null;
+let _obRound    = 0;
+let _obShekels  = 0;
+let _obTimers   = [];
 
-/**
- * startOnboardingFlow()
- * Decide qué pantalla mostrar según localStorage.
- * Llama a renderOnboardingStep() con el paso correcto.
- */
+// ── Styles (inyectados una vez) ───────────────────────────────
+(function _obInjectStyles(){
+  if(document.getElementById('ob-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'ob-styles';
+  s.textContent = `
+    #ob-root {
+      position:fixed;inset:0;z-index:9999;
+      background:#08090d;
+      display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      font-family:'Noto Serif Hebrew',serif;
+      overflow:hidden;
+      -webkit-tap-highlight-color:transparent;
+    }
+    @keyframes ob-pop {
+      0%   { opacity:0; transform:scale(.3) rotate(-8deg); }
+      70%  { transform:scale(1.12) rotate(2deg); }
+      100% { opacity:1; transform:scale(1) rotate(0); }
+    }
+    @keyframes ob-fade-up {
+      from { opacity:0; transform:translateY(18px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes ob-pulse {
+      0%,100% { transform:scale(1); }
+      50%     { transform:scale(1.06); }
+    }
+    @keyframes ob-shake {
+      0%,100% { transform:translateX(0); }
+      20%     { transform:translateX(-10px); }
+      40%     { transform:translateX(10px); }
+      60%     { transform:translateX(-7px); }
+      80%     { transform:translateX(7px); }
+    }
+    @keyframes ob-correct-flash {
+      0%   { background:#1a3a28; transform:scale(1); }
+      40%  { background:#2a6a48; transform:scale(1.08); }
+      100% { background:#1a3a28; transform:scale(1); }
+    }
+    @keyframes ob-shekel-fly {
+      0%   { opacity:1; transform:translateY(0) scale(1); }
+      100% { opacity:0; transform:translateY(-80px) scale(1.4); }
+    }
+    @keyframes ob-bar-fill {
+      from { width:var(--bar-from); }
+      to   { width:var(--bar-to); }
+    }
+    @keyframes ob-slide-up {
+      from { opacity:0; transform:translateY(40px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .ob-letter-card {
+      display:flex;align-items:center;justify-content:center;
+      border-radius:24px;
+      border:2.5px solid #1e2230;
+      background:#0f1118;
+      cursor:pointer;
+      transition:transform .1s ease, border-color .15s ease, background .15s ease;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+    }
+    .ob-letter-card:active { transform:scale(.94); }
+    .ob-letter-card.ob-correct-anim {
+      animation:ob-correct-flash .5s ease;
+      border-color:#2a6a48 !important;
+    }
+    .ob-letter-card.ob-wrong-anim {
+      animation:ob-shake .4s ease;
+      border-color:#8a2222 !important;
+      background:#1a0808 !important;
+    }
+    .ob-progress-bar-fill {
+      height:100%;border-radius:4px;
+      background:linear-gradient(90deg,#3aad6e,#5edd9e);
+      transition:width .5s cubic-bezier(.4,0,.2,1);
+    }
+    .ob-btn-primary {
+      width:100%;padding:16px;border:none;border-radius:16px;
+      background:linear-gradient(135deg,#3aad6e,#2a9d5e);
+      color:#fff;font-size:16px;font-weight:700;
+      cursor:pointer;letter-spacing:.02em;
+      box-shadow:0 4px 0 #1a7040;
+      transition:transform .1s,box-shadow .1s;
+      font-family:inherit;
+    }
+    .ob-btn-primary:active { transform:translateY(3px);box-shadow:0 1px 0 #1a7040; }
+    .ob-btn-ghost {
+      width:100%;padding:13px;border:1.5px solid #1e2230;border-radius:16px;
+      background:transparent;color:#4a5580;font-size:14px;font-weight:600;
+      cursor:pointer;font-family:inherit;
+      transition:border-color .15s,color .15s;
+    }
+    .ob-btn-ghost:active { border-color:#3a4570;color:#6a75a0; }
+  `;
+  document.head.appendChild(s);
+})();
+
+// ── Entry point ───────────────────────────────────────────────
 function startOnboardingFlow(){
   if(typeof window._hideSplash === 'function'){
     window._hideSplash(); window._hideSplash = null;
   }
-
-  const welcomeSeen  = localStorage.getItem(OB_WELCOME_KEY);
-  const obDone       = localStorage.getItem(OB_DONE_KEY);
-
-  if(obDone){
-    // Ya completó todo — ir directo a home
-    renderHome();
-    return;
+  if(localStorage.getItem('heb_welcomed') || localStorage.getItem(OB_DONE_KEY)){
+    renderHome(); return;
   }
-
-  if(!welcomeSeen){
-    _obStepIdx = 0; // welcome
-  } else {
-    _obStepIdx = 1; // primer paso del onboarding
-  }
-
-  renderOnboardingStep(_obStepIdx);
+  _obRound   = 0;
+  _obShekels = 0;
+  _obTimers  = [];
+  _obMount();
+  _obPhase_intro();
 }
 
-/**
- * renderOnboardingStep(stepIdx)
- * Renderiza el paso indicado (0 = welcome, 1-3 = pasos).
- * Reutiliza el mismo overlay, solo cambia la imagen y los botones.
- */
-function renderOnboardingStep(stepIdx){
-  const step = OB_STEPS[stepIdx];
-  if(!step){ _obFinish(); return; }
+// ── DOM root ──────────────────────────────────────────────────
+function _obMount(){
+  if(_obEl){ _obEl.remove(); }
+  _obEl = document.createElement('div');
+  _obEl.id = 'ob-root';
+  document.body.appendChild(_obEl);
+}
 
-  // Crear overlay si no existe
-  if(!_obEl){
-    _obEl = document.createElement('div');
-    _obEl.className = 'ob-screen';
-    _obEl.id = 'ob-flow-screen';
-    document.body.appendChild(_obEl);
-  }
+function _obRender(html){
+  if(!_obEl) return;
+  _obEl.innerHTML = html;
+}
 
-  // Número de pasos con dots (1-3)
-  const TOTAL_DOTS = 3;
-  const dotIdx = typeof step.key === 'number' ? step.key - 1 : -1;
+function _obClearTimers(){
+  _obTimers.forEach(clearTimeout);
+  _obTimers = [];
+}
 
-  _obEl.innerHTML = `
-    <div class="ob-screen__bg" id="ob-bg" style="background-image:url('${step.bg}');"></div>
-    <div class="ob-screen__ui" style="animation:ob-fadein .28s ease both;">
-      ${step.dots ? `
-      <div class="ob-dots">
-        ${Array.from({length: TOTAL_DOTS}, (_,i) =>
-          `<div class="ob-dot${i === dotIdx ? ' active' : ''}"></div>`
-        ).join('')}
-      </div>` : ''}
-      <button class="ob-btn-primary" id="ob-cta-btn">${step.cta}</button>
-      ${step.secondary ? `
-      <button class="ob-btn-secondary" id="ob-secondary-btn">${step.secondary}</button>
-      ` : ''}
+function _obDelay(fn, ms){
+  const t = setTimeout(fn, ms);
+  _obTimers.push(t);
+  return t;
+}
+
+// ── Utilidades ────────────────────────────────────────────────
+function _obSpeak(text){
+  try {
+    if(!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utt  = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    const heb  = voices.find(v => v.lang && v.lang.startsWith('he'));
+    if(heb) utt.voice = heb;
+    utt.lang  = 'he-IL';
+    utt.rate  = 0.78;
+    utt.pitch = 1.0;
+    window.speechSynthesis.speak(utt);
+  } catch(e){}
+}
+
+function _obProgressHTML(round){
+  const pct = (round / OB_ROUNDS.length) * 100;
+  return `
+    <div style="width:100%;max-width:320px;padding:0 24px;position:absolute;top:20px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="flex:1;height:8px;border-radius:4px;background:#1a1e2c;overflow:hidden;">
+          <div class="ob-progress-bar-fill" style="width:${pct}%;"></div>
+        </div>
+        <div style="font-size:12px;color:#4a5580;font-family:monospace;min-width:32px;">
+          ${round}/${OB_ROUNDS.length}
+        </div>
+      </div>
     </div>`;
+}
+
+function _obShekelHUD(){
+  return `
+    <div style="position:absolute;top:18px;right:24px;
+                display:flex;align-items:center;gap:5px;
+                background:#1a1a10;border:1.5px solid #3a3010;
+                border-radius:20px;padding:4px 10px 4px 6px;">
+      <span style="font-size:14px;">🪙</span>
+      <span id="ob-shekel-count" style="font-size:13px;font-weight:700;color:#e8c040;
+                                        font-family:monospace;">${_obShekels}</span>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════
+// FASE 0 — s0: ALEF aparece en negro (0–1.5s, auto-advance)
+// ════════════════════════════════════════════════════════════════
+function _obPhase_intro(){
+  _obClearTimers();
+  _obRender(`
+    <div style="display:flex;flex-direction:column;align-items:center;gap:0;
+                animation:ob-pop .6s cubic-bezier(.34,1.56,.64,1) both;">
+      <div style="font-size:clamp(110px,28vw,160px);line-height:1;color:#fff;
+                  text-shadow:0 0 60px rgba(58,173,110,.4);">
+        ${OB_ROUNDS[0].letter}
+      </div>
+    </div>
+  `);
+
+  // s1.5: añadir nombre de la letra con fade-up
+  _obDelay(() => {
+    const nameEl = document.createElement('div');
+    nameEl.style.cssText = 'animation:ob-fade-up .5s ease both;text-align:center;margin-top:8px;';
+    nameEl.innerHTML = `
+      <div style="font-size:13px;letter-spacing:.25em;text-transform:uppercase;
+                  color:#4a5580;font-family:sans-serif;">Esta es la letra</div>
+      <div style="font-size:28px;font-weight:700;color:#e8eaf0;margin-top:4px;font-family:sans-serif;">
+        ${OB_ROUNDS[0].name}
+      </div>
+      <div style="font-size:13px;color:#3aad6e;margin-top:2px;font-family:monospace;letter-spacing:.1em;">
+        suena "${OB_ROUNDS[0].sound}"
+      </div>
+    `;
+    if(_obEl) _obEl.appendChild(nameEl);
+    _obSpeak(OB_ROUNDS[0].fon);
+  }, 800);
+
+  // s2: botón de repetir audio aparece
+  _obDelay(() => {
+    const audioBtn = document.createElement('button');
+    audioBtn.style.cssText = `
+      margin-top:32px;padding:12px 28px;
+      background:#0f1118;border:1.5px solid #1e2230;border-radius:40px;
+      color:#8892b0;font-size:13px;font-family:sans-serif;
+      cursor:pointer;display:flex;align-items:center;gap:8px;
+      animation:ob-fade-up .4s ease both;
+    `;
+    audioBtn.innerHTML = '<span style="font-size:18px;">🔊</span> Escuchar';
+    audioBtn.onclick = () => _obSpeak(OB_ROUNDS[0].fon);
+    if(_obEl) _obEl.appendChild(audioBtn);
+  }, 1600);
+
+  // s5: avanzar al quiz
+  _obDelay(() => _obPhase_quiz(), 3200);
+}
+
+// ════════════════════════════════════════════════════════════════
+// FASE QUIZ — s5: 3 opciones, tap la correcta
+// ════════════════════════════════════════════════════════════════
+function _obPhase_quiz(){
+  _obClearTimers();
+  const round = OB_ROUNDS[_obRound];
+
+  // Reproducir audio al entrar al quiz
+  _obDelay(() => _obSpeak(round.fon), 300);
+
+  _obRender(`
+    ${_obProgressHTML(_obRound)}
+    ${_obShekelHUD()}
+
+    <!-- Instrucción -->
+    <div style="text-align:center;padding:0 32px;animation:ob-fade-up .4s ease both;">
+      <div style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+                  color:#4a5580;font-family:sans-serif;margin-bottom:10px;">
+        Tap la letra que escuchaste
+      </div>
+      <button id="ob-replay-btn"
+        style="background:#0f1118;border:1.5px solid #1e2230;border-radius:40px;
+               padding:8px 20px;color:#5a6590;font-size:13px;
+               display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+               font-family:sans-serif;">
+        <span style="font-size:16px;">🔊</span> ${round.name}
+      </button>
+    </div>
+
+    <!-- Opciones de letras -->
+    <div id="ob-options" style="
+      display:grid;grid-template-columns:repeat(3,1fr);
+      gap:14px;padding:0 24px;width:100%;max-width:340px;
+      margin-top:32px;animation:ob-slide-up .5s .1s ease both;opacity:0;
+      animation-fill-mode:both;">
+      ${round.options.map((letter, i) => `
+        <button class="ob-letter-card" id="ob-opt-${i}"
+          data-idx="${i}"
+          style="height:clamp(90px,22vw,110px);font-size:clamp(44px,11vw,56px);
+                 color:#e8eaf0;">
+          ${letter}
+        </button>
+      `).join('')}
+    </div>
+  `);
 
   // Listeners
-  document.getElementById('ob-cta-btn').addEventListener('click', () => _obNext(stepIdx), { once: true });
+  document.getElementById('ob-replay-btn')
+    .addEventListener('click', () => _obSpeak(round.fon));
 
-  const secBtn = document.getElementById('ob-secondary-btn');
-  if(secBtn){
-    secBtn.addEventListener('click', () => {
-      // "Ya tengo cuenta" → ir al login
-      _obEl.remove(); _obEl = null;
-      showView('auth');
-    }, { once: true });
+  round.options.forEach((_, i) => {
+    document.getElementById('ob-opt-' + i)
+      .addEventListener('click', () => _obHandleTap(i), { once: true });
+  });
+}
+
+// ── Tap handler ───────────────────────────────────────────────
+function _obHandleTap(idx){
+  const round   = OB_ROUNDS[_obRound];
+  const correct = idx === round.correct;
+
+  // Deshabilitar todos los botones
+  round.options.forEach((_, i) => {
+    const btn = document.getElementById('ob-opt-' + i);
+    if(btn) btn.onclick = null;
+  });
+
+  const tappedBtn  = document.getElementById('ob-opt-' + idx);
+  const correctBtn = document.getElementById('ob-opt-' + round.correct);
+
+  if(correct){
+    tappedBtn.classList.add('ob-correct-anim');
+    tappedBtn.style.color = '#3aad6e';
+    _obDelay(() => _obPhase_feedback_correct(), 400);
+  } else {
+    tappedBtn.classList.add('ob-wrong-anim');
+    tappedBtn.style.color = '#cc4444';
+    // Revelar la correcta después del shake
+    _obDelay(() => {
+      if(correctBtn){
+        correctBtn.style.borderColor = '#2a6a48';
+        correctBtn.style.background  = '#0a1f14';
+        correctBtn.style.color       = '#3aad6e';
+      }
+      _obDelay(() => _obPhase_feedback_wrong(), 800);
+    }, 500);
   }
 }
 
-/** Avanza al siguiente paso con transición */
-function _obNext(currentIdx){
-  const nextIdx = currentIdx + 1;
+// ════════════════════════════════════════════════════════════════
+// FEEDBACK CORRECTO — s15 aprox
+// ════════════════════════════════════════════════════════════════
+function _obPhase_feedback_correct(){
+  _obClearTimers();
+  _obShekels++;
 
-  // Marcar welcome como visto al salir del step 0
-  if(currentIdx === 0){
-    localStorage.setItem(OB_WELCOME_KEY, '1');
-  }
+  const round = OB_ROUNDS[_obRound];
+  _obSpeak(round.fon);
 
-  // Si llegamos más allá del último paso → terminar
-  if(nextIdx >= OB_STEPS.length){
+  _obRender(`
+    ${_obProgressHTML(_obRound)}
+    ${_obShekelHUD()}
+
+    <div style="text-align:center;animation:ob-pop .5s cubic-bezier(.34,1.56,.64,1) both;">
+      <!-- Check -->
+      <div style="font-size:64px;margin-bottom:8px;">✅</div>
+
+      <!-- Letra grande -->
+      <div style="font-size:clamp(80px,20vw,100px);color:#3aad6e;line-height:1;
+                  animation:ob-pulse 1.2s ease infinite;">
+        ${round.letter}
+      </div>
+
+      <!-- Nombre -->
+      <div style="font-size:22px;font-weight:700;color:#e8eaf0;
+                  margin-top:8px;font-family:sans-serif;">
+        ${round.name}
+      </div>
+      <div style="font-size:13px;color:#3aad6e;margin-top:4px;
+                  font-family:monospace;letter-spacing:.08em;">
+        suena "${round.sound}"
+      </div>
+
+      <!-- +1 shekel flotante -->
+      <div style="font-size:15px;color:#e8c040;margin-top:16px;
+                  animation:ob-shekel-fly .9s ease forwards;display:inline-block;">
+        +1 🪙
+      </div>
+    </div>
+  `);
+
+  // Actualizar contador de shekels en HUD
+  _obDelay(() => {
+    const el = document.getElementById('ob-shekel-count');
+    if(el) el.textContent = _obShekels;
+  }, 100);
+
+  // Avanzar automáticamente
+  _obDelay(() => {
+    _obRound++;
+    if(_obRound < OB_ROUNDS.length){
+      _obPhase_next_letter();
+    } else {
+      _obPhase_save_prompt();
+    }
+  }, 1800);
+}
+
+// ── Feedback incorrecto ────────────────────────────────────────
+function _obPhase_feedback_wrong(){
+  _obClearTimers();
+  const round = OB_ROUNDS[_obRound];
+
+  _obRender(`
+    ${_obProgressHTML(_obRound)}
+    ${_obShekelHUD()}
+
+    <div style="text-align:center;animation:ob-fade-up .4s ease both;">
+      <div style="font-size:48px;margin-bottom:8px;">💡</div>
+      <div style="font-size:13px;color:#4a5580;font-family:sans-serif;letter-spacing:.1em;
+                  text-transform:uppercase;margin-bottom:12px;">
+        Era esta letra
+      </div>
+      <div style="font-size:clamp(90px,22vw,110px);color:#e8eaf0;line-height:1;">
+        ${round.letter}
+      </div>
+      <div style="font-size:22px;font-weight:700;color:#e8eaf0;
+                  margin-top:8px;font-family:sans-serif;">
+        ${round.name}
+      </div>
+      <div style="font-size:13px;color:#5a8070;margin-top:4px;
+                  font-family:monospace;letter-spacing:.08em;">
+        suena "${round.sound}"
+      </div>
+    </div>
+
+    <!-- Reintentar misma letra -->
+    <div style="position:absolute;bottom:40px;width:100%;padding:0 24px;box-sizing:border-box;">
+      <button class="ob-btn-primary" id="ob-retry-btn">Intentar de nuevo</button>
+    </div>
+  `);
+
+  _obSpeak(round.fon);
+
+  document.getElementById('ob-retry-btn')
+    .addEventListener('click', () => _obPhase_quiz(), { once: true });
+}
+
+// ════════════════════════════════════════════════════════════════
+// TRANSICIÓN A SIGUIENTE LETRA — s30 aprox
+// ════════════════════════════════════════════════════════════════
+function _obPhase_next_letter(){
+  _obClearTimers();
+  const round = OB_ROUNDS[_obRound];
+
+  _obRender(`
+    ${_obProgressHTML(_obRound)}
+    ${_obShekelHUD()}
+
+    <div style="text-align:center;animation:ob-pop .55s cubic-bezier(.34,1.56,.64,1) both;">
+      <div style="font-size:11px;letter-spacing:.3em;text-transform:uppercase;
+                  color:#3a4060;font-family:sans-serif;margin-bottom:8px;">
+        siguiente letra
+      </div>
+      <div style="font-size:clamp(100px,25vw,130px);color:#fff;line-height:1;">
+        ${round.letter}
+      </div>
+      <div style="font-size:24px;font-weight:700;color:#e8eaf0;
+                  margin-top:6px;font-family:sans-serif;
+                  animation:ob-fade-up .4s .3s ease both;opacity:0;
+                  animation-fill-mode:both;">
+        ${round.name}
+        <span style="font-size:14px;color:#3aad6e;font-family:monospace;
+                     margin-left:8px;">"${round.sound}"</span>
+      </div>
+    </div>
+  `);
+
+  _obDelay(() => _obSpeak(round.fon), 400);
+  _obDelay(() => _obPhase_quiz(), 2400);
+}
+
+// ════════════════════════════════════════════════════════════════
+// SAVE PROMPT — s45: ¿guardás tu progreso?
+// ════════════════════════════════════════════════════════════════
+function _obPhase_save_prompt(){
+  _obClearTimers();
+
+  _obRender(`
+    <div style="width:100%;max-width:340px;padding:0 24px;box-sizing:border-box;
+                animation:ob-fade-up .5s ease both;text-align:center;">
+
+      <!-- Progreso completado -->
+      <div style="font-size:48px;margin-bottom:4px;">🎉</div>
+      <div style="font-size:11px;letter-spacing:.25em;text-transform:uppercase;
+                  color:#3aad6e;font-family:sans-serif;margin-bottom:6px;">
+        ¡Completaste tu primera lección!
+      </div>
+      <div style="font-family:'Fraunces',serif;font-size:26px;font-weight:900;
+                  color:#e8eaf0;margin-bottom:4px;">
+        Aprendiste 3 letras
+      </div>
+
+      <!-- Shekels ganados -->
+      <div style="display:inline-flex;align-items:center;gap:6px;
+                  background:#1a1a10;border:1.5px solid #3a3010;
+                  border-radius:20px;padding:6px 16px;margin-bottom:28px;">
+        <span style="font-size:18px;">🪙</span>
+        <span style="font-size:14px;font-weight:700;color:#e8c040;font-family:monospace;">
+          +${_obShekels} shekels ganados
+        </span>
+      </div>
+
+      <!-- Barra de progreso llena -->
+      <div style="width:100%;height:10px;border-radius:5px;
+                  background:#1a1e2c;overflow:hidden;margin-bottom:28px;">
+        <div class="ob-progress-bar-fill" style="width:0%;transition:width .8s ease;">
+        </div>
+      </div>
+
+      <!-- CTA principal -->
+      <button class="ob-btn-primary" id="ob-signup-btn" style="margin-bottom:12px;">
+        Guardar mi progreso ✨
+      </button>
+
+      <!-- Skip -->
+      <button class="ob-btn-ghost" id="ob-skip-btn">
+        Seguir sin cuenta →
+      </button>
+
+      <div style="font-size:11px;color:#2a3050;margin-top:14px;font-family:sans-serif;
+                  line-height:1.5;">
+        Gratis · Sin tarjeta · Tu progreso no se perderá
+      </div>
+    </div>
+  `);
+
+  // Animar barra a 100%
+  _obDelay(() => {
+    const bar = _obEl && _obEl.querySelector('.ob-progress-bar-fill');
+    if(bar) bar.style.width = '100%';
+  }, 100);
+
+  document.getElementById('ob-signup-btn').addEventListener('click', () => {
+    trackEvent('ob_signup_prompt_accepted', { shekels: _obShekels });
+    _obClose(() => showView('auth'));
+  }, { once: true });
+
+  document.getElementById('ob-skip-btn').addEventListener('click', () => {
+    trackEvent('ob_signup_prompt_skipped', { shekels: _obShekels });
     _obFinish();
-    return;
-  }
-
-  // Transición: fade out → renderizar nuevo paso
-  if(_obEl){
-    _obEl.style.transition = 'opacity .2s ease';
-    _obEl.style.opacity    = '0';
-    setTimeout(() => {
-      if(_obEl) _obEl.style.opacity = '';
-      _obStepIdx = nextIdx;
-      renderOnboardingStep(nextIdx);
-    }, 200);
-  }
+  }, { once: true });
 }
 
-/** Terminar el onboarding → renderHome */
-function _obFinish(){
-  localStorage.setItem(OB_DONE_KEY, '1');
-  localStorage.setItem('heb_welcomed', '1'); // compatibilidad con sistema existente
-
+// ── Cerrar overlay ────────────────────────────────────────────
+function _obClose(cb){
   if(_obEl){
     _obEl.style.transition = 'opacity .25s ease';
     _obEl.style.opacity    = '0';
     setTimeout(() => {
       if(_obEl){ _obEl.remove(); _obEl = null; }
-      renderHome();
-    }, 250);
-  } else {
-    renderHome();
-  }
+      if(cb) cb();
+    }, 260);
+  } else if(cb){ cb(); }
 }
 
-/** resetOnboarding() — para testing */
+function _obFinish(){
+  localStorage.setItem(OB_DONE_KEY,    '1');
+  localStorage.setItem('heb_welcomed', '1');
+  // Escribir shekels ganados en state si existe
+  try {
+    if(typeof state !== 'undefined' && _obShekels > 0){
+      state.shekels = (state.shekels || 0) + _obShekels;
+      saveProgress();
+    }
+  } catch(e){}
+  _obClose(() => renderHome());
+}
+
 function resetOnboarding(){
   localStorage.removeItem(OB_WELCOME_KEY);
   localStorage.removeItem(OB_DONE_KEY);
   localStorage.removeItem('heb_welcomed');
+  _obClearTimers();
   if(_obEl){ _obEl.remove(); _obEl = null; }
+  _obRound   = 0;
+  _obShekels = 0;
   startOnboardingFlow();
   console.log('[Onboarding] Reset completo — reiniciando flujo');
 }
 
-// ── Racha en ejercicio — HUD visual ──────────────────────────────
+// ── Racha en ejercicio — HUD visual — HUD visual ──────────────────────────────
 function _updateStreakHUD(streak){
   const el = document.getElementById('in-game-streak');
   if(!el) return;
@@ -16359,7 +16701,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if('serviceWorker' in navigator){
     window.addEventListener('load', async () => {
       try {
-        const reg = await navigator.serviceWorker.register('./sw.js').catch(err => { trackError('sw_register', err); throw err; });
+        const reg = await navigator.serviceWorker.register('./sw.js');
         dbg('SW registered:', reg.scope);
 
         // Detectar nueva versión disponible
