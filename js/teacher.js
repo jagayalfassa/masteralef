@@ -673,42 +673,97 @@ function tdRenderClassSettings(){
       </button>
     </div>`}
 
-    ${cls ? `
-    <!-- Link de invitación -->
-    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:6px;">🔗 Link de invitación</div>
-      <div style="font-size:11px;color:var(--sand-500);margin-bottom:8px;">Compartí este link y al abrirlo el alumno queda unido automáticamente.</div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <div style="flex:1;background:var(--sand-100);border:1px solid var(--sand-300);border-radius:8px;
-                    padding:8px 10px;font-size:11px;color:var(--navy-600);word-break:break-all;font-family:monospace;">
-          ${window.location.origin}/?join=${cls.code}
-        </div>
-        <button onclick="navigator.clipboard?.writeText('${window.location.origin}/?join=${cls.code}').then(()=>showToast('Link copiado','green'))"
-          style="padding:8px 12px;border:none;border-radius:8px;background:var(--sand-200);
-                 color:var(--navy-700);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">
-          Copiar
-        </button>
-      </div>
-    </div>
 
-    <!-- Agregar alumno manualmente -->
-    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:6px;">➕ Agregar alumno</div>
-      <div style="font-size:11px;color:var(--sand-500);margin-bottom:8px;">Ingresá el email del alumno registrado en AlefMaster.</div>
-      <div style="display:flex;gap:8px;">
-        <input id="td-add-student-email" type="email" placeholder="email@ejemplo.com"
-          style="flex:1;padding:10px 12px;border:1.5px solid var(--sand-300);border-radius:10px;
-                 font-size:13px;color:var(--navy-800);outline:none;box-sizing:border-box;"
-          onfocus="this.style.borderColor='var(--navy-600)'" onblur="this.style.borderColor='var(--sand-300)'"
-          onkeydown="if(event.key==='Enter') tdAddStudentByEmail()">
-        <button onclick="tdAddStudentByEmail()"
-          style="padding:10px 14px;border:none;border-radius:10px;background:var(--navy-800);
-                 color:white;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">
-          Agregar
-        </button>
-      </div>
-      <div id="td-add-student-status" style="font-size:11px;min-height:14px;margin-top:6px;color:var(--sand-500);"></div>
-    </div>` : ''}
+    <!-- ── Licencia institucional ───────────────────────── -->
+    ${(function(){
+      const tier = (typeof getInstitutionTier === 'function') ? getInstitutionTier() : 'free';
+      const trialDays = (typeof getDaysLeftInTrial === 'function') ? getDaysLeftInTrial() : null;
+      const isFree = tier === 'free';
+      const isTrial = tier !== 'free' && trialDays !== null;
+
+      if(!isFree && !isTrial) return `
+        <div style="background:linear-gradient(135deg,#0f2744,#1a3a5c);border-radius:14px;
+                    padding:14px 16px;display:flex;align-items:center;gap:12px;">
+          <span style="font-size:1.4rem;">✡️</span>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#7ab8e8;text-transform:uppercase;letter-spacing:.05em;">
+              AlefMaster ${tier === 'pro' ? 'Pro' : 'Básica'}
+            </div>
+            <div style="font-size:12px;color:#a8c8e8;margin-top:2px;">Licencia activa</div>
+          </div>
+        </div>`;
+
+      if(isTrial) return `
+        <div style="background:linear-gradient(135deg,#1a2e1a,#243824);border-radius:14px;
+                    padding:14px 16px;border:1.5px solid #2a5a2a;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#5aad6e;text-transform:uppercase;">
+                Trial activo — ${tier === 'pro' ? 'Pro' : 'Básica'}
+              </div>
+              <div style="font-size:12px;color:#8aba8a;margin-top:2px;">
+                ${trialDays} día${trialDays !== 1 ? 's' : ''} restante${trialDays !== 1 ? 's' : ''}
+              </div>
+            </div>
+            <div style="font-size:1.2rem;">⏱️</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="startCheckout('${tier}','stripe')"
+              style="flex:1;padding:9px;border:none;border-radius:10px;
+                     background:#2a6e3a;color:white;font-size:12px;font-weight:700;cursor:pointer;">
+              💳 Stripe
+            </button>
+            <button onclick="startCheckout('${tier}','mercadopago')"
+              style="flex:1;padding:9px;border:none;border-radius:10px;
+                     background:#009ee3;color:white;font-size:12px;font-weight:700;cursor:pointer;">
+              💙 MercadoPago
+            </button>
+          </div>
+        </div>`;
+
+      // Free — mostrar upgrade
+      return `
+        <div style="background:linear-gradient(135deg,#1c1408,#2a1e08);border-radius:14px;
+                    padding:16px;border:1.5px solid #4a3800;">
+          <div style="font-size:13px;font-weight:700;color:#e8b84a;margin-bottom:4px;">
+            🚀 Activar licencia institucional
+          </div>
+          <div style="font-size:11px;color:#a88840;margin-bottom:12px;line-height:1.5;">
+            Dashboard avanzado · Karaoke de Torá · Alumnos ilimitados
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+            <div style="background:#1a1408;border:1.5px solid #3a2a00;border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:10px;color:#7a6030;text-transform:uppercase;font-weight:700;">Básica</div>
+              <div style="font-size:1.2rem;font-weight:900;color:#e8b84a;margin:4px 0;">$29</div>
+              <div style="font-size:10px;color:#7a6030;">hasta 50 alumnos</div>
+            </div>
+            <div style="background:#1a1408;border:1.5px solid #5a4000;border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:10px;color:#a88040;text-transform:uppercase;font-weight:700;">Pro</div>
+              <div style="font-size:1.2rem;font-weight:900;color:#f8d060;margin:4px 0;">$79</div>
+              <div style="font-size:10px;color:#7a6030;">ilimitado + reportes</div>
+            </div>
+          </div>
+          <!-- Trial sin tarjeta -->
+          <button onclick="startCheckout('basic','trial')"
+            style="width:100%;padding:10px;border:1.5px dashed #5a4800;border-radius:10px;
+                   background:transparent;color:#c8a040;font-size:12px;font-weight:700;
+                   cursor:pointer;margin-bottom:8px;">
+            ✨ Probar 14 días gratis (sin tarjeta)
+          </button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button onclick="_amShowCheckoutOptions('basic')"
+              style="padding:9px;border:none;border-radius:10px;background:#4a3200;
+                     color:#e8b84a;font-size:12px;font-weight:700;cursor:pointer;">
+              Básica — pagar
+            </button>
+            <button onclick="_amShowCheckoutOptions('pro')"
+              style="padding:9px;border:none;border-radius:10px;background:#5a4000;
+                     color:#f8d060;font-size:12px;font-weight:700;cursor:pointer;">
+              Pro — pagar
+            </button>
+          </div>
+        </div>`;
+    })()}
 
     <!-- Mensaje a toda la clase -->
     <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
@@ -942,117 +997,19 @@ async function noInstJoin(){
   }
 }
 
-// ── Agregar alumno manualmente por email ──────────────────────
-async function tdAddStudentByEmail(){
-  if(!_sb || !_authUser || !_tdClassData) return;
-  const input  = document.getElementById('td-add-student-email');
-  const status = document.getElementById('td-add-student-status');
-  const email  = input?.value.trim().toLowerCase();
-  if(!email){ if(status) status.textContent = 'Ingresá un email'; return; }
-  if(status) status.textContent = 'Buscando...';
-
-  try {
-    // Buscar el perfil por email
-    const { data: profiles, error: pErr } = await _sb
-      .from('profiles')
-      .select('id, name, email')
-      .eq('email', email)
-      .limit(1);
-
-    if(pErr || !profiles?.length){
-      if(status) status.textContent = '❌ No se encontró un alumno con ese email';
-      return;
-    }
-    const student = profiles[0];
-
-    // Verificar que no esté ya en la clase
-    const { data: existing } = await _sb
-      .from('class_members')
-      .select('id')
-      .eq('class_id', _tdClassData.id)
-      .eq('student_id', student.id)
-      .maybeSingle();
-
-    if(existing){
-      if(status) status.textContent = '⚠️ Ese alumno ya está en la clase';
-      return;
-    }
-
-    // Agregar a la clase
-    const { error: mErr } = await _sb.from('class_members').insert({
-      class_id:   _tdClassData.id,
-      student_id: student.id,
-      joined_at:  new Date().toISOString(),
-    });
-
-    if(mErr){ if(status) status.textContent = '❌ Error: ' + mErr.message; return; }
-
-    if(status) status.textContent = '✓ ' + (student.name || email) + ' agregado a la clase';
-    if(input) input.value = '';
-    showToast('✓ Alumno agregado', 'green');
-    trackEvent('teacher_student_added_manual');
-
-    // Refrescar lista de alumnos
-    await loadTeacherDashboard();
-    tdSwitchTab('students');
-
-  } catch(e){ if(status) status.textContent = '❌ Error: ' + e.message; }
-}
-
-// ── Unirse a clase por código (para alumnos) ──────────────────
-async function joinClassByCode(code){
-  if(!_sb || !_authUser) return;
-  const cleanCode = (code || '').trim().toUpperCase();
-  if(!cleanCode){ showToast('Ingresá el código de clase', 'warn'); return; }
-
-  try {
-    // Buscar la clase
-    const { data: cls } = await _sb
-      .from('classes')
-      .select('id, name, teacher_id')
-      .eq('code', cleanCode)
-      .maybeSingle();
-
-    if(!cls){ showToast('Código inválido — verificá y volvé a intentar', 'warn'); return; }
-
-    // Verificar si ya está en la clase
-    const { data: existing } = await _sb
-      .from('class_members')
-      .select('id')
-      .eq('class_id', cls.id)
-      .eq('student_id', _authUser.id)
-      .maybeSingle();
-
-    if(existing){ showToast('Ya estás en esta clase (' + cls.name + ')', 'info'); return; }
-
-    // Unirse
-    const { error } = await _sb.from('class_members').insert({
-      class_id:   cls.id,
-      student_id: _authUser.id,
-      joined_at:  new Date().toISOString(),
-    });
-
-    if(error){ showToast('Error: ' + error.message, 'warn'); return; }
-    showToast('✓ Te uniste a ' + cls.name, 'green');
-    trackEvent('student_joined_class', { code: cleanCode });
-
-  } catch(e){ showToast('Error: ' + e.message, 'warn'); }
-}
-
-// ── Auto-join desde URL (?join=CODIGO) ────────────────────────
-(function checkJoinParam(){
-  const params = new URLSearchParams(window.location.search);
-  const code   = params.get('join');
-  if(!code) return;
-  // Esperar a que el auth esté listo
-  const tryJoin = () => {
-    if(_authUser){
-      joinClassByCode(code);
-      // Limpiar URL
-      window.history.replaceState({}, '', window.location.pathname);
+// ── Checkout options: elegir proveedor ───────────────────────
+function _amShowCheckoutOptions(tier) {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  const isLATAM = /America\/(Argentina|Mexico|Buenos_Aires|Bogota|Santiago|Lima|Caracas|Montevideo)/.test(tz);
+  if(isLATAM) {
+    const price = tier === 'pro' ? '$79' : '$29';
+    const msg = 'Elegir medio de pago ' + price + '/mes:\n\nOK = MercadoPago (pesos)\nCancelar = Stripe (USD)';
+    if(confirm(msg)) {
+      startCheckout(tier, 'mercadopago');
     } else {
-      setTimeout(tryJoin, 500);
+      startCheckout(tier, 'stripe');
     }
-  };
-  setTimeout(tryJoin, 1000);
-})();
+  } else {
+    startCheckout(tier, 'stripe');
+  }
+}
