@@ -14759,10 +14759,26 @@ async function createInstitution(name){
     }).select().single();
     if(error){ dbg('[Auth] createInstitution error:', error.message); return null; }
     // Asignar como admin de la institución
-    await _sb.from('profiles').update({
+    const { error: profErr } = await _sb.from('profiles').update({
       institution_id: data.id,
       role: 'teacher',
     }).eq('id', _authUser.id);
+    if(profErr){
+      dbg('[Auth] createInstitution profile-link error:', profErr.message);
+      if(typeof trackEvent === 'function'){
+        trackEvent('institution_orphan', { institution_id: data.id, error: profErr.message });
+      }
+      // Intentar rollback: borrar la institución recién creada
+      const { error: delErr } = await _sb.from('institutions').delete().eq('id', data.id);
+      if(delErr){
+        dbg('[Auth] createInstitution rollback error:', delErr.message);
+        if(typeof trackEvent === 'function'){
+          trackEvent('institution_rollback_failed', { institution_id: data.id, error: delErr.message });
+        }
+      }
+      showToast('No se pudo vincular la institución. Reintentá.', 'warn');
+      return null;
+    }
     _authProfile = { ..._authProfile, institution_id: data.id, role: 'teacher' };
     dbg('[Auth] Institución creada:', data.name, data.id);
     return data;
@@ -14882,6 +14898,7 @@ async function initAuth(){
       _authUser = session.user;
       await _loadProfile(_authUser.id);
       _authProfileCache = _authProfile; // poblar cache desde el inicio
+      _retryPendingMemberships().catch(() => {});
       dbg('[Auth] Sesión restaurada:', _authUser.email,
           '| role:', _authProfile?.role,
           '| inst:', _authProfile?._institution?.name || _authProfile?.institution_id || 'ninguna');
@@ -15042,6 +15059,23 @@ async function savePushSubscription(subscription){
 // ── Unirse a clase por código ─────────────────────────────────
 async function joinClassByCode(code){
   if(!_sb || !_authUser || !code) return false;
+  const PENDING_JOIN_KEY = 'heb_pending_join';
+  const _failJoin = (step, error) => {
+    dbg('[Auth] joinClassByCode error @' + step + ':', error?.message || error);
+    if(typeof trackEvent === 'function'){
+      trackEvent('class_join_failed', {
+        step,
+        code,
+        student_id: _authUser?.id,
+        error: error?.message || String(error),
+      });
+    }
+    try {
+      localStorage.setItem(PENDING_JOIN_KEY, JSON.stringify({ code, ts: Date.now() }));
+    } catch(e){ /* localStorage no disponible, silencioso */ }
+    showToast('No se pudo unir a la clase. Se reintentará.', 'warn');
+    return false;
+  };
   try {
     // Buscar la clase
     const { data: cls } = await _sb
@@ -15052,23 +15086,48 @@ async function joinClassByCode(code){
     if(!cls){ showToast('Código de clase inválido', 'warn'); return false; }
 
     // Unirse a la clase
-    await _sb.from('class_members').upsert({
+    const { error: upErr } = await _sb.from('class_members').upsert({
       class_id:   cls.id,
       student_id: _authUser.id,
       joined_at:  new Date().toISOString(),
     }, { onConflict: 'class_id,student_id' });
+    if(upErr) return _failJoin('upsert', upErr);
+
+    // Verificar que la fila realmente exista antes de festejar
+    const { data: check, error: checkErr } = await _sb
+      .from('class_members')
+      .select('class_id, student_id')
+      .eq('class_id', cls.id)
+      .eq('student_id', _authUser.id)
+      .maybeSingle();
+    if(checkErr) return _failJoin('verify', checkErr);
+    if(!check) return _failJoin('verify', new Error('fila no encontrada tras upsert'));
 
     // Heredar institution_id de la clase
     if(cls.institution_id){
-      await _sb.from('profiles').update({
+      const { error: profErr } = await _sb.from('profiles').update({
         institution_id: cls.institution_id,
       }).eq('id', _authUser.id);
+      if(profErr) return _failJoin('profile_update', profErr);
       if(_authProfile) _authProfile.institution_id = cls.institution_id;
     }
 
+    try { localStorage.removeItem(PENDING_JOIN_KEY); } catch(e){ /* silencioso */ }
     showToast('✓ Te uniste a la clase', 'green');
     return true;
-  } catch(e){ dbg('[Auth] joinClassByCode error:', e.message); return false; }
+  } catch(e){ return _failJoin('exception', e); }
+}
+
+// ── Reintento de membership pendiente (localStorage → Supabase) ──
+async function _retryPendingMemberships(){
+  if(!_sb || !_authUser) return;
+  let pending;
+  try {
+    pending = JSON.parse(localStorage.getItem('heb_pending_join') || 'null');
+  } catch(e){ return; }
+  if(!pending || !pending.code) return;
+  dbg('[Auth] Reintentando join pendiente:', pending.code);
+  await joinClassByCode(pending.code);
 }
 
 // ── UI del header — mostrar usuario o botón login ─────────────
