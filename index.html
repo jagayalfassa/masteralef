@@ -6794,6 +6794,38 @@ const READ_LISTEN_MODE = true;
 const SELF_RECORD = true;
 const SELF_RECORD_UPLOAD = true; // bucket + RLS ya aplicados (self_record_upload_bucket_rls)
 
+// ╔═══════════════════════════════════════════════════════════════╗
+// ║  PROMPT I4 — "Primera aliyá completa": hito + ceremonia         ║
+// ║  Se dispara UNA sola vez por alumno, cuando termina de          ║
+// ║  leer/escuchar completa una aliyá de SU PROPIA parashá          ║
+// ║  (heb_bm_parasha). No aplica en modo docente/preview.           ║
+// ╚═══════════════════════════════════════════════════════════════╝
+const FIRST_ALIYAH_CEREMONY = true;
+const FIRST_ALIYAH_KEY = 'heb_milestone_first_aliyah';
+
+function getFirstAliyahMilestone(){
+  try { return JSON.parse(localStorage.getItem(FIRST_ALIYAH_KEY) || 'null'); }
+  catch(e){ return null; }
+}
+
+// Marca el hito una sola vez. Devuelve true SOLO la primera vez que se
+// cumplen todas las condiciones (esa es la señal para disparar la ceremonia).
+function _markFirstAliyahComplete(parashaId, aliyah){
+  if(typeof FIRST_ALIYAH_CEREMONY !== 'undefined' && !FIRST_ALIYAH_CEREMONY) return false;
+  if(getFirstAliyahMilestone()) return false; // ya ocurrió antes → guard de una sola vez
+  if(_authProfile?.role === 'teacher') return false; // no disparar en modo docente/preview
+  if(!aliyah) return false; // solo con una aliyá específica seleccionada
+
+  const bmParasha = localStorage.getItem('heb_bm_parasha');
+  if(!bmParasha || bmParasha !== parashaId) return false; // solo en SU propia parashá
+
+  const milestone = { parasha: parashaId, aliyah: String(aliyah), date: new Date().toISOString() };
+  try { localStorage.setItem(FIRST_ALIYAH_KEY, JSON.stringify(milestone)); } catch(e){}
+  if(typeof trackEvent === 'function') trackEvent('first_aliyah_complete', { parasha: parashaId, aliyah: String(aliyah) });
+  if(typeof syncProgressToSupabase === 'function') syncProgressToSupabase(true).catch(function(){});
+  return true;
+}
+
 // VERSE_TIMINGS[parashaId][aliyah] = [{ verse: 1, start: 0.0 }, ...]
 // "verse" = posición 1-based del versículo dentro de ESA aliyá (no global).
 // "start" = segundos desde el inicio del mp3 de esa aliyá.
@@ -7102,6 +7134,10 @@ function renderReadListenAudio(parashaId, aliyah){
     audioEl.removeEventListener('timeupdate', audioEl._readListenHandler);
     audioEl._readListenHandler = null;
   }
+  if(audioEl._firstAliyahEndedHandler){
+    audioEl.removeEventListener('ended', audioEl._firstAliyahEndedHandler);
+    audioEl._firstAliyahEndedHandler = null;
+  }
   document.querySelectorAll('#read-verses [data-verse-idx].verse-active')
     .forEach(function(el){ el.classList.remove('verse-active'); });
 
@@ -7118,6 +7154,17 @@ function renderReadListenAudio(parashaId, aliyah){
     audioEl.src = audioUrl;
     audioEl.dataset.src = audioUrl;
   }
+
+  // I4: hito "primera aliyá completa" — el audio de la aliyá terminó de sonar.
+  // Es la señal principal (independiente de si hay VERSE_TIMINGS o no).
+  const _checkFirstAliyahMilestone = function(){
+    if(typeof _markFirstAliyahComplete === 'function' && _markFirstAliyahComplete(parashaId, aliyah)){
+      if(typeof showFirstAliyahCeremony === 'function') showFirstAliyahCeremony(parashaId, aliyah);
+    }
+  };
+  const endedHandler = function(){ _checkFirstAliyahMilestone(); };
+  audioEl._firstAliyahEndedHandler = endedHandler;
+  audioEl.addEventListener('ended', endedHandler);
 
   // Self-record: seleccionar verso al tocar la card, funciona con o sin
   // VERSE_TIMINGS (grabar/comparar no depende del resaltado por timestamps).
@@ -7154,6 +7201,11 @@ function renderReadListenAudio(parashaId, aliyah){
       if(typeof SELF_RECORD !== 'undefined' && SELF_RECORD && String(selfRecordState.activeVerse) !== String(activeVerse)){
         _renderSelfRecordUI(activeVerse, audioEl);
       }
+      // I4: trigger secundario — el resaltado alcanzó el último versículo
+      // de la aliyá (cubre el caso de audio con cola/silencio final).
+      if(String(activeVerse) === String(sorted[sorted.length - 1].verse)){
+        _checkFirstAliyahMilestone();
+      }
     }
   };
   audioEl._readListenHandler = handler;
@@ -7171,6 +7223,193 @@ function renderReadListenAudio(parashaId, aliyah){
     card.style.cursor = 'pointer';
     card.addEventListener('click', seek);
   });
+}
+
+// ╔═══════════════════════════════════════════════════════════════╗
+// ║  PROMPT I4 — Ceremonia "Primera aliyá completa" + certificado  ║
+// ╚═══════════════════════════════════════════════════════════════╝
+
+// Audio opcional de bendición/jazán al completar la ceremonia.
+// Vacío por defecto → degradación silenciosa (no se reproduce nada).
+const FIRST_ALIYAH_BLESSING_AUDIO = '';
+
+function showFirstAliyahCeremony(parashaId, aliyah){
+  if(document.getElementById('first-aliyah-ceremony')) return; // ya se está mostrando (guard doble)
+
+  const meta = (typeof PARASHA_CATALOG !== 'undefined') ? PARASHA_CATALOG.find(function(p){ return p.id === parashaId; }) : null;
+  const parashaEsp  = meta?.esp || parashaId;
+  const parashaHeb  = meta?.name || '';
+  const playerName  = (typeof getPlayerName === 'function' ? getPlayerName() : '') || 'Alumno/a';
+  const fecha       = new Date().toLocaleDateString('es-AR', { day:'numeric', month:'long', year:'numeric' });
+
+  // Referencia de la aliyá — mismo criterio que en renderParashaRead
+  var aliyahRef = '';
+  try {
+    var _rt = typeof getReadingType === 'function' ? getReadingType() : null;
+    var _krAliyot = typeof getKriyahAliyot === 'function'
+      ? getKriyahAliyot(parashaId, _rt, localStorage.getItem('heb_bm_date') || '')
+      : null;
+    var _match = _krAliyot && _krAliyot.find(function(k){ return k.aliyah === String(aliyah); });
+    if(_match){
+      aliyahRef = _match.reading;
+    } else {
+      var _alMeta = typeof getAliyahMeta === 'function' ? getAliyahMeta(parashaId, aliyah) : null;
+      if(_alMeta) aliyahRef = _alMeta.reading;
+    }
+  } catch(e){}
+
+  // ── Overlay ceremonia (pantalla completa, tono kavaná — no arcade) ──
+  const overlay = document.createElement('div');
+  overlay.id = 'first-aliyah-ceremony';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9900',
+    'background:radial-gradient(circle at 50% 20%,var(--navy-700),var(--navy-900) 75%)',
+    'display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto',
+    'animation:fadeIn .35s ease'
+  ].join(';');
+
+  overlay.innerHTML = '<div style="max-width:420px;width:100%;text-align:center;color:white;">' +
+      '<div style="font-size:2.2rem;margin-bottom:8px;color:var(--gold-400);">\u2726</div>' +
+      (parashaHeb ? '<div style="font-family:\'Noto Serif Hebrew\',serif;font-size:1.6rem;font-weight:700;color:var(--gold-400);margin-bottom:6px;" dir="rtl">' + parashaHeb + '</div>' : '') +
+      '<h2 style="font-family:\'Fraunces\',serif;font-size:1.4rem;font-weight:900;margin-bottom:10px;">Tu primera aliyá completa</h2>' +
+      '<p style="font-size:13.5px;color:rgba(255,255,255,0.85);line-height:1.6;margin-bottom:20px;">' +
+        'Hoy leíste y escuchaste completa tu aliyá de <b>' + parashaEsp + '</b>' + (aliyahRef ? ' \u00b7 ' + aliyahRef : '') + '.<br>' +
+        'Un paso más cerca de tu Bar/Bat Mitzvá.' +
+      '</p>' +
+      '<canvas id="first-aliyah-cert-canvas" style="width:100%;max-width:360px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,0.4);margin-bottom:20px;"></canvas>' +
+      '<div style="display:flex;gap:10px;">' +
+        '<button id="first-aliyah-share" style="flex:1;padding:14px;border-radius:14px;background:var(--gold-500);color:var(--navy-900);border:none;font-size:14px;font-weight:900;cursor:pointer;">\ud83d\udce4 Compartir certificado</button>' +
+        '<button id="first-aliyah-close" style="padding:14px 18px;border-radius:14px;background:rgba(255,255,255,0.12);color:white;border:none;font-size:14px;font-weight:700;cursor:pointer;">Cerrar</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+
+  // Confetti sobrio — una sola ola, paleta dorada (no arcade)
+  if(typeof confetti === 'function'){
+    confetti({ particleCount: 140, spread: 100, origin: { y: 0.4 }, colors: ['#C4963C','#F5E6D3','#fff'] });
+  }
+
+  // Audio opcional de bendición/jazán (degradación silenciosa si no existe)
+  if(FIRST_ALIYAH_BLESSING_AUDIO){
+    try { new Audio(FIRST_ALIYAH_BLESSING_AUDIO).play().catch(function(){}); } catch(e){}
+  }
+
+  // ── Certificado (canvas) ──────────────────────────────────
+  const canvas = overlay.querySelector('#first-aliyah-cert-canvas');
+  const certInfo = { playerName: playerName, parashaEsp: parashaEsp, parashaHeb: parashaHeb, aliyahRef: aliyahRef, aliyah: aliyah, fecha: fecha };
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(function(){ _drawFirstAliyahCertificate(canvas, certInfo); }).catch(function(){ _drawFirstAliyahCertificate(canvas, certInfo); });
+  } else {
+    _drawFirstAliyahCertificate(canvas, certInfo);
+  }
+
+  overlay.querySelector('#first-aliyah-close').addEventListener('click', function(){ overlay.remove(); });
+  overlay.addEventListener('click', function(e){ if(e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector('#first-aliyah-share').addEventListener('click', function(){
+    canvas.toBlob(function(blob){
+      if(!blob){ if(typeof showToast === 'function') showToast('No se pudo generar el certificado', 'warm'); return; }
+      const fileName = 'alefmaster-primera-aliya.png';
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+        navigator.share({
+          files: [file],
+          title: 'Mi primera aliyá completa \u2014 AlefMaster',
+          text: playerName + ' completó su primera aliyá de ' + parashaEsp + ' \ud83c\udf1f'
+        }).catch(function(){ _downloadFirstAliyahCert(canvas, fileName); });
+      } else {
+        _downloadFirstAliyahCert(canvas, fileName);
+      }
+    }, 'image/png');
+  });
+
+  if(typeof trackEvent === 'function') trackEvent('first_aliyah_ceremony_shown', { parasha: parashaId, aliyah: String(aliyah) });
+}
+
+function _downloadFirstAliyahCert(canvas, fileName){
+  try {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = fileName || 'alefmaster-primera-aliya.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    if(typeof showToast === 'function') showToast('\u2713 Certificado descargado', 'green');
+  } catch(e){
+    if(typeof showToast === 'function') showToast('No se pudo descargar el certificado', 'warm');
+  }
+}
+
+// Dibuja el certificado en canvas (texto vía fillText → sin riesgo de
+// inyección HTML; no usar innerHTML con estos datos en ningún lado).
+function _drawFirstAliyahCertificate(canvas, info){
+  const W = 800, H = 1000;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#0D1F35');
+  grad.addColorStop(1, '#1B3A5C');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = '#C4963C';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(24, 24, W - 48, H - 48);
+  ctx.strokeStyle = 'rgba(196,150,60,0.4)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(40, 40, W - 80, H - 80);
+
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = '#C4963C';
+  ctx.font = '48px serif';
+  ctx.fillText('\u2726', W / 2, 130);
+
+  ctx.fillStyle = '#F5E6D3';
+  ctx.font = "900 32px 'Fraunces', serif";
+  ctx.fillText('Certificado de Lectura', W / 2, 200);
+  ctx.font = "700 22px 'Fraunces', serif";
+  ctx.fillStyle = '#C4963C';
+  ctx.fillText('Primera Aliyá Completa', W / 2, 236);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = "900 38px 'Fraunces', serif";
+  ctx.fillText(String(info.playerName || '').slice(0, 40), W / 2, 340);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath();
+  ctx.moveTo(W / 2 - 140, 370);
+  ctx.lineTo(W / 2 + 140, 370);
+  ctx.stroke();
+
+  if(info.parashaHeb){
+    ctx.direction = 'rtl';
+    ctx.fillStyle = '#C4963C';
+    ctx.font = "700 36px 'Noto Serif Hebrew', serif";
+    ctx.fillText(info.parashaHeb, W / 2, 440);
+    ctx.direction = 'ltr';
+  }
+
+  ctx.fillStyle = '#F5E6D3';
+  ctx.font = "600 22px 'Inter', sans-serif";
+  ctx.fillText('Parashá ' + info.parashaEsp + (info.aliyah ? ' \u00b7 Aliyá ' + info.aliyah : ''), W / 2, 490);
+
+  if(info.aliyahRef){
+    ctx.fillStyle = 'rgba(245,230,211,0.75)';
+    ctx.font = "500 18px 'Inter', sans-serif";
+    ctx.fillText(String(info.aliyahRef).slice(0, 50), W / 2, 520);
+  }
+
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = "500 16px 'Inter', sans-serif";
+  ctx.fillText(info.fecha, W / 2, 900);
+
+  ctx.fillStyle = 'rgba(196,150,60,0.85)';
+  ctx.font = "900 16px 'Inter', sans-serif";
+  ctx.fillText('ALEFMASTER', W / 2, 940);
 }
 
 function getKaraokeMs(){
@@ -15422,6 +15661,7 @@ async function syncProgressToSupabase(force){
       heb_streak: (() => { try { return JSON.parse(localStorage.getItem('heb_streak')||'{}'); } catch(e){ return {}; } })(),
       everDone:   typeof getEverDone === 'function' ? getEverDone() : {},
       inventory:  typeof getInventory === 'function' ? getInventory() : {},
+      milestones: { firstAliyah: typeof getFirstAliyahMilestone === 'function' ? getFirstAliyahMilestone() : null },
     };
     const { error } = await _sb.from('user_progress').upsert({
       user_id:    _authUser.id,
@@ -15673,6 +15913,10 @@ async function initAuth(){
             if(extra.heb_streak) localStorage.setItem('heb_streak', JSON.stringify(extra.heb_streak));
             if(extra.everDone)   localStorage.setItem(EVER_DONE_KEY, JSON.stringify(extra.everDone));
             if(extra.inventory && typeof saveInventory === 'function') saveInventory(extra.inventory);
+            // I4: hito "primera aliyá completa" sobrevive cambio de dispositivo
+            if(extra.milestones?.firstAliyah && !getFirstAliyahMilestone()){
+              localStorage.setItem(FIRST_ALIYAH_KEY, JSON.stringify(extra.milestones.firstAliyah));
+            }
           } catch(e){ dbg('[Auth] restore extra_data error:', e.message); }
           await saveProgress({ progress: state.progress, shekels: state.shekels });
           showToast('✓ Progreso sincronizado', 'green');
