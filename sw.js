@@ -3,7 +3,7 @@
 // ║  Para actualizar: cambiar CACHE_VERSION abajo                ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const CACHE_STATIC  = `alefmaster-static-${CACHE_VERSION}`;
 const CACHE_DYNAMIC = `alefmaster-dynamic-${CACHE_VERSION}`;
 
@@ -59,6 +59,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
 
   if(request.method !== 'GET') return;
+  if(url.hostname.endsWith('.supabase.co')){ return; }
   if(!url.protocol.startsWith('http')) return;
   // Edge case Chrome: evita errores silenciosos con requests only-if-cached cross-origin
   if(request.cache === 'only-if-cached' && request.mode !== 'same-origin') return;
@@ -99,11 +100,19 @@ self.addEventListener('fetch', event => {
 
 // ── PUSH NOTIFICATIONS ────────────────────────────────────────
 self.addEventListener('push', event => {
-  const data = event.data?.json() ?? {
-    title: 'AlefMaster',
-    body: '¡Hora de practicar hebreo! 🌟',
-    icon: './icons/icon-192.png',
-  };
+  let data;
+  try {
+    data = event.data?.json();
+  } catch(e) {
+    data = null;
+  }
+  if(!data){
+    data = {
+      title: 'AlefMaster',
+      body: '¡Hora de practicar hebreo! 🌟',
+      icon: './icons/icon-192.png',
+    };
+  }
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body:  data.body,
@@ -191,5 +200,5 @@ async function staleWhileRevalidate(req, cacheName){
   const cache  = await caches.open(cacheName);
   const cached = await cache.match(req);
   const fresh  = fetch(req).then(res => { if(res.ok) cache.put(req, res.clone()); return res; }).catch(() => null);
-  return cached || await fresh;
+  return cached || await fresh || new Response('{}', { status: 503, headers: {'Content-Type':'application/json'} });
 }
