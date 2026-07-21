@@ -495,6 +495,65 @@ const TESTS = [
 
       return results.join('  ·  ');
     }
+  },
+
+  // ⑨ RLS: assignments / assignment_progress (I3) ─────────────────────────
+  // Sin sesión real disponible en este smoke test: se verifica lo mismo que
+  // el test ⑧ (sin recursión/500) y además que un anon (auth.uid() null vía
+  // private.is_class_teacher/is_class_member) NO ve filas de ninguna clase —
+  // confirma que las policies deniegan por defecto en vez de fallar abiertas.
+  {
+    id: 9,
+    name: 'RLS: assignments/assignment_progress sin recursión + deny-by-default anon',
+    timeout: 8000,
+    async fn() {
+      const TABLES = ['assignments', 'assignment_progress'];
+      const results = [];
+      const broken  = [];
+      const leaked  = [];
+
+      for (const table of TABLES) {
+        const ctrl = new AbortController();
+        const tid  = setTimeout(() => ctrl.abort(), 4000);
+        let res, bodyText = '';
+        try {
+          res = await fetch(SUPABASE_URL + '/rest/v1/' + table + '?select=id&limit=5', {
+            signal: ctrl.signal,
+            headers: { 'apikey': SUPABASE_ANON, 'Accept': 'application/json' }
+          });
+          bodyText = await res.text();
+        } catch(e) {
+          broken.push(table + ' (fetch error: ' + e.message + ')');
+          continue;
+        } finally { clearTimeout(tid); }
+
+        const isRecursionError = res.status === 500
+          && (bodyText.includes('infinite recursion') || bodyText.includes('42P17'));
+        if (isRecursionError) {
+          broken.push(table + ' → RECURSIÓN DETECTADA');
+          continue;
+        }
+
+        // anon sin auth.uid() no debería ver ninguna fila de ninguna clase
+        if (res.status === 200) {
+          let rows = [];
+          try { rows = JSON.parse(bodyText); } catch(e) { /* respuesta no-JSON, se ignora abajo */ }
+          if (Array.isArray(rows) && rows.length > 0) {
+            leaked.push(table + ' → anon vio ' + rows.length + ' fila(s)');
+            continue;
+          }
+        }
+
+        results.push(table + ' (' + res.status + ')');
+      }
+
+      if (broken.length > 0)
+        throw new Error('Policies con recursión: ' + broken.join(', '));
+      if (leaked.length > 0)
+        throw new Error('RLS no deniega por defecto: ' + leaked.join(', '));
+
+      return results.join('  ·  ') + '  ·  anon: 0 filas visibles ✓';
+    }
   }
 
 ]; // end TESTS

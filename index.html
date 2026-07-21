@@ -1314,6 +1314,7 @@ to   { transform: translateY(0);    opacity: 1; }
 
 <!-- HOME VIEW -->
 <div id="view-home" class="w-full max-w-lg mx-auto overflow-y-auto custom-scroll pb-safe" style="min-height:100%;">
+  <div id="assignment-card-container"></div>
   <div id="base-series-container"></div>
   <div id="mix-series-container"></div>
 </div>
@@ -1724,11 +1725,14 @@ to   { transform: translateY(0);    opacity: 1; }
     <!-- Read + Listen: audio nativo a nivel versículo (READ_LISTEN_MODE) -->
     <div id="read-listen-wrap" style="display:none;margin-top:8px;">
       <audio id="read-listen-audio" controls style="width:100%;height:36px;"></audio>
+      <!-- Grabate y comparar (SELF_RECORD): poblado por _renderSelfRecordUI -->
+      <div id="self-record-wrap" style="display:none;"></div>
     </div>
   </div>
   <div id="parasha-aliyah-tabs" style="display:flex;gap:6px;overflow-x:auto;padding:8px 18px;
     border-bottom:1.5px solid var(--sand-200);scrollbar-width:none;flex-shrink:0;"></div>
   <div id="read-verses" style="flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;"></div>
+  <div id="assignment-aliyah-done-container" style="padding:0 18px;"></div>
   <div style="padding:12px 18px 24px;border-top:1.5px solid var(--sand-300);background:white;">
     <button id="read-back-btn" style="width:100%;padding:14px;border-radius:14px;background:var(--sand-200);color:var(--navy-700);font-size:14px;font-weight:25;border:1.5px solid var(--sand-300);">← Volver</button>
   </div>
@@ -2016,6 +2020,12 @@ window.addEventListener('unhandledrejection', function(e){
 // Cambiar a true para activar logs de desarrollo
 const DEBUG = false;
 function dbg(...args){ if(DEBUG) console.log('[AlefMaster]', ...args); }
+// Escapa texto de DB antes de insertarlo en innerHTML (previene XSS).
+function esc(str){
+  return String(str ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[ch]));
+}
 
 // ╔═══════════════════════════════════════════════════════════════╗
 // ║  DATA                                                         ║
@@ -2072,7 +2082,8 @@ const state = {
   lqLetters:[],
   lqTotalPhase:0,
   lqSoundPool:null,
-  lqNextPhase:null
+  lqNextPhase:null,
+  activeAssignments:[]   // cache de asignaciones docentes activas (I3)
 };
 
 function save(){
@@ -2349,6 +2360,11 @@ function onSeriesComplete(){
   // Sync a Supabase al completar serie (con debounce interno de 60s)
   if(_authUser && typeof syncProgressToSupabase === 'function'){
     syncProgressToSupabase().catch(() => {});
+  }
+
+  // Asignación docente tipo 'serie' que matchea esta serie → marcar completada (I3)
+  if(_authUser && typeof completeAssignmentIfMatch === 'function'){
+    completeAssignmentIfMatch('serie', a => a.target?.key === key).catch(() => {});
   }
 }
 
@@ -5100,6 +5116,10 @@ function renderHome(){
   if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
   // Coach check — no bloqueante, después de que el home cargue
   runCoachCheck();
+  // Asignación docente activa (I3) — no bloqueante
+  if(_authUser && typeof loadActiveAssignments === 'function'){
+    loadActiveAssignments().then(renderAssignmentCard).catch(() => {});
+  } else if(typeof renderAssignmentCard === 'function') renderAssignmentCard();
   // Misión del día visible en el panel 'Desafíos' (botón unificado)
 
   // ── SVG coin images (base64 inline) ───────────────────────
@@ -6237,6 +6257,10 @@ function renderPathHome(){
   state.activeSeries = null; showView("home");
   if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
   runCoachCheck();
+  // Asignación docente activa (I3) — no bloqueante
+  if(_authUser && typeof loadActiveAssignments === 'function'){
+    loadActiveAssignments().then(renderAssignmentCard).catch(() => {});
+  } else if(typeof renderAssignmentCard === 'function') renderAssignmentCard();
 
   const baseC = document.getElementById("base-series-container");
   const mixC  = document.getElementById("mix-series-container");
@@ -6765,6 +6789,11 @@ const karaokeState = {
 // ╚═══════════════════════════════════════════════════════════════╝
 const READ_LISTEN_MODE = true;
 
+// Grabate y comparar (PROMPT I2): grabación propia por versículo + toggle
+// Jazán/Yo. Degradación silenciosa si no hay MediaRecorder o se niega el mic.
+const SELF_RECORD = true;
+const SELF_RECORD_UPLOAD = true; // bucket + RLS ya aplicados (self_record_upload_bucket_rls)
+
 // VERSE_TIMINGS[parashaId][aliyah] = [{ verse: 1, start: 0.0 }, ...]
 // "verse" = posición 1-based del versículo dentro de ESA aliyá (no global).
 // "start" = segundos desde el inicio del mp3 de esa aliyá.
@@ -6883,10 +6912,190 @@ function _resolveAliyahAudioKey(parashaId, aliyah, trienalYear){
   return null;
 }
 
+// ── SELF RECORD: grabate y comparar (SELF_RECORD, PROMPT I2) ──────
+// Estado en memoria únicamente. Nada se persiste ni sale del dispositivo
+// mientras SELF_RECORD_UPLOAD sea false.
+const selfRecordState = {
+  stream: null,
+  recorder: null,
+  chunks: [],
+  mimeType: null,
+  recording: false,
+  activeVerse: null,
+  mode: 'jazan', // 'jazan' | 'yo'
+  recordings: {}, // { [verseIdx]: { blob, url } }
+  _yoPlayer: null
+};
+
+function _selfRecordSupported(){
+  return typeof MediaRecorder !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+
+function _selfRecordMimeType(){
+  if(!_selfRecordSupported()) return null;
+  if(MediaRecorder.isTypeSupported('audio/mp4'))  return 'audio/mp4';  // iOS Safari
+  if(MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm';
+  return null;
+}
+
+function _teardownSelfRecordStream(stream){
+  if(stream) stream.getTracks().forEach(function(t){ t.stop(); });
+  if(selfRecordState.stream === stream) selfRecordState.stream = null;
+}
+
+// Subida opcional para revisión del docente. Fire-and-forget: nunca bloquea
+// la comparación local ni interrumpe la UI si falla. Solo corre si
+// SELF_RECORD_UPLOAD=true (bucket privado, RLS por auth.uid()).
+async function _uploadSelfRecording(verseIdx, blob, mimeType){
+  if(typeof SELF_RECORD_UPLOAD === 'undefined' || !SELF_RECORD_UPLOAD) return;
+  if(typeof _sb === 'undefined' || !_sb || typeof _authUser === 'undefined' || !_authUser) return;
+  const ext  = mimeType === 'audio/mp4' ? 'm4a' : 'webm';
+  const path = _authUser.id + '/' + selfRecordState.parashaId + '/' + selfRecordState.aliyah + '/' + verseIdx + '.' + ext;
+  try{
+    const { error } = await _sb.storage.from('student-recordings').upload(path, blob, {
+      contentType: mimeType,
+      upsert: true
+    });
+    if(error){
+      dbg('self_record_upload_failed', error.message);
+      if(typeof trackEvent === 'function') trackEvent('self_record_upload_failed', { message: error.message });
+      return;
+    }
+    if(typeof trackEvent === 'function') trackEvent('self_record_uploaded', { verse: verseIdx });
+  } catch(err){
+    dbg('self_record_upload_failed', err && err.message);
+    if(typeof trackEvent === 'function') trackEvent('self_record_upload_failed', { message: err && err.message });
+  }
+}
+
+// Limpieza completa: para grabación en curso, libera el stream, pausa el
+// reproductor de "Yo" y revoca todos los objectURL en memoria.
+function _selfRecordTeardown(){
+  if(selfRecordState.recording && selfRecordState.recorder){
+    try{ selfRecordState.recorder.stop(); }catch(e){}
+  }
+  if(selfRecordState.stream) _teardownSelfRecordStream(selfRecordState.stream);
+  if(selfRecordState._yoPlayer){
+    selfRecordState._yoPlayer.pause();
+    selfRecordState._yoPlayer = null;
+  }
+  Object.keys(selfRecordState.recordings).forEach(function(k){
+    const r = selfRecordState.recordings[k];
+    if(r && r.url) URL.revokeObjectURL(r.url);
+  });
+  selfRecordState.recordings   = {};
+  selfRecordState.recording    = false;
+  selfRecordState.activeVerse  = null;
+  selfRecordState.mode         = 'jazan';
+  const wrap = document.getElementById('self-record-wrap');
+  if(wrap){ wrap.style.display = 'none'; wrap.innerHTML = ''; }
+}
+
+function _renderSelfRecordUI(verseIdx, audioEl){
+  const wrap = document.getElementById('self-record-wrap');
+  if(!wrap) return;
+  if(typeof SELF_RECORD === 'undefined' || !SELF_RECORD || !_selfRecordSupported() || verseIdx == null){
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+  selfRecordState.activeVerse = verseIdx;
+  const hasRec = !!selfRecordState.recordings[verseIdx];
+  wrap.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:8px;';
+  wrap.innerHTML =
+    '<button id="self-record-btn" style="background:' + (selfRecordState.recording ? '#c0392b' : 'var(--navy-800)') +
+    ';color:white;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;">' +
+    (selfRecordState.recording ? '■ Detener' : '● Grabar') + '</button>' +
+    (hasRec
+      ? '<button id="self-record-toggle" style="background:var(--sand-200);color:var(--navy-700);' +
+        'border:1.5px solid var(--sand-300);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;">' +
+        (selfRecordState.mode === 'jazan' ? '🎙 Jazán' : '🗣 Yo') + '</button>'
+      : '');
+
+  const btn = document.getElementById('self-record-btn');
+  if(btn) btn.onclick = function(){ _toggleSelfRecord(verseIdx, audioEl); };
+  const toggleBtn = document.getElementById('self-record-toggle');
+  if(toggleBtn) toggleBtn.onclick = function(){ _toggleSelfRecordCompare(verseIdx, audioEl); };
+}
+
+async function _toggleSelfRecord(verseIdx, audioEl){
+  if(selfRecordState.recording){ _stopSelfRecord(); return; }
+
+  try{
+    // Pedir permiso de mic solo al primer tap en grabar (nunca al cargar la vista)
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = _selfRecordMimeType();
+    if(!mimeType){ _teardownSelfRecordStream(stream); return; }
+
+    if(audioEl && !audioEl.paused) audioEl.pause(); // un solo audio sonando a la vez
+    if(selfRecordState._yoPlayer){ selfRecordState._yoPlayer.pause(); selfRecordState._yoPlayer = null; }
+
+    selfRecordState.stream   = stream;
+    selfRecordState.chunks   = [];
+    selfRecordState.mimeType = mimeType;
+
+    const recorder = new MediaRecorder(stream, { mimeType: mimeType });
+    recorder.ondataavailable = function(e){ if(e.data && e.data.size) selfRecordState.chunks.push(e.data); };
+    recorder.onstop = function(){
+      const blob = new Blob(selfRecordState.chunks, { type: mimeType });
+      const prev = selfRecordState.recordings[verseIdx];
+      if(prev && prev.url) URL.revokeObjectURL(prev.url);
+      selfRecordState.recordings[verseIdx] = { blob: blob, url: URL.createObjectURL(blob) };
+      selfRecordState.mode = 'yo';
+      _teardownSelfRecordStream(stream);
+      _renderSelfRecordUI(verseIdx, audioEl);
+      if(typeof trackEvent === 'function') trackEvent('self_record_compare', { verse: verseIdx });
+      _uploadSelfRecording(verseIdx, blob, mimeType); // no bloquea, no interrumpe si falla
+    };
+
+    selfRecordState.recorder  = recorder;
+    selfRecordState.recording = true;
+    recorder.start();
+    _renderSelfRecordUI(verseIdx, audioEl);
+    if(typeof trackEvent === 'function') trackEvent('self_record_start', { verse: verseIdx });
+  } catch(err){
+    // Permiso denegado (o error de hardware): degradar en silencio, sin toast de error
+    selfRecordState.recording = false;
+    const wrap = document.getElementById('self-record-wrap');
+    if(wrap){ wrap.style.display = 'none'; wrap.innerHTML = ''; }
+  }
+}
+
+function _stopSelfRecord(){
+  if(selfRecordState.recorder && selfRecordState.recording){
+    selfRecordState.recorder.stop(); // dispara onstop → guarda blob y libera tracks
+  }
+  selfRecordState.recording = false;
+}
+
+function _toggleSelfRecordCompare(verseIdx, audioEl){
+  const rec = selfRecordState.recordings[verseIdx];
+  if(!rec) return;
+
+  if(selfRecordState.mode === 'jazan'){
+    if(audioEl && !audioEl.paused) audioEl.pause();
+    const player = new Audio(rec.url);
+    selfRecordState._yoPlayer = player;
+    player.play().catch(function(){});
+    selfRecordState.mode = 'yo';
+  } else {
+    if(selfRecordState._yoPlayer) selfRecordState._yoPlayer.pause();
+    if(audioEl) audioEl.play().catch(function(){});
+    selfRecordState.mode = 'jazan';
+  }
+  _renderSelfRecordUI(verseIdx, audioEl);
+}
+
 function renderReadListenAudio(parashaId, aliyah){
   const wrap    = document.getElementById('read-listen-wrap');
   const audioEl = document.getElementById('read-listen-audio');
   if(!wrap || !audioEl) return;
+
+  // Self-record: los data-verse-idx se renumeran en cada render, así que
+  // cualquier grabación previa (de otra aliyá) queda invalidada acá.
+  _selfRecordTeardown();
+  selfRecordState.parashaId = parashaId;
+  selfRecordState.aliyah    = aliyah;
 
   // Limpiar resaltado y listener previos (evita duplicados en re-render)
   if(audioEl._readListenHandler){
@@ -6910,6 +7119,19 @@ function renderReadListenAudio(parashaId, aliyah){
     audioEl.dataset.src = audioUrl;
   }
 
+  // Self-record: seleccionar verso al tocar la card, funciona con o sin
+  // VERSE_TIMINGS (grabar/comparar no depende del resaltado por timestamps).
+  if(typeof SELF_RECORD !== 'undefined' && SELF_RECORD){
+    document.querySelectorAll('#read-verses [data-verse-idx]').forEach(function(card){
+      if(card._selfRecordSelect) card.removeEventListener('click', card._selfRecordSelect);
+      const select = function(){ _renderSelfRecordUI(card.dataset.verseIdx, audioEl); };
+      card._selfRecordSelect = select;
+      card.addEventListener('click', select);
+    });
+    const firstCard = document.querySelector('#read-verses [data-verse-idx]');
+    if(firstCard) _renderSelfRecordUI(firstCard.dataset.verseIdx, audioEl);
+  }
+
   const audioKey = _resolveAliyahAudioKey(parashaId, aliyah, trienalYear);
   const pMap     = VERSE_TIMINGS[parashaId];
   const timings  = (pMap && audioKey) ? pMap[audioKey] : null;
@@ -6929,6 +7151,9 @@ function renderReadListenAudio(parashaId, aliyah){
     if(activeVerse != null){
       const card = document.querySelector('#read-verses [data-verse-idx="' + activeVerse + '"]');
       if(card && !card.classList.contains('verse-active')) card.classList.add('verse-active');
+      if(typeof SELF_RECORD !== 'undefined' && SELF_RECORD && String(selfRecordState.activeVerse) !== String(activeVerse)){
+        _renderSelfRecordUI(activeVerse, audioEl);
+      }
     }
   };
   audioEl._readListenHandler = handler;
@@ -7805,6 +8030,7 @@ function renderParashaRead(parashaId, aliyah){
   };
   document.getElementById('read-back-btn').onclick = () => {
     stopKaraoke();
+    _selfRecordTeardown();
     showAliyahSelect(parashaId);
   };
 
@@ -7873,6 +8099,12 @@ function renderParashaRead(parashaId, aliyah){
   // Read + Listen: audio nativo a nivel versículo (no afecta karaoke arriba)
   if(typeof READ_LISTEN_MODE !== 'undefined' && READ_LISTEN_MODE){
     renderReadListenAudio(parashaId, aliyah);
+  }
+
+  // Asignación docente tipo 'aliyah' (I3): sin evento de completado automático
+  // (la lectura es continua), así que se ofrece un botón manual.
+  if(typeof renderAliyahAssignmentButton === 'function'){
+    renderAliyahAssignmentButton(parashaId, aliyah);
   }
 }
 
@@ -15202,6 +15434,7 @@ async function syncProgressToSupabase(force){
     _lastSupabaseSyncAt = _now;
     dbg('[Auth] ✓ Progreso guardado en Supabase');
     trackEvent('sync_success', { backend: 'supabase' });
+    if(typeof flushPendingAssignmentProgress === 'function') flushPendingAssignmentProgress().catch(() => {});
     return true;
   } catch(e){ dbg('[Auth] syncProgressToSupabase error:', e.message); return false; }
 }
@@ -15217,6 +15450,182 @@ async function loadProgressFromSupabase(){
       .single();
     return data;
   } catch(e){ dbg('[Auth] loadProgress error:', e.message); return null; }
+}
+
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  ASIGNACIONES DOCENTES — tarea semanal (I3)                ║
+// ║  El docente crea desde teacher.js; acá se consume del lado ║
+// ║  del alumno: fetch cacheado en state, tarjeta en home, y   ║
+// ║  marcado automático/manual de completado.                  ║
+// ╚═══════════════════════════════════════════════════════════╝
+const PENDING_ASSIGNMENT_PROGRESS_KEY = 'heb_pending_assignment_progress';
+
+// Una sola query (+ una de progreso propio) cacheada en state.activeAssignments.
+async function loadActiveAssignments(){
+  state.activeAssignments = [];
+  if(!_sb || !_authUser) return;
+  try {
+    const { data: assignments, error } = await _sb
+      .from('assignments')
+      .select('id, class_id, type, target, due_date, created_at')
+      .order('due_date', { ascending: true, nullsFirst: false });
+    if(error){ dbg('[Assignments] loadActiveAssignments error:', error.message); return; }
+    if(!assignments?.length) return;
+
+    const ids = assignments.map(a => a.id);
+    const { data: progress, error: progErr } = await _sb
+      .from('assignment_progress')
+      .select('assignment_id')
+      .eq('student_id', _authUser.id)
+      .in('assignment_id', ids);
+    if(progErr) dbg('[Assignments] progress load error:', progErr.message);
+    const doneIds = new Set((progress || []).map(p => p.assignment_id));
+
+    state.activeAssignments = assignments.filter(a => !doneIds.has(a.id));
+  } catch(e){ dbg('[Assignments] loadActiveAssignments error:', e.message); }
+}
+
+function assignmentTitle(a){
+  if(a.type === 'serie'){
+    const key  = a.target?.key;
+    const meta = ALL_DATA?.[key];
+    return meta?.name || key || 'Serie';
+  }
+  if(a.type === 'aliyah'){
+    const pMeta   = (typeof PARASHA_CATALOG !== 'undefined') ? PARASHA_CATALOG.find(p => p.id === a.target?.parashaId) : null;
+    const alLabel = a.target?.aliyah ? ('Aliyá ' + a.target.aliyah) : 'Parashá completa';
+    return (pMeta?.esp || a.target?.parashaId || 'Torá') + ' · ' + alLabel;
+  }
+  return 'Tarea';
+}
+
+// Renderiza (o limpia) la tarjeta en #assignment-card-container. Degradación
+// silenciosa: sin asignaciones pendientes, el contenedor queda vacío.
+function renderAssignmentCard(){
+  const container = document.getElementById('assignment-card-container');
+  if(!container) return;
+  const a = state.activeAssignments?.[0];
+  if(!a){ container.innerHTML = ''; return; }
+
+  const dueTxt = a.due_date
+    ? new Date(a.due_date + 'T00:00:00').toLocaleDateString('es', { day:'numeric', month:'short' })
+    : '';
+
+  container.innerHTML = `
+    <div id="assignment-card-cta" style="margin:10px 16px 4px;background:linear-gradient(135deg,var(--navy-800),var(--navy-700));
+                border-radius:16px;padding:14px 16px;color:white;display:flex;align-items:center;gap:12px;cursor:pointer;">
+      <div style="font-size:1.6rem;">📌</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.06em;">Tarea de tu docente</div>
+        <div style="font-size:14px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(assignmentTitle(a))}</div>
+        ${dueTxt ? `<div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;">Vence: ${esc(dueTxt)}</div>` : ''}
+      </div>
+      <div style="font-size:1.2rem;">→</div>
+    </div>`;
+
+  document.getElementById('assignment-card-cta')?.addEventListener('click', () => goToAssignmentTarget(a));
+}
+
+// CTA: navega usando los flujos existentes (nada nuevo de navegación).
+function goToAssignmentTarget(a){
+  trackEvent('assignment_cta_click', { type: a.type });
+  if(a.type === 'serie'){
+    const key = a.target?.key;
+    if(key && typeof startSeries === 'function') startSeries(key);
+    return;
+  }
+  if(a.type === 'aliyah'){
+    const parashaId = a.target?.parashaId;
+    const aliyah    = a.target?.aliyah || null;
+    if(!parashaId) return;
+    (async () => {
+      const ok = await startParashaSession(parashaId, aliyah || 1);
+      if(ok) renderParashaRead(parashaId, aliyah);
+    })();
+  }
+}
+
+// Busca una asignación activa que matchee y la marca completada (optimista +
+// insert real). No duplica: se remueve de state.activeAssignments al toque.
+async function completeAssignmentIfMatch(type, matcher){
+  const a = (state.activeAssignments || []).find(x => x.type === type && matcher(x));
+  if(!a) return;
+  state.activeAssignments = state.activeAssignments.filter(x => x.id !== a.id);
+  renderAssignmentCard();
+  await insertAssignmentProgress(a.id);
+}
+
+async function insertAssignmentProgress(assignmentId){
+  if(!_authUser) return;
+  if(!_sb){ queueAssignmentProgress(assignmentId); return; }
+  try {
+    const { error } = await _sb.from('assignment_progress')
+      .insert({ assignment_id: assignmentId, student_id: _authUser.id });
+    if(error){
+      // 23505 = ya insertado (otro dispositivo) — no es un fallo a reintentar
+      if(error.code !== '23505') queueAssignmentProgress(assignmentId);
+      return;
+    }
+    trackEvent('assignment_completed', { assignment_id: assignmentId });
+  } catch(e){
+    dbg('[Assignments] insertAssignmentProgress error:', e.message);
+    queueAssignmentProgress(assignmentId);
+  }
+}
+
+function queueAssignmentProgress(assignmentId){
+  try {
+    const pending = JSON.parse(localStorage.getItem(PENDING_ASSIGNMENT_PROGRESS_KEY) || '[]');
+    if(!pending.includes(assignmentId)) pending.push(assignmentId);
+    localStorage.setItem(PENDING_ASSIGNMENT_PROGRESS_KEY, JSON.stringify(pending));
+  } catch(e){ dbg('[Assignments] queueAssignmentProgress error:', e.message); }
+}
+
+// Reintenta inserts de assignment_progress encolados offline. Se llama desde
+// syncProgressToSupabase() — mismo mecanismo que el resto del progreso.
+async function flushPendingAssignmentProgress(){
+  if(!_sb || !_authUser) return;
+  let pending = [];
+  try { pending = JSON.parse(localStorage.getItem(PENDING_ASSIGNMENT_PROGRESS_KEY) || '[]'); } catch(e){ return; }
+  if(!pending.length) return;
+  const stillPending = [];
+  for(const assignmentId of pending){
+    try {
+      const { error } = await _sb.from('assignment_progress')
+        .insert({ assignment_id: assignmentId, student_id: _authUser.id });
+      if(error && error.code !== '23505') stillPending.push(assignmentId);
+    } catch(e){ stillPending.push(assignmentId); }
+  }
+  try { localStorage.setItem(PENDING_ASSIGNMENT_PROGRESS_KEY, JSON.stringify(stillPending)); } catch(e){}
+}
+
+// Botón manual "Marcar aliyá leída" — única vía de completado para type='aliyah',
+// ya que la lectura Read+Listen es continua y no dispara un evento de fin.
+// Se muestra solo si hay una asignación activa que matchea la parashá/aliyá vista.
+function renderAliyahAssignmentButton(parashaId, aliyah){
+  const container = document.getElementById('assignment-aliyah-done-container');
+  if(!container) return;
+  container.innerHTML = '';
+  if(!_authUser) return;
+
+  const match = (state.activeAssignments || []).find(x =>
+    x.type === 'aliyah' &&
+    x.target?.parashaId === parashaId &&
+    (!x.target?.aliyah || String(x.target.aliyah) === String(aliyah))
+  );
+  if(!match) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'assignment-aliyah-done-btn';
+  btn.textContent = '✓ Marcar aliyá leída (tarea de tu docente)';
+  btn.style.cssText = 'width:100%;padding:12px;border-radius:12px;border:1.5px dashed var(--gold-500);' +
+    'background:var(--sand-100);color:var(--navy-700);font-size:12.5px;font-weight:700;cursor:pointer;margin-top:8px;';
+  btn.addEventListener('click', () => {
+    completeAssignmentIfMatch('aliyah', x =>
+      x.target?.parashaId === parashaId && (!x.target?.aliyah || String(x.target.aliyah) === String(aliyah))
+    ).then(() => { container.innerHTML = ''; showToast('✓ Aliyá marcada como leída', 'green'); });
+  });
+  container.appendChild(btn);
 }
 
 // Detecta si el localStorage local quedó vacío (ej: ITP de Safari borró todo)
