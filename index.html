@@ -2028,7 +2028,7 @@ const FULL_ALEF_BET = [{"h": "א", "p": "Muda"}, {"h": "ב", "p": "B"}, {"h": "�
 const LETTER_FON_MAP = Object.fromEntries(FULL_ALEF_BET.map(x => [x.h, x.p]));
 
 const FULL_VOWELS = [{"h": "ָ", "p": "A"}, {"h": "ַ", "p": "A"}, {"h": "ֲ", "p": "A"}, {"h": "ֵ", "p": "E"}, {"h": "ֶ", "p": "E"}, {"h": "ְ", "p": "E"}, {"h": "ֱ", "p": "E"}, {"h": "י", "p": "I"}, {"h": "ִ", "p": "I"}, {"h": "ֹ", "p": "O"}, {"h": "וֹ", "p": "O"}, {"h": "ֳ", "p": "O"}, {"h": "ֻ", "p": "U"}, {"h": "וּ", "p": "U"}];
-const ALL_DATA = {"A1":{"type":"BASE","letters":["שׁ","מ","ם","ל"],"syllables":[{"h":"מָ","p":"Ma"},{"h":"שֶׁ","p":"She"},{"h":"לִי","p":"Li"},{"h":"שָׁ","p":"Sha"},{"h":"מֵ","p":"Me"}],"words":[{"heb":"שֵׁם","fon":"shem","sign":"NOMBRE","audio":"audios/a_shem.mp3"},{"heb":"מַיִם","fon":"maim","sign":"AGUA","audio":"audios/a_maim.mp3"},{"heb":"שָׁלֵם","fon":"shalem","sign":"COMPLETO","audio":"audios/a_shalem.mp3"},{"heb":"שָׁלוֹם","fon":"shalom","sign":"PAZ","audio":"audios/abcde_shalom.mp3"},{"heb":"שָׁמַיִם","fon":"shamaim","sign":"CIELO","audio":"audios/a_shamaim.mp3"}],"anchors":[{"heb":"שָׁלוֹם","fon":"shalom","esp":"Paz"},{"heb":"שַׁבָּת","fon":"shabat","esp":"Sábado"}]},"A2":{"type":"BASE","letters":["ו","י","ה"],"syllables":[{"h":"הָ","p":"Ha"},{"h":"יוֹ","p":"Yo"},{"h":"הִי","p":"Hi"},{"h":"וָ","p":"Va"},{"h":"יִ","p":"Yi"}],"words":[{"heb":"יָם","fon":"iam","sign":"MAR","audio":"audios/a_iam.mp3"},{"heb":"מִי","fon":"mi","sign":"QUIEN","audio":"audios/a_mi.mp3"},{"heb":"יוֹם","fon":"iom","sign":"DIA","audio":"audios/ab_iom.mp3"},{"heb":"הָיוּ","fon":"haiu","sign":"FUERON","audio":"audios/ab_haiu.mp3"},{"heb":"לֵוִי","fon":"levi","sign":"LEVI","audio":"audios/ab_levi.mp3"},{"heb":"יָמִים","fon":"iamim","sign":"DIAS","audio":"audios/a_iamim.mp3"},{"heb":"הַיּוֹם","fon":"haiom","sign":"HOY","audio":"audios/ab_haiom.mp3"},{"heb":"וַיְהִי","fon":"vaiehi","sign":"SUCEDIO","audio":"audios/ab_vaiehi.mp3"}],"anchors":[{"heb":"יוֹם","fon":"yom","esp":"Día (Yom Kipur)"},{"heb":"הַלְלוּיָה","fon":"haleluyá","esp":"¡Alabemos!"}]},"B1":{"type":"BASE","letters":["ר","ב","ת"],"syllables":[{"h":"בָּ","p":"Ba"},{"h":"רֹ","p":"Ro"},{"h":"תִּי","p":"Ti"},{"h":"בֵּ","p":"Be"},{"h":"רִי","p":"Ri"}],"words":[{"heb":"בַּת","fon":"bat","sign":"HIJA","audio":"audios/b_bat.mp3"},{"heb":"הַר","fon":"har","sign":"MONTAÑA","audio":"audios/b_har.mp3"},{"heb":"הָהָר","fon":"hahar","sign":"LA MONTAÑA","audio":"audios/b_hahar.mp3"},{"heb":"הַבַּת","fon":"habat","sign":"LA HIJA","audio":"audios/b_habat.mp3"},{"heb":"בְּרִית","fon":"brit","sign":"PACTO","audio":"audios/bc_brit.mp3"},{"heb":"יָשׁוּב","fon":"iashuv","sign":"REGRESARA","audio":"audios/ab_iashuv.mp3"},{"heb":"שַׁבָּת","fon":"shabat","sign":"SABADO","audio":"audios/abcde_shabat.mp3"},{"heb":"שִׁירוֹ","fon":"shiro","sign":"SU CANTO","audio":"audios/ab_shiro.mp3"}],"anchors":[{"heb":"תּוֹרָה","fon":"torá","esp":"Los 5 libros"},{"heb":"בְּרָכָה","fon":"berajá","esp":"Bendición"}]},"B2":{"type":"BASE","letters":["א","נ","ן"],"syllables":[{"h":"נָ","p":"Na"},{"h":"אָ","p":"A"},{"h":"נִי","p":"Ni"},{"h":"אֵ","p":"E"},{"h":"אוּ","p":"U"}],"words":[{"heb":"בֵּן","fon":"ben","sign":"HIJO","audio":"audios/b_ben.mp3"},{"heb":"הֵן","fon":"hen","sign":"ELLAS","audio":"audios/b_hen.mp3"},{"heb":"נֵר","fon":"ner","sign":"VELA","audio":"audios/b_ner.mp3"},{"heb":"אֱמֶת","fon":"emet","sign":"VERDAD","audio":"audios/abcde_emet.mp3"},{"heb":"נָהָר","fon":"nahar","sign":"RIO","audio":"audios/b_nahar.mp3"},{"heb":"נָתַן","fon":"natan","sign":"DIO","audio":"audios/b_natan.mp3"},{"heb":"אֲבוֹת","fon":"avot","sign":"PATRIARCAS","audio":"audios/bc_avot.mp3"},{"heb":"בָּנָה","fon":"bana","sign":"CONSTRUYO","audio":"audios/b_bana.mp3"}],"anchors":[{"heb":"אָמֵן","fon":"amén","esp":"Así sea"},{"heb":"בֵּן","fon":"ben","esp":"Hijo"}],"nikudot_intro":"block2"},"C1":{"type":"BASE","letters":["כּ","כ","ך","ע"],"syllables":[{"h":"כּוֹ","p":"Ko"},{"h":"מֶ","p":"Me"},{"h":"עָ","p":"A"},{"h":"כִּי","p":"Ki"},{"h":"עֶ","p":"E"}],"words":[{"heb":"עָבַר","fon":"avar","sign":"PASO / CRUZO","audio":"audios/bd_avar.mp3"},{"heb":"עֶרֶב","fon":"erev","sign":"TARDE","audio":"audios/bd_erev.mp3"},{"heb":"מָלַךְ","fon":"malaj","sign":"REINO","audio":"audios/a_malaj.mp3"},{"heb":"מֶלֶךְ","fon":"melej","sign":"REY","audio":"audios/a_melej.mp3"},{"heb":"מִכֹּל","fon":"mikol","sign":"DE TODO","audio":"audios/a_mikol.mp3"},{"heb":"עוֹלָם","fon":"olam","sign":"MUNDO","audio":"audios/ad_olam.mp3"},{"heb":"שְׁמַע","fon":"shma","sign":"ESCUCHA","audio":"audios/abcde_shma.mp3"},{"heb":"מַעֲלָה","fon":"maala","sign":"SUBIDA / NIVEL","audio":"audios/ad_maala.mp3"}],"anchors":[{"heb":"מֶלֶךְ","fon":"mélej","esp":"Rey"},{"heb":"כֹּל","fon":"kol","esp":"Todo/Voz"}]},"C2":{"type":"BASE","letters":["ד","ג"],"syllables":[{"h":"דָּ","p":"Da"},{"h":"גֶ","p":"Ge"},{"h":"דִי","p":"Di"},{"h":"גָ","p":"Ga"},{"h":"דוֹ","p":"Do"}],"words":[{"heb":"אֵד","fon":"ed","sign":"NIEBLA","audio":"audios/c_ed.mp3"},{"heb":"דָּג","fon":"dag","sign":"PEZ","audio":"audios/c_dag.mp3"},{"heb":"דּוֹד","fon":"dod","sign":"TIO","audio":"audios/c_dod.mp3"},{"heb":"בֶּגֶד","fon":"begued","sign":"ROPA / PRENDA","audio":"audios/bc_begued.mp3"},{"heb":"דָּגִי","fon":"dagi","sign":"MI PESCADO","audio":"audios/c_dagi.mp3"},{"heb":"דָּוִד","fon":"david","sign":"NOMBRE","audio":"audios/c_david.mp3"},{"heb":"גָּדִי","fon":"gadi","sign":"NOMBRE","audio":"audios/c_gadi.mp3"},{"heb":"גָּמָל","fon":"gamal","sign":"CAMELLO","audio":"audios/ac_gamal.mp3"},{"heb":"גְּדוּד","fon":"guedud","sign":"BATALLON","audio":"audios/ce_guedud.mp3"},{"heb":"דִּגְדּוּג","fon":"digdug","sign":"COSQUILLEO","audio":"audios/cd_digdug.mp3"}],"anchors":[{"heb":"דָּוִד","fon":"david","esp":"El rey David"},{"heb":"גָּדוֹל","fon":"gadol","esp":"Grande"}]},"D1":{"type":"BASE","letters":["ח","צ","ץ"],"syllables":[{"h":"חַ","p":"Ja"},{"h":"צִי","p":"Tsi"},{"h":"חֵ","p":"Je"},{"h":"צוֹ","p":"Tso"},{"h":"חָ","p":"Ja"}],"words":[{"heb":"אָץ","fon":"ats","sign":"SE APURO","audio":"audios/c_ats.mp3"},{"heb":"צַד","fon":"tsad","sign":"LADO","audio":"audios/c_tsad.mp3"},{"heb":"צַו","fon":"tsav","sign":"MANDAMIENTO","audio":"audios/c_tsav.mp3"},{"heb":"צֵא","fon":"tse","sign":"SAL","audio":"audios/c_tse.mp3"},{"heb":"גֶּץ","fon":"guets","sign":"CHISPA","audio":"audios/c_guets.mp3"},{"heb":"צִיץ","fon":"tsits","sign":"BROTE / FLOR","audio":"audios/ac_tsits.mp3"},{"heb":"צֹאן","fon":"tson","sign":"REBANO","audio":"audios/bc_tson.mp3"},{"heb":"אֶחָד","fon":"ejad","sign":"UNO","audio":"audios/abcde_ejad.mp3"}],"anchors":[{"heb":"חַיִּים","fon":"jaím","esp":"Vida — ¡lejáim!"},{"heb":"צְדָקָה","fon":"tsedaká","esp":"Justicia"}],"nikudot_intro":"block3"},"D2":{"type":"BASE","letters":["ק","ס"],"syllables":[{"h":"קָ","p":"Ka"},{"h":"סוֹ","p":"So"},{"h":"קוֹ","p":"Ko"},{"h":"סִי","p":"Si"},{"h":"קֵ","p":"Ke"}],"words":[{"heb":"חֹק","fon":"jok","sign":"LEY","audio":"audios/d_jok.mp3"},{"heb":"קֵץ","fon":"kets","sign":"FIN","audio":"audios/cd_kets.mp3"},{"heb":"נֵס","fon":"nes","sign":"MILAGRO","audio":"audios/be_nes.mp3"},{"heb":"קוֹל","fon":"kol","sign":"VOZ / SONIDO","audio":"audios/ad_kol.mp3"},{"heb":"קוֹץ","fon":"kots","sign":"ESPINA","audio":"audios/cd_kots.mp3"},{"heb":"סוֹד","fon":"sod","sign":"SECRETO","audio":"audios/ce_sod.mp3"},{"heb":"סוּס","fon":"sus","sign":"CABALLO","audio":"audios/e_sus.mp3"},{"heb":"עָקַץ","fon":"akats","sign":"PICO","audio":"audios/cd_akats.mp3"}],"anchors":[{"heb":"קָדוֹשׁ","fon":"kadosh","esp":"Santo"},{"heb":"סֵפֶר","fon":"séfer","esp":"Libro"}]},"E1":{"type":"BASE","letters":["פּ","פ","ף"],"syllables":[{"h":"פִּי","p":"Pi"},{"h":"פָ","p":"Fa"},{"h":"פּוּ","p":"Pu"},{"h":"פֶ","p":"Fe"},{"h":"פּוֹ","p":"Po"}],"words":[{"heb":"פִּי","fon":"pi","sign":"MI BOCA","audio":"audios/e_pi.mp3"},{"heb":"סוֹף","fon":"sof","sign":"FIN","audio":"audios/e_sof.mp3"},{"heb":"סוּף","fon":"suf","sign":"JUNCO","audio":"audios/e_suf.mp3"},{"heb":"אָסַף","fon":"asaf","sign":"RECOLECTA","audio":"audios/ce_asaf.mp3"},{"heb":"קָצָף","fon":"katsaf","sign":"SE ENOJÓ / ESPUMÓ","audio":"audios/cde_katsaf.mp3"},{"heb":"קֶצֶף","fon":"ketsef","sign":"ENOJO","audio":"audios/cde_ketsef.mp3"},{"heb":"אֹסֶף","fon":"osef","sign":"RECOLECCION","audio":"audios/ce_osef.mp3"}],"anchors":[{"heb":"פֶּסַח","fon":"pésaj","esp":"Pascua judía"}]},"E2":{"type":"BASE","letters":["שׂ","ז","ט"],"syllables":[{"h":"זָ","p":"Za"},{"h":"טֶ","p":"Te"},{"h":"שׂוֹ","p":"So"},{"h":"זִי","p":"Zi"},{"h":"טָ","p":"Ta"}],"words":[{"heb":"עָז","fon":"az","sign":"FUERTE","audio":"audios/d_az.mp3"},{"heb":"עֵט","fon":"et","sign":"LAPICERA","audio":"audios/d_et.mp3"},{"heb":"עֵז","fon":"ez","sign":"CABRA","audio":"audios/d_ez.mp3"},{"heb":"קָט","fon":"kat","sign":"PEQUEÑO","audio":"audios/d_kat.mp3"},{"heb":"עֹז","fon":"oz","sign":"FUERZA","audio":"audios/d_oz.mp3"},{"heb":"טָח","fon":"taj","sign":"CUBRIO","audio":"audios/d_taj.mp3"},{"heb":"זָז","fon":"zaz","sign":"SE MOVIO","audio":"audios/d_zaz.mp3"},{"heb":"חָטַט","fon":"jatat","sign":"ESCARBO","audio":"audios/d_jatat.mp3"},{"heb":"שָׂשׂ","fon":"sas","sign":"ALEGRE","audio":"audios/e_sas.mp3"}],"anchors":[{"heb":"מַזָּל","fon":"mazal","esp":"Suerte — ¡mazal tov!"}]},"A2+B1":{"type":"MIX","req":["A2","B1"],"words":[{"heb":"תּוֹרָה","fon":"tora","sign":"TORA","audio":"audios/bc_tora.mp3"},{"heb":"תְּשׁוּבָה","fon":"teshuva","sign":"RETORNO","audio":"audios/abcde_teshuva.mp3"},{"heb":"יְרוּשָׁלַיִם","fon":"ierushalaim","sign":"JERUSALEM","audio":"audios/abcde_ierushalaim.mp3"}]},"A2+B2":{"type":"MIX","req":["A2","B2"],"words":[{"heb":"הִנֵּה","fon":"hine","sign":"AQUI ESTA","audio":"audios/b_hine.mp3"},{"heb":"אֱלֹהִים","fon":"elohim","sign":"DIOS","audio":"audios/abc_elohim.mp3"},{"heb":"יִמְלֹךְ","fon":"imloj","sign":"REINARA","audio":"audios/a_imloj.mp3"},{"heb":"כִּוּוּן","fon":"kivun","sign":"DIRECCION","audio":"audios/ab_kivun.mp3"},{"heb":"גָּדוֹל","fon":"gadol","sign":"GRANDE","audio":"audios/ac_gadol.mp3"},{"heb":"מִגְדָּל","fon":"migdal","sign":"TORRE","audio":"audios/ac_migdal.mp3"},{"heb":"מַלְכֵי","fon":"maljei","sign":"REY DE","audio":"audios/a_maljei.mp3"},{"heb":"מַהֲלָךְ","fon":"mahalaj","sign":"PROCESO","audio":"audios/abc_mahalaj.mp3"},{"heb":"מַלְכִּי","fon":"malki","sign":"MI REY","audio":"audios/a_malki.mp3"},{"heb":"מְלָכִים","fon":"melajim","sign":"REYES","audio":"audios/a_melajim.mp3"},{"heb":"מְלוּכָה","fon":"meluja","sign":"REINADO","audio":"audios/abc_meluja.mp3"},{"heb":"יוֹלֵד","fon":"ioled","sign":"DA A LUZ / ENGENDRA","audio":"audios/ac_ioled.mp3"},{"heb":"מָגִיד","fon":"magid","sign":"RELATA / CUENTA / ANUNCIA","audio":"audios/ac_magid.mp3"},{"heb":"מוֹלִיד","fon":"molid","sign":"HACE NACER / ENGENDRA","audio":"audios/ac_molid.mp3"},{"heb":"הַגָּדָה","fon":"hagada","sign":"RELATO","audio":"audios/abc_hagada.mp3"}]},"A2+B2+C1+D1+E1":{"type":"MIX","req":["A2","B2","C1","D1","E1"],"words":[{"heb":"אֱלֹהִים","fon":"elohim","sign":"DIOS","audio":"audios/abcde_elohim.mp3"},{"heb":"עוֹלָם","fon":"olam","sign":"MUNDO","audio":"audios/abcde_olam.mp3"},{"heb":"תְּפִלָּה","fon":"tefila","sign":"ORACION","audio":"audios/abcde_tefila.mp3"},{"heb":"אֱמֶת","fon":"emet","sign":"VERDAD","audio":"audios/abcde_emet.mp3"},{"heb":"בְּרֵאשִׁית","fon":"bereshit","sign":"EN EL PRINCIPIO","audio":"audios/abcde_bereshit.mp3"},{"heb":"שְׁמַע","fon":"shma","sign":"ESCUCHA","audio":"audios/abcde_shma.mp3"},{"heb":"יִשְׂרָאֵל","fon":"israel","sign":"ISRAEL","audio":"audios/abcde_israel.mp3"},{"heb":"אֶחָד","fon":"ejad","sign":"UNO","audio":"audios/abcde_ejad.mp3"},{"heb":"שָׁלוֹם","fon":"shalom","sign":"PAZ","audio":"audios/abcde_shalom.mp3"},{"heb":"חַיִּים","fon":"jaim","sign":"VIDA","audio":"audios/abcde_jaim.mp3"},{"heb":"קְדוּשָּׁה","fon":"kedusha","sign":"SANTIDAD","audio":"audios/abcde_kedusha.mp3"},{"heb":"שַׁבָּת","fon":"shabat","sign":"SABADO","audio":"audios/abcde_shabat.mp3"},{"heb":"יְרוּשָׁלַיִם","fon":"ierushalaim","sign":"JERUSALEM","audio":"audios/abcde_ierushalaim.mp3"},{"heb":"תּוֹרָה","fon":"tora","sign":"TORA","audio":"audios/abcde_tora.mp3"},{"heb":"מִצְוָה","fon":"mitsva","sign":"MANDAMIENTO","audio":"audios/abcde_mitsva.mp3"},{"heb":"צְדָקָה","fon":"tsedaka","sign":"JUSTICIA","audio":"audios/abcde_tsedaka.mp3"},{"heb":"תְּשׁוּבָה","fon":"teshuva","sign":"RETORNO","audio":"audios/abcde_teshuva.mp3"},{"heb":"כַּפָּרָה","fon":"kapara","sign":"EXPIACION","audio":"audios/abcde_kapara.mp3"},{"heb":"תִּקְוָה","fon":"tikva","sign":"ESPERANZA","audio":"audios/abcde_tikva.mp3"},{"heb":"חֲנוּכָּה","fon":"januka","sign":"JANUKA","audio":"audios/abcde_januka.mp3"}],"name":"Vocabulario de Tefilá"},"B1+B2":{"type":"MIX","req":["B1","B2"],"words":[{"heb":"הַבֵּן","fon":"haben","sign":"EL HIJO","audio":"audios/b_haben.mp3"},{"heb":"אַהֲבָה","fon":"ahava","sign":"AMOR","audio":"audios/abc_ahava.mp3"},{"heb":"אַהֲבַת","fon":"ahavat","sign":"AMOR DE","audio":"audios/abc_ahavat.mp3"},{"heb":"בָּנָיו","fon":"banav","sign":"SUS HIJOS","audio":"audios/ab_banav.mp3"},{"heb":"בָּנוֹת","fon":"banot","sign":"HIJAS","audio":"audios/bc_banot.mp3"},{"heb":"נִבְרָא","fon":"nivra","sign":"FUE CREADO","audio":"audios/abc_nivra.mp3"},{"heb":"בָּנִיתָ","fon":"banita","sign":"CONSTRUISTE","audio":"audios/b_banita.mp3"},{"heb":"הַנָּהָר","fon":"hanahar","sign":"EL RIO","audio":"audios/b_hanahar.mp3"},{"heb":"תַּנּוּר","fon":"tanur","sign":"HORNO / ESTUFA","audio":"audios/bd_tanur.mp3"},{"heb":"אֲהוּבִים","fon":"ahuvim","sign":"AMADOS","audio":"audios/abc_ahuvim.mp3"},{"heb":"בְּרִיאָה","fon":"bria","sign":"CREACION","audio":"audios/abc_bria.mp3"},{"heb":"תְּבוּנָה","fon":"tevuna","sign":"ENTENDIMIENTO","audio":"audios/abc_tevuna.mp3"},{"heb":"בַּשָּׁנָה","fon":"bashana","sign":"EN EL ANO","audio":"audios/ab_bashana.mp3"}]},"B1+C1":{"type":"MIX","req":["B1","C1"],"words":[{"heb":"בָּרוּךְ","fon":"baruj","sign":"BENDITO","audio":"audios/abc_baruj.mp3"},{"heb":"בְּרָכָה","fon":"beraja","sign":"BENDICION","audio":"audios/abc_beraja.mp3"},{"heb":"עִבְרִית","fon":"ivrit","sign":"HEBREO (IDIOMA)","audio":"audios/bd_ivrit.mp3"},{"heb":"מַלְכוּת","fon":"maljut","sign":"REINO","audio":"audios/abc_maljut.mp3"},{"heb":"מְבֹרָךְ","fon":"mevoraj","sign":"BENDECIDO","audio":"audios/abc_mevoraj.mp3"},{"heb":"בְּרָכוֹת","fon":"berajot","sign":"BENDICIONES","audio":"audios/abc_berajot.mp3"},{"heb":"תְּרוּעָה","fon":"trua","sign":"ACLAMACION / TOQUE","audio":"audios/bd_trua.mp3"}]},"B2+C2":{"type":"MIX","req":["B2","C2"],"words":[{"heb":"גּוֹאֵל","fon":"goel","sign":"REDENTOR","audio":"audios/abc_goel.mp3"},{"heb":"וַדַּאי","fon":"vadai","sign":"CON CERTEZA","audio":"audios/ce_vadai.mp3"},{"heb":"הוֹדָאָה","fon":"hodaa","sign":"AGRADECIMIENTO","audio":"audios/abc_hodaa.mp3"},{"heb":"גְּאֻלָּה","fon":"gueula","sign":"REDENCION","audio":"audios/abc_gueula.mp3"},{"heb":"גִּבּוֹר","fon":"guibor","sign":"VALIENTE","audio":"audios/bc_guibor.mp3"},{"heb":"הַדָּבָר","fon":"hadavar","sign":"LA COSA / LA PALABRA","audio":"audios/bc_hadavar.mp3"},{"heb":"גְּבוּרָה","fon":"gevura","sign":"FORTALEZA / PODER","audio":"audios/bc_gevura.mp3"},{"heb":"מַדְרֵגָה","fon":"madrega","sign":"ESCALON","audio":"audios/abc_madrega.mp3"},{"heb":"תּוֹלְדוֹת","fon":"toldot","sign":"GENERACIONES","audio":"audios/abc_toldot.mp3"}]},"C1+D1":{"type":"MIX","req":["C1","D1"],"words":[{"heb":"חָלוֹם","fon":"jalom","sign":"SUENO","audio":"audios/ad_jalom.mp3"},{"heb":"חֶבֶר","fon":"jever","sign":"GRUPO / COMPANIA","audio":"audios/bd_jever.mp3"},{"heb":"עָצִיץ","fon":"atsits","sign":"MACETA","audio":"audios/cde_atsits.mp3"},{"heb":"צַיִד","fon":"tsaid","sign":"CAZA","audio":"audios/c_tsaid.mp3"},{"heb":"צָמִיד","fon":"tsamid","sign":"PULSERA / BRAZALETE","audio":"audios/ac_tsamid.mp3"},{"heb":"חָצִי","fon":"jatsi","sign":"MITAD","audio":"audios/cde_jatsi.mp3"},{"heb":"אֶרֶץ","fon":"erets","sign":"TIERRA / PAIS","audio":"audios/bc_erets.mp3"},{"heb":"יָצָא","fon":"iatsa","sign":"SALIO","audio":"audios/c_iatsa.mp3"},{"heb":"צָאוּ","fon":"tsau","sign":"SALGAN","audio":"audios/c_tsau.mp3"},{"heb":"יָצְאוּ","fon":"iatsu","sign":"SALIERON","audio":"audios/c_iatsu.mp3"},{"heb":"מוֹצִיא","fon":"motsi","sign":"SACA / EXTRAE","audio":"audios/ac_motsi.mp3"}]},"C1+D2":{"type":"MIX","req":["C1","D2"],"words":[{"heb":"כּוֹס","fon":"kos","sign":"VASO / COPA","audio":"audios/ae_kos.mp3"},{"heb":"מוּסָךְ","fon":"musaj","sign":"GARAJE / TALLER","audio":"audios/ae_musaj.mp3"},{"heb":"שְׁקִיעָה","fon":"shkiaa","sign":"ATARDECER / PUESTA DEL SOL","audio":"audios/ad_shkiaa.mp3"},{"heb":"מָקוֹם","fon":"makom","sign":"LUGAR","audio":"audios/ad_makom.mp3"},{"heb":"מַסְלוּל","fon":"maslul","sign":"RUTA / CARRIL","audio":"audios/ae_maslul.mp3"},{"heb":"סוּסִי","fon":"susi","sign":"MI CABALLO","audio":"audios/e_susi.mp3"},{"heb":"קֶבֶר","fon":"kever","sign":"TUMBA","audio":"audios/bd_kever.mp3"},{"heb":"קָרוֹב","fon":"karov","sign":"CERCANO","audio":"audios/bd_karov.mp3"},{"heb":"יְסוֹד","fon":"iesod","sign":"FUNDAMENTO","audio":"audios/ce_iesod.mp3"},{"heb":"מְדוּיָק","fon":"meduiak","sign":"EXACTO","audio":"audios/ac_meduiak.mp3"},{"heb":"חֲקֹק","fon":"jakok","sign":"INSCRIBE","audio":"audios/d_jakok.mp3"},{"heb":"צָעַק","fon":"tsaak","sign":"GRITO","audio":"audios/cd_tsaak.mp3"},{"heb":"צָחַק","fon":"tsajak","sign":"SE RIO","audio":"audios/cde_tsajak.mp3"},{"heb":"חֻקַּק","fon":"jukak","sign":"FUE GRABADO","audio":"audios/d_jukak.mp3"},{"heb":"קוֹצֵץ","fon":"kotsets","sign":"RECORTA","audio":"audios/cde_kotsets.mp3"},{"heb":"צְחוֹק","fon":"tsjok","sign":"RISA","audio":"audios/cde_tsjok.mp3"},{"heb":"צָעֲקוּ","fon":"tsaaku","sign":"GRITARON","audio":"audios/cd_tsaaku.mp3"},{"heb":"צַדִּיק","fon":"tsadik","sign":"JUSTO","audio":"audios/cd_tsadik.mp3"},{"heb":"צִדּוּק","fon":"tsiduk","sign":"JUSTIFICACION","audio":"audios/cd_tsiduk.mp3"},{"heb":"צוֹדֵק","fon":"tsodek","sign":"ACERTADO / TIENE RAZON","audio":"audios/cd_tsodek.mp3"}]},"C1+E2":{"type":"MIX","req":["C1","E2"],"words":[{"heb":"מַזָּל","fon":"mazal","sign":"SUERTE / SIGNO ZODIACAL","audio":"audios/ad_mazal.mp3"},{"heb":"שִׂישׂ","fon":"sis","sign":"SE ALEGRARA","audio":"audios/e_sis.mp3"},{"heb":"בָּשָׂר","fon":"basar","sign":"CARNE","audio":"audios/be_basar.mp3"},{"heb":"בְּשׂוֹרוֹת","fon":"besorot","sign":"BUENAS NOTICIAS","audio":"audios/be_besorot.mp3"},{"heb":"עָזוּז","fon":"azuz","sign":"FUERTE","audio":"audios/cde_azuz.mp3"},{"heb":"זִעְזֵעַ","fon":"zizea","sign":"SACUDIO","audio":"audios/d_zizea.mp3"},{"heb":"זִגְזָג","fon":"zigzag","sign":"ZIGZAG","audio":"audios/cd_zigzag.mp3"},{"heb":"שָׁחָט","fon":"shajat","sign":"SACRIFICO / FAENO","audio":"audios/ad_shajat.mp3"},{"heb":"שִׂיחַ","fon":"siaj","sign":"ARBUSTO","audio":"audios/cde_siaj.mp3"},{"heb":"חִטְחֵט","fon":"jitjet","sign":"REVOLVIO","audio":"audios/d_jitjet.mp3"},{"heb":"שִׂיחָה","fon":"siha","sign":"CONVERSACION","audio":"audios/de_siha.mp3"},{"heb":"חַטְּטִי","fon":"jateti","sign":"ESCARBA","audio":"audios/d_jateti.mp3"},{"heb":"שָׁקֵט","fon":"shaket","sign":"TRANQUILO / SILENCIOSO","audio":"audios/ad_shaket.mp3"},{"heb":"שָׂחוּק","fon":"sajuk","sign":"GASTADO","audio":"audios/cde_sajuk.mp3"},{"heb":"שְׂחוֹק","fon":"sjok","sign":"RISA","audio":"audios/cde_sjok.mp3"},{"heb":"שׂוֹחֵק","fon":"sojek","sign":"RIE","audio":"audios/de_sojek.mp3"},{"heb":"שָׂרָף","fon":"saraf","sign":"SERAFIN","audio":"audios/be_saraf.mp3"},{"heb":"זָעִיף","fon":"zaif","sign":"IRRITABLE","audio":"audios/cde_zaif.mp3"},{"heb":"עִטּוּף","fon":"ituf","sign":"ENVOLTURA","audio":"audios/de_ituf.mp3"},{"heb":"נִשְׂרָף","fon":"nisraf","sign":"SE QUEMO / FUE QUEMADO","audio":"audios/be_nisraf.mp3"},{"heb":"פָּשׂוּט","fon":"pasut","sign":"SIMPLE","audio":"audios/de_pasut.mp3"},{"heb":"פּוֹרֵשׂ","fon":"pores","sign":"EXTIENDE / DESPLIEGA","audio":"audios/be_pores.mp3"}]},"D2+E1":{"type":"MIX","req":["D2","E1"],"words":[{"heb":"סֵפֶר","fon":"sefer","sign":"LIBRO","audio":"audios/be_sefer.mp3"},{"heb":"אָסוּף","fon":"asuf","sign":"REUNIDO","audio":"audios/ce_asuf.mp3"},{"heb":"יוֹסֵף","fon":"iosef","sign":"JOSE","audio":"audios/e_iosef.mp3"},{"heb":"כֶּסֶף","fon":"kesef","sign":"PLATA","audio":"audios/ae_kesef.mp3"},{"heb":"קִצֵּף","fon":"kitsef","sign":"SE ENOJO","audio":"audios/cde_kitsef.mp3"},{"heb":"מוּסָף","fon":"musaf","sign":"MUSAF (REZO ADICIONAL)","audio":"audios/ae_musaf.mp3"},{"heb":"פֶּסֶל","fon":"pesel","sign":"IDOLO / ESTATUA","audio":"audios/ae_pesel.mp3"},{"heb":"סְפוֹג","fon":"sfog","sign":"ESPONJA","audio":"audios/ce_sfog.mp3"},{"heb":"סִפֵּק","fon":"sipek","sign":"SUMINISTRO","audio":"audios/de_sipek.mp3"},{"heb":"סוֹפֵר","fon":"sofer","sign":"ESCRIBA","audio":"audios/be_sofer.mp3"},{"heb":"סוֹפִי","fon":"sofi","sign":"MI FINAL","audio":"audios/e_sofi.mp3"},{"heb":"פָּסוּק","fon":"pasuk","sign":"VERSICULO","audio":"audios/ae_pasuk.mp3"},{"heb":"פָּסוּל","fon":"pasul","sign":"INVALIDO / INHABILITADO","audio":"audios/ae_pasul.mp3"},{"heb":"פִּיסוּ","fon":"pisu","sign":"CALMARON","audio":"audios/e_pisu.mp3"},{"heb":"סִפּוּי","fon":"sipui","sign":"REVESTIMIENTO","audio":"audios/e_sipui.mp3"},{"heb":"סִפּוּק","fon":"sipuk","sign":"SATISFACCION","audio":"audios/de_sipuk.mp3"},{"heb":"הֶסְפֵּד","fon":"hesped","sign":"ELOGIO FUNEBRE","audio":"audios/be_hesped.mp3"},{"heb":"פִּיּוּס","fon":"pius","sign":"CALMAR","audio":"audios/e_pius.mp3"},{"heb":"שִׁקּוּף","fon":"shikuf","sign":"REFLEJO","audio":"audios/de_shikuf.mp3"},{"heb":"סִפּוּחַ","fon":"sipuaj","sign":"AGREGADO","audio":"audios/cde_sipuaj.mp3"},{"heb":"פִּיסּוּי","fon":"pisui","sign":"COMPENSACION","audio":"audios/e_pisui.mp3"},{"heb":"פִּסְפּוּס","fon":"pispus","sign":"FALLO / PIFIA","audio":"audios/ce_pispus.mp3"},{"heb":"פֵּרוֹת","fon":"perot","sign":"FRUTAS","audio":"audios/be_perot.mp3"},{"heb":"גִּדּוּף","fon":"guiduf","sign":"INSULTO","audio":"audios/ce_guiduf.mp3"},{"heb":"עָפוּף","fon":"afuf","sign":"VOLANDO","audio":"audios/cde_afuf.mp3"},{"heb":"כֶּפֶל","fon":"kefel","sign":"DOBLE","audio":"audios/ae_kefel.mp3"},{"heb":"פָּצַע","fon":"patsa","sign":"HIRIO","audio":"audios/cde_patsa.mp3"},{"heb":"פֶּצַע","fon":"petsa","sign":"HERIDA","audio":"audios/cde_petsa.mp3"},{"heb":"צָעִיף","fon":"tsaif","sign":"BUFANDA","audio":"audios/cde_tsaif.mp3"},{"heb":"פּוֹצֵץ","fon":"potsets","sign":"DETONA","audio":"audios/cde_potsets.mp3"},{"heb":"פִּצּוּעַ","fon":"pitsua","sign":"LESION","audio":"audios/cde_pitsua.mp3"},{"heb":"פִּתּוּחַ","fon":"pituaj","sign":"DESARROLLO","audio":"audios/de_pituaj.mp3"}]}};;;;
+const ALL_DATA = {"A1":{"type":"BASE","letters":["שׁ","מ","ם","ל"],"syllables":[{"h":"מָ","p":"Ma"},{"h":"שֶׁ","p":"She"},{"h":"לִי","p":"Li"},{"h":"שָׁ","p":"Sha"},{"h":"מֵ","p":"Me"}],"words":[{"heb":"שֵׁם","fon":"shem","sign":"NOMBRE","audio":"audios/a_shem.mp3"},{"heb":"מַיִם","fon":"maim","sign":"AGUA","audio":"audios/a_maim.mp3"},{"heb":"שָׁלֵם","fon":"shalem","sign":"COMPLETO","audio":"audios/a_shalem.mp3"},{"heb":"שָׁלוֹם","fon":"shalom","sign":"PAZ","audio":"audios/a_shalom.mp3"},{"heb":"שָׁלוֹם","fon":"shalom","sign":"PAZ","audio":"audios/abcde_shalom.mp3"},{"heb":"שָׁמַיִם","fon":"shamaim","sign":"CIELO","audio":"audios/a_shamaim.mp3"}],"anchors":[{"heb":"שָׁלוֹם","fon":"shalom","esp":"Paz"},{"heb":"שַׁבָּת","fon":"shabat","esp":"Sábado"}]},"A2":{"type":"BASE","letters":["ו","י","ה"],"syllables":[{"h":"הָ","p":"Ha"},{"h":"יוֹ","p":"Yo"},{"h":"הִי","p":"Hi"},{"h":"וָ","p":"Va"},{"h":"יִ","p":"Yi"}],"words":[{"heb":"יָם","fon":"iam","sign":"MAR","audio":"audios/a_iam.mp3"},{"heb":"מִי","fon":"mi","sign":"QUIEN","audio":"audios/a_mi.mp3"},{"heb":"יוֹם","fon":"iom","sign":"DIA","audio":"audios/ab_iom.mp3"},{"heb":"הָיוּ","fon":"haiu","sign":"FUERON","audio":"audios/ab_haiu.mp3"},{"heb":"לֵוִי","fon":"levi","sign":"LEVI","audio":"audios/ab_levi.mp3"},{"heb":"יָמִים","fon":"iamim","sign":"DIAS","audio":"audios/a_iamim.mp3"},{"heb":"הַיּוֹם","fon":"haiom","sign":"HOY","audio":"audios/ab_haiom.mp3"},{"heb":"וַיְהִי","fon":"vaiehi","sign":"SUCEDIO","audio":"audios/ab_vaiehi.mp3"}],"anchors":[{"heb":"יוֹם","fon":"yom","esp":"Día (Yom Kipur)"},{"heb":"הַלְלוּיָה","fon":"haleluyá","esp":"¡Alabemos!"}]},"B1":{"type":"BASE","letters":["ר","ב","ת"],"syllables":[{"h":"בָּ","p":"Ba"},{"h":"רֹ","p":"Ro"},{"h":"תִּי","p":"Ti"},{"h":"בֵּ","p":"Be"},{"h":"רִי","p":"Ri"}],"words":[{"heb":"בַת","fon":"bat","sign":"HIJA","audio":"audios/b_bat.mp3"},{"heb":"הַר","fon":"har","sign":"MONTAÑA","audio":"audios/b_har.mp3"},{"heb":"הָהָר","fon":"hahar","sign":"LA MONTAÑA","audio":"audios/b_hahar.mp3"},{"heb":"הַבַּת","fon":"habat","sign":"LA HIJA","audio":"audios/b_habat.mp3"},{"heb":"בְּרִית","fon":"brit","sign":"PACTO","audio":"audios/bc_brit.mp3"},{"heb":"יָשׁוּב","fon":"iashuv","sign":"REGRESARA","audio":"audios/ab_iashuv.mp3"},{"heb":"שַׁבָּת","fon":"shabat","sign":"SABADO","audio":"audios/abcde_shabat.mp3"},{"heb":"שִׁירוֹ","fon":"shiro","sign":"SU CANTO","audio":"audios/ab_shiro.mp3"}],"anchors":[{"heb":"תּוֹרָה","fon":"torá","esp":"Los 5 libros"},{"heb":"בְּרָכָה","fon":"berajá","esp":"Bendición"}]},"B2":{"type":"BASE","letters":["א","נ","ן"],"syllables":[{"h":"נָ","p":"Na"},{"h":"אָ","p":"A"},{"h":"נִי","p":"Ni"},{"h":"אֵ","p":"E"},{"h":"אוּ","p":"U"}],"words":[{"heb":"בֵן","fon":"ben","sign":"HIJO","audio":"audios/b_ben.mp3"},{"heb":"הֵן","fon":"hen","sign":"ELLAS","audio":"audios/b_hen.mp3"},{"heb":"נֵר","fon":"ner","sign":"VELA","audio":"audios/b_ner.mp3"},{"heb":"אֱמֶת","fon":"emet","sign":"VERDAD","audio":"audios/abcde_emet.mp3"},{"heb":"נָהָר","fon":"nahar","sign":"RIO","audio":"audios/b_nahar.mp3"},{"heb":"נָתַן","fon":"natan","sign":"DIO","audio":"audios/b_natan.mp3"},{"heb":"אֲבוֹת","fon":"avot","sign":"PATRIARCAS","audio":"audios/bc_avot.mp3"},{"heb":"בָּנָה","fon":"bana","sign":"CONSTRUYO","audio":"audios/b_bana.mp3"}],"anchors":[{"heb":"אָמֵן","fon":"amén","esp":"Así sea"},{"heb":"בֵן","fon":"ben","esp":"Hijo"}],"nikudot_intro":"block2"},"C1":{"type":"BASE","letters":["כּ","כ","ך","ע"],"syllables":[{"h":"כּוֹ","p":"Ko"},{"h":"מֶ","p":"Me"},{"h":"עָ","p":"A"},{"h":"כִּי","p":"Ki"},{"h":"עֶ","p":"E"}],"words":[{"heb":"עָבַר","fon":"avar","sign":"PASO / CRUZO","audio":"audios/bd_avar.mp3"},{"heb":"עֶרֶב","fon":"erev","sign":"TARDE","audio":"audios/bd_erev.mp3"},{"heb":"מָלַךְ","fon":"malaj","sign":"REINO","audio":"audios/a_malaj.mp3"},{"heb":"מֶלֶךְ","fon":"melej","sign":"REY","audio":"audios/a_melej.mp3"},{"heb":"מִכֹּל","fon":"mikol","sign":"DE TODO","audio":"audios/a_mikol.mp3"},{"heb":"עוֹלָם","fon":"olam","sign":"MUNDO","audio":"audios/ad_olam.mp3"},{"heb":"שְׁמַע","fon":"shma","sign":"ESCUCHA","audio":"audios/abcde_shma.mp3"},{"heb":"מַעֲלָה","fon":"maala","sign":"SUBIDA / NIVEL","audio":"audios/ad_maala.mp3"}],"anchors":[{"heb":"מֶלֶךְ","fon":"mélej","esp":"Rey"},{"heb":"כֹּל","fon":"kol","esp":"Todo/Voz"}]},"C2":{"type":"BASE","letters":["ד","ג"],"syllables":[{"h":"דָּ","p":"Da"},{"h":"גֶ","p":"Ge"},{"h":"דִי","p":"Di"},{"h":"גָ","p":"Ga"},{"h":"דוֹ","p":"Do"}],"words":[{"heb":"אֵד","fon":"ed","sign":"NIEBLA","audio":"audios/c_ed.mp3"},{"heb":"דָּג","fon":"dag","sign":"PEZ","audio":"audios/c_dag.mp3"},{"heb":"דּוֹד","fon":"dod","sign":"TIO","audio":"audios/c_dod.mp3"},{"heb":"בֶּגֶד","fon":"begued","sign":"ROPA / PRENDA","audio":"audios/bc_begued.mp3"},{"heb":"דָּגִי","fon":"dagi","sign":"MI PESCADO","audio":"audios/c_dagi.mp3"},{"heb":"דָּוִד","fon":"david","sign":"NOMBRE","audio":"audios/c_david.mp3"},{"heb":"גָּדִי","fon":"gadi","sign":"NOMBRE","audio":"audios/c_gadi.mp3"},{"heb":"גָּמָל","fon":"gamal","sign":"CAMELLO","audio":"audios/ac_gamal.mp3"},{"heb":"גְּדוּד","fon":"guedud","sign":"BATALLON","audio":"audios/ce_guedud.mp3"},{"heb":"דִּגְדּוּג","fon":"digdug","sign":"COSQUILLEO","audio":"audios/cd_digdug.mp3"}],"anchors":[{"heb":"דָּוִד","fon":"david","esp":"El rey David"},{"heb":"גָּדוֹל","fon":"gadol","esp":"Grande"}]},"D1":{"type":"BASE","letters":["ח","צ","ץ"],"syllables":[{"h":"חַ","p":"Ja"},{"h":"צִי","p":"Tsi"},{"h":"חֵ","p":"Je"},{"h":"צוֹ","p":"Tso"},{"h":"חָ","p":"Ja"}],"words":[{"heb":"אָץ","fon":"ats","sign":"SE APURO","audio":"audios/c_ats.mp3"},{"heb":"צַד","fon":"tsad","sign":"LADO","audio":"audios/c_tsad.mp3"},{"heb":"צַו","fon":"tsav","sign":"MANDAMIENTO","audio":"audios/c_tsav.mp3"},{"heb":"צֵא","fon":"tse","sign":"SAL","audio":"audios/c_tse.mp3"},{"heb":"גֶּץ","fon":"guets","sign":"CHISPA","audio":"audios/c_guets.mp3"},{"heb":"צִיץ","fon":"tsits","sign":"BROTE / FLOR","audio":"audios/ac_tsits.mp3"},{"heb":"צֹאן","fon":"tson","sign":"REBANO","audio":"audios/bc_tson.mp3"},{"heb":"אֶחָד","fon":"ejad","sign":"UNO","audio":"audios/abcde_ejad.mp3"}],"anchors":[{"heb":"חַיִּים","fon":"jaím","esp":"Vida — ¡lejáim!"},{"heb":"צְדָקָה","fon":"tsedaká","esp":"Justicia"}],"nikudot_intro":"block3"},"D2":{"type":"BASE","letters":["ק","ס"],"syllables":[{"h":"קָ","p":"Ka"},{"h":"סוֹ","p":"So"},{"h":"קוֹ","p":"Ko"},{"h":"סִי","p":"Si"},{"h":"קֵ","p":"Ke"}],"words":[{"heb":"חֹק","fon":"jok","sign":"LEY","audio":"audios/d_jok.mp3"},{"heb":"קֵץ","fon":"kets","sign":"FIN","audio":"audios/cd_kets.mp3"},{"heb":"נֵס","fon":"nes","sign":"MILAGRO","audio":"audios/be_nes.mp3"},{"heb":"קוֹל","fon":"kol","sign":"VOZ / SONIDO","audio":"audios/ad_kol.mp3"},{"heb":"קוֹץ","fon":"kots","sign":"ESPINA","audio":"audios/cd_kots.mp3"},{"heb":"סוֹד","fon":"sod","sign":"SECRETO","audio":"audios/ce_sod.mp3"},{"heb":"סוּס","fon":"sus","sign":"CABALLO","audio":"audios/e_sus.mp3"},{"heb":"עָקַץ","fon":"akats","sign":"PICO","audio":"audios/cd_akats.mp3"}],"anchors":[{"heb":"קָדוֹשׁ","fon":"kadosh","esp":"Santo"},{"heb":"סֵפֶר","fon":"séfer","esp":"Libro"}]},"E1":{"type":"BASE","letters":["פּ","פ","ף"],"syllables":[{"h":"פִּי","p":"Pi"},{"h":"פָ","p":"Fa"},{"h":"פּוּ","p":"Pu"},{"h":"פֶ","p":"Fe"},{"h":"פּוֹ","p":"Po"}],"words":[{"heb":"פִּי","fon":"pi","sign":"MI BOCA","audio":"audios/e_pi.mp3"},{"heb":"סוֹף","fon":"sof","sign":"FIN","audio":"audios/e_sof.mp3"},{"heb":"סוּף","fon":"suf","sign":"JUNCO","audio":"audios/e_suf.mp3"},{"heb":"אָסַף","fon":"asaf","sign":"RECOLECTA","audio":"audios/ce_asaf.mp3"},{"heb":"קָצָף","fon":"katsaf","sign":"ESPUMOSO","audio":"audios/cde_katsaf.mp3"},{"heb":"קֶצֶף","fon":"ketsef","sign":"ENOJO","audio":"audios/cde_ketsef.mp3"},{"heb":"אֹסֶף","fon":"osef","sign":"RECOLECCION","audio":"audios/ce_osef.mp3"},{"heb":"פִּיס","fon":"pis","sign":"PIS","audio":"audios/e_pis.mp3"}],"anchors":[{"heb":"פֶּסַח","fon":"pésaj","esp":"Pascua judía"}]},"E2":{"type":"BASE","letters":["שׂ","ז","ט"],"syllables":[{"h":"זָ","p":"Za"},{"h":"טֶ","p":"Te"},{"h":"שׂוֹ","p":"So"},{"h":"זִי","p":"Zi"},{"h":"טָ","p":"Ta"}],"words":[{"heb":"עָז","fon":"az","sign":"FUERTE","audio":"audios/d_az.mp3"},{"heb":"עֵט","fon":"et","sign":"LAPICERA","audio":"audios/d_et.mp3"},{"heb":"עֵז","fon":"ez","sign":"CABRA","audio":"audios/d_ez.mp3"},{"heb":"קָט","fon":"kat","sign":"PEQUEÑO","audio":"audios/d_kat.mp3"},{"heb":"עֹז","fon":"oz","sign":"FUERZA","audio":"audios/d_oz.mp3"},{"heb":"טָח","fon":"taj","sign":"CUBRIO","audio":"audios/d_taj.mp3"},{"heb":"זָז","fon":"zaz","sign":"SE MOVIO","audio":"audios/d_zaz.mp3"},{"heb":"חָטַט","fon":"jatat","sign":"ESCARBO","audio":"audios/d_jatat.mp3"},{"heb":"שָׂשׂ","fon":"sas","sign":"ALEGRE","audio":"audios/e_sas.mp3"}],"anchors":[{"heb":"מַזָּל","fon":"mazal","esp":"Suerte — ¡mazal tov!"}]},"A2+B1":{"type":"MIX","req":["A2","B1"],"words":[{"heb":"תּוֹרָה","fon":"tora","sign":"TORA","audio":"audios/bc_tora.mp3"},{"heb":"תְּשׁוּבָה","fon":"teshuva","sign":"RETORNO","audio":"audios/abcde_teshuva.mp3"},{"heb":"יְרוּשָׁלַיִם","fon":"ierushalaim","sign":"JERUSALEM","audio":"audios/abcde_ierushalaim.mp3"}]},"A2+B2":{"type":"MIX","req":["A2","B2"],"words":[{"heb":"הִנֵּה","fon":"hine","sign":"AQUI ESTA","audio":"audios/b_hine.mp3"},{"heb":"אֱלֹהִים","fon":"elohim","sign":"DIOS","audio":"audios/abc_elohim.mp3"},{"heb":"יִמְלֹךְ","fon":"imloj","sign":"REINARA","audio":"audios/a_imloj.mp3"},{"heb":"כִּוּוּן","fon":"kivun","sign":"DIRECCION","audio":"audios/ab_kivun.mp3"},{"heb":"גָּדוֹל","fon":"gadol","sign":"GRANDE","audio":"audios/ac_gadol.mp3"},{"heb":"מִגְדָּל","fon":"migdal","sign":"TORRE","audio":"audios/ac_migdal.mp3"},{"heb":"מַלְכֵי","fon":"maljei","sign":"REY DE","audio":"audios/a_maljei.mp3"},{"heb":"מַהֲלָךְ","fon":"mahalaj","sign":"PROCESO","audio":"audios/abc_mahalaj.mp3"},{"heb":"מַלְכִּי","fon":"malki","sign":"MI REY","audio":"audios/a_malki.mp3"},{"heb":"מְלָכִים","fon":"melajim","sign":"REYES","audio":"audios/a_melajim.mp3"},{"heb":"מְלוּכָה","fon":"meluja","sign":"REINADO","audio":"audios/abc_meluja.mp3"},{"heb":"יוֹלֵד","fon":"ioled","sign":"DA A LUZ / ENGENDRA","audio":"audios/ac_ioled.mp3"},{"heb":"מָגִיד","fon":"magid","sign":"RELATA / CUENTA / ANUNCIA","audio":"audios/ac_magid.mp3"},{"heb":"מוֹלִיד","fon":"molid","sign":"HACE NACER / ENGENDRA","audio":"audios/ac_molid.mp3"},{"heb":"הַגָּדָה","fon":"hagada","sign":"RELATO","audio":"audios/abc_hagada.mp3"}]},"A2+B2+C1+D1+E1":{"type":"MIX","req":["A2","B2","C1","D1","E1"],"words":[{"heb":"אֱלֹהִים","fon":"elohim","sign":"DIOS","audio":"audios/abcde_elohim.mp3"},{"heb":"עוֹלָם","fon":"olam","sign":"MUNDO","audio":"audios/abcde_olam.mp3"},{"heb":"תְּפִלָּה","fon":"tefila","sign":"ORACION","audio":"audios/abcde_tefila.mp3"},{"heb":"אֱמֶת","fon":"emet","sign":"VERDAD","audio":"audios/abcde_emet.mp3"},{"heb":"בְּרֵאשִׁית","fon":"bereshit","sign":"EN EL PRINCIPIO","audio":"audios/abcde_bereshit.mp3"},{"heb":"שְׁמַע","fon":"shma","sign":"ESCUCHA","audio":"audios/abcde_shma.mp3"},{"heb":"יִשְׂרָאֵל","fon":"israel","sign":"ISRAEL","audio":"audios/abcde_israel.mp3"},{"heb":"אֶחָד","fon":"ejad","sign":"UNO","audio":"audios/abcde_ejad.mp3"},{"heb":"שָׁלוֹם","fon":"shalom","sign":"PAZ","audio":"audios/abcde_shalom.mp3"},{"heb":"חַיִּים","fon":"jaim","sign":"VIDA","audio":"audios/abcde_jaim.mp3"},{"heb":"קְדוּשָּׁה","fon":"kedusha","sign":"SANTIDAD","audio":"audios/abcde_kedusha.mp3"},{"heb":"שַׁבָּת","fon":"shabat","sign":"SABADO","audio":"audios/abcde_shabat.mp3"},{"heb":"יְרוּשָׁלַיִם","fon":"ierushalaim","sign":"JERUSALEM","audio":"audios/abcde_ierushalaim.mp3"},{"heb":"תּוֹרָה","fon":"tora","sign":"TORA","audio":"audios/abcde_tora.mp3"},{"heb":"מִצְוָה","fon":"mitsva","sign":"MANDAMIENTO","audio":"audios/abcde_mitsva.mp3"},{"heb":"צְדָקָה","fon":"tsedaka","sign":"JUSTICIA","audio":"audios/abcde_tsedaka.mp3"},{"heb":"תְּשׁוּבָה","fon":"teshuva","sign":"RETORNO","audio":"audios/abcde_teshuva.mp3"},{"heb":"כַּפָּרָה","fon":"kapara","sign":"EXPIACION","audio":"audios/abcde_kapara.mp3"},{"heb":"תִּקְוָה","fon":"tikva","sign":"ESPERANZA","audio":"audios/abcde_tikva.mp3"},{"heb":"חֲנוּכָּה","fon":"januka","sign":"JANUKA","audio":"audios/abcde_januka.mp3"}],"name":"Vocabulario de Tefilá"},"B1+B2":{"type":"MIX","req":["B1","B2"],"words":[{"heb":"הַבֵּן","fon":"haben","sign":"EL HIJO","audio":"audios/b_haben.mp3"},{"heb":"אַהֲבָה","fon":"ahava","sign":"AMOR","audio":"audios/abc_ahava.mp3"},{"heb":"אַהֲבַת","fon":"ahavat","sign":"AMOR DE","audio":"audios/abc_ahavat.mp3"},{"heb":"בָּנָיו","fon":"banav","sign":"SUS HIJOS","audio":"audios/ab_banav.mp3"},{"heb":"בָּנוֹת","fon":"banot","sign":"HIJAS","audio":"audios/bc_banot.mp3"},{"heb":"נִבְרָא","fon":"nivra","sign":"FUE CREADO","audio":"audios/abc_nivra.mp3"},{"heb":"בָּנִיתָ","fon":"banita","sign":"CONSTRUISTE","audio":"audios/b_banita.mp3"},{"heb":"הַנָּהָר","fon":"hanahar","sign":"EL RIO","audio":"audios/b_hanahar.mp3"},{"heb":"תַּנּוּר","fon":"tanur","sign":"HORNO / ESTUFA","audio":"audios/bd_tanur.mp3"},{"heb":"אֲהוּבִים","fon":"ahuvim","sign":"AMADOS","audio":"audios/abc_ahuvim.mp3"},{"heb":"בְּרִיאָה","fon":"bria","sign":"CREACION","audio":"audios/abc_bria.mp3"},{"heb":"תְּבוּנָה","fon":"tevuna","sign":"ENTENDIMIENTO","audio":"audios/abc_tevuna.mp3"},{"heb":"בַּשָּׁנָה","fon":"bashana","sign":"EN EL ANO","audio":"audios/ab_bashana.mp3"}]},"B1+C1":{"type":"MIX","req":["B1","C1"],"words":[{"heb":"בָּרוּךְ","fon":"baruj","sign":"BENDITO","audio":"audios/abc_baruj.mp3"},{"heb":"בְּרָכָה","fon":"beraja","sign":"BENDICION","audio":"audios/abc_beraja.mp3"},{"heb":"עִבְרִית","fon":"ivrit","sign":"HEBREO (IDIOMA)","audio":"audios/bd_ivrit.mp3"},{"heb":"מַלְכוּת","fon":"maljut","sign":"REINO","audio":"audios/abc_maljut.mp3"},{"heb":"מְבֹרָךְ","fon":"mevoraj","sign":"BENDECIDO","audio":"audios/abc_mevoraj.mp3"},{"heb":"בְּרָכוֹת","fon":"berajot","sign":"BENDICIONES","audio":"audios/abc_berajot.mp3"},{"heb":"תְּרוּעָה","fon":"trua","sign":"ACLAMACION / TOQUE","audio":"audios/bd_trua.mp3"}]},"B2+C2":{"type":"MIX","req":["B2","C2"],"words":[{"heb":"גּוֹאֵל","fon":"goel","sign":"REDENTOR","audio":"audios/abc_goel.mp3"},{"heb":"וַדַּאי","fon":"vadai","sign":"CON CERTEZA","audio":"audios/ce_vadai.mp3"},{"heb":"הוֹדָאָה","fon":"hodaa","sign":"AGRADECIMIENTO","audio":"audios/abc_hodaa.mp3"},{"heb":"גְּאֻלָּה","fon":"gueula","sign":"REDENCION","audio":"audios/abc_gueula.mp3"},{"heb":"גִּבּוֹר","fon":"guibor","sign":"VALIENTE","audio":"audios/bc_guibor.mp3"},{"heb":"הַדָּבָר","fon":"hadavar","sign":"LA COSA / LA PALABRA","audio":"audios/bc_hadavar.mp3"},{"heb":"גְּבוּרָה","fon":"gevura","sign":"FORTALEZA / PODER","audio":"audios/bc_gevura.mp3"},{"heb":"מַדְרֵגָה","fon":"madrega","sign":"ESCALON","audio":"audios/abc_madrega.mp3"},{"heb":"תּוֹלְדוֹת","fon":"toldot","sign":"GENERACIONES","audio":"audios/abc_toldot.mp3"}]},"C1+D1":{"type":"MIX","req":["C1","D1"],"words":[{"heb":"חָלוֹם","fon":"jalom","sign":"SUENO","audio":"audios/ad_jalom.mp3"},{"heb":"חֶבֶר","fon":"jever","sign":"GRUPO / COMPANIA","audio":"audios/bd_jever.mp3"},{"heb":"עָצִיץ","fon":"atsits","sign":"MACETA","audio":"audios/cde_atsits.mp3"},{"heb":"צַיִד","fon":"tsaid","sign":"CAZA","audio":"audios/c_tsaid.mp3"},{"heb":"צָמִיד","fon":"tsamid","sign":"PULSERA / BRAZALETE","audio":"audios/ac_tsamid.mp3"},{"heb":"חָצִי","fon":"jatsi","sign":"MITAD","audio":"audios/cde_jatsi.mp3"},{"heb":"אֶרֶץ","fon":"erets","sign":"TIERRA / PAIS","audio":"audios/bc_erets.mp3"},{"heb":"יָצָא","fon":"iatsa","sign":"SALIO","audio":"audios/c_iatsa.mp3"},{"heb":"צָאוּ","fon":"tsau","sign":"SALGAN","audio":"audios/c_tsau.mp3"},{"heb":"יָצְאוּ","fon":"iatsu","sign":"SALIERON","audio":"audios/c_iatsu.mp3"},{"heb":"מוֹצִיא","fon":"motsi","sign":"SACA / EXTRAE","audio":"audios/ac_motsi.mp3"}]},"C1+D2":{"type":"MIX","req":["C1","D2"],"words":[{"heb":"כּוֹס","fon":"kos","sign":"VASO / COPA","audio":"audios/ae_kos.mp3"},{"heb":"מוּסָךְ","fon":"musaj","sign":"ALMOHADA","audio":"audios/ae_musaj.mp3"},{"heb":"שְׁקִיעָה","fon":"shkiaa","sign":"ATARDECER / PUESTA DEL SOL","audio":"audios/ad_shkiaa.mp3"},{"heb":"מַשְׁקוֹעַ","fon":"mashkoa","sign":"HUNDIMIENTO / ASENTAMIENTO","audio":"audios/ad_mashkoa.mp3"},{"heb":"מָקוֹם","fon":"makom","sign":"LUGAR","audio":"audios/ad_makom.mp3"},{"heb":"מַסְלוּל","fon":"maslul","sign":"RUTA / CARRIL","audio":"audios/ae_maslul.mp3"},{"heb":"סוּסִי","fon":"susi","sign":"MI CABALLO","audio":"audios/e_susi.mp3"},{"heb":"קֶבֶר","fon":"kever","sign":"TUMBA","audio":"audios/bd_kever.mp3"},{"heb":"קָרוֹב","fon":"karov","sign":"CERCANO","audio":"audios/bd_karov.mp3"},{"heb":"יְסוֹד","fon":"iesod","sign":"FUNDAMENTO","audio":"audios/ce_iesod.mp3"},{"heb":"מְדוּיָק","fon":"meduiak","sign":"EXACTO","audio":"audios/ac_meduiak.mp3"},{"heb":"חֲקֹק","fon":"jakok","sign":"INSCRIBE","audio":"audios/d_jakok.mp3"},{"heb":"צָעַק","fon":"tsaak","sign":"GRITO","audio":"audios/cd_tsaak.mp3"},{"heb":"צָחַק","fon":"tsajak","sign":"SE RIO","audio":"audios/cde_tsajak.mp3"},{"heb":"חֻקַּק","fon":"jukak","sign":"FUE GRABADO","audio":"audios/d_jukak.mp3"},{"heb":"קוֹצֵץ","fon":"kotsets","sign":"RECORTA","audio":"audios/cde_kotsets.mp3"},{"heb":"צְחוֹק","fon":"tsjok","sign":"RISA","audio":"audios/cde_tsjok.mp3"},{"heb":"צָעֲקוּ","fon":"tsaaku","sign":"GRITARON","audio":"audios/cd_tsaaku.mp3"},{"heb":"צַדִּיק","fon":"tsadik","sign":"JUSTO","audio":"audios/cd_tsadik.mp3"},{"heb":"צִדּוּק","fon":"tsiduk","sign":"JUSTIFICACION","audio":"audios/cd_tsiduk.mp3"},{"heb":"צּוֹדֵק","fon":"tsodek","sign":"ACERTADO / TIENE RAZON","audio":"audios/cd_tsodek.mp3"}]},"C1+E2":{"type":"MIX","req":["C1","E2"],"words":[{"heb":"מַזָּל","fon":"mazal","sign":"SUERTE / SIGNO ZODIACAL","audio":"audios/ad_mazal.mp3"},{"heb":"שִׂישׂ","fon":"sis","sign":"SE ALEGRARA","audio":"audios/e_sis.mp3"},{"heb":"בָּשָׂר","fon":"basar","sign":"CARNE","audio":"audios/be_basar.mp3"},{"heb":"בְּשׂוֹרוֹת","fon":"besorot","sign":"BUENAS NOTICIAS","audio":"audios/be_besorot.mp3"},{"heb":"עָזוּז","fon":"azuz","sign":"FUERTE","audio":"audios/cde_azuz.mp3"},{"heb":"זִעְזֵעַ","fon":"zizea","sign":"SACUDIO","audio":"audios/d_zizea.mp3"},{"heb":"זִגְזָג","fon":"zigzag","sign":"ZIGZAG","audio":"audios/cd_zigzag.mp3"},{"heb":"שָׁחָט","fon":"shajat","sign":"SACRIFICO / FAENO","audio":"audios/ad_shajat.mp3"},{"heb":"שִׂיחַ","fon":"siaj","sign":"ARBUSTO","audio":"audios/cde_siaj.mp3"},{"heb":"חִטְחֵט","fon":"jitjet","sign":"REVOLVIO","audio":"audios/d_jitjet.mp3"},{"heb":"שִׂיחָה","fon":"siha","sign":"CONVERSACION","audio":"audios/de_siha.mp3"},{"heb":"חַטְּטִי","fon":"jateti","sign":"ESCARBA","audio":"audios/d_jateti.mp3"},{"heb":"שָׁקֵט","fon":"shaket","sign":"TRANQUILO / SILENCIOSO","audio":"audios/ad_shaket.mp3"},{"heb":"שָׂחוּק","fon":"sajuk","sign":"GASTADO","audio":"audios/cde_sajuk.mp3"},{"heb":"שְׂחוֹק","fon":"sjok","sign":"RISA","audio":"audios/cde_sjok.mp3"},{"heb":"שׂוֹחֵק","fon":"sojek","sign":"RIE","audio":"audios/de_sojek.mp3"},{"heb":"שָׂרָף","fon":"saraf","sign":"SERAFIN","audio":"audios/be_saraf.mp3"},{"heb":"זָעִיף","fon":"zaif","sign":"IRRITABLE","audio":"audios/cde_zaif.mp3"},{"heb":"עִטּוּף","fon":"ituf","sign":"ENVOLTURA","audio":"audios/de_ituf.mp3"},{"heb":"נִשְׂרָף","fon":"nisraf","sign":"SE QUEMO / FUE QUEMADO","audio":"audios/be_nisraf.mp3"},{"heb":"פָּשׂוּט","fon":"pasut","sign":"SIMPLE","audio":"audios/de_pasut.mp3"},{"heb":"פּוֹרֵשׂ","fon":"pores","sign":"EXTIENDE / DESPLIEGA","audio":"audios/be_pores.mp3"}]},"D2+E1":{"type":"MIX","req":["D2","E1"],"words":[{"heb":"סֵפֶר","fon":"sefer","sign":"LIBRO","audio":"audios/be_sefer.mp3"},{"heb":"אָסוּף","fon":"asuf","sign":"REUNIDO","audio":"audios/ce_asuf.mp3"},{"heb":"יוֹסֵף","fon":"iosef","sign":"JOSE","audio":"audios/e_iosef.mp3"},{"heb":"כֶּסֶף","fon":"kesef","sign":"PLATA","audio":"audios/ae_kesef.mp3"},{"heb":"קִצֵּף","fon":"kitsef","sign":"SE ENOJO","audio":"audios/cde_kitsef.mp3"},{"heb":"מוּסָף","fon":"musaf","sign":"MUSAF (REZO ADICIONAL)","audio":"audios/ae_musaf.mp3"},{"heb":"פֶּסֶל","fon":"pesel","sign":"IDOLO / ESTATUA","audio":"audios/ae_pesel.mp3"},{"heb":"סְפוֹג","fon":"sfog","sign":"ESPONJA","audio":"audios/ce_sfog.mp3"},{"heb":"סִפֵּק","fon":"sipek","sign":"SUMINISTRO","audio":"audios/de_sipek.mp3"},{"heb":"סוֹפֵר","fon":"sofer","sign":"ESCRIBA","audio":"audios/be_sofer.mp3"},{"heb":"סוֹפִי","fon":"sofi","sign":"MI FINAL","audio":"audios/e_sofi.mp3"},{"heb":"פָּסוּק","fon":"pasuk","sign":"VERSICULO","audio":"audios/ae_pasuk.mp3"},{"heb":"פָּסוּל","fon":"pasul","sign":"INVALIDO / INHABILITADO","audio":"audios/ae_pasul.mp3"},{"heb":"פִּיסוּ","fon":"pisu","sign":"CALMARON","audio":"audios/e_pisu.mp3"},{"heb":"סִפּוּי","fon":"sipui","sign":"REVESTIMIENTO","audio":"audios/e_sipui.mp3"},{"heb":"סִפּוּק","fon":"sipuk","sign":"SATISFACCION","audio":"audios/de_sipuk.mp3"},{"heb":"הֶסְפֵּד","fon":"hesped","sign":"ELOGIO FUNEBRE","audio":"audios/be_hesped.mp3"},{"heb":"פִּיּוּס","fon":"pius","sign":"CALMAR","audio":"audios/e_pius.mp3"},{"heb":"שִׁקּוּף","fon":"shikuf","sign":"REFLEJO","audio":"audios/de_shikuf.mp3"},{"heb":"סִפּוּחַ","fon":"sipuaj","sign":"AGREGADO","audio":"audios/cde_sipuaj.mp3"},{"heb":"סִיפּוּף","fon":"sipuf","sign":"COBERTURA","audio":"audios/e_sipuf.mp3"},{"heb":"פִּיסּוּי","fon":"pisui","sign":"COMPENSACION","audio":"audios/e_pisui.mp3"},{"heb":"פִּסְפּוּס","fon":"pispus","sign":"PULIDO / AJUSTE FINO","audio":"audios/ce_pispus.mp3"},{"heb":"שׁוֹפֵל","fon":"shofel","sign":"BAJO","audio":"audios/ae_shofel.mp3"},{"heb":"פֵּרוֹת","fon":"perot","sign":"FRUTAS","audio":"audios/be_perot.mp3"},{"heb":"גִּדּוּף","fon":"guiduf","sign":"INSULTO","audio":"audios/ce_guiduf.mp3"},{"heb":"עָפוּף","fon":"afuf","sign":"VOLANDO","audio":"audios/cde_afuf.mp3"},{"heb":"כֶּפֶל","fon":"kefel","sign":"DOBLE","audio":"audios/ae_kefel.mp3"},{"heb":"פָּצַע","fon":"patsa","sign":"HIRIO","audio":"audios/cde_patsa.mp3"},{"heb":"פֶּצַע","fon":"petsa","sign":"HERIDA","audio":"audios/cde_petsa.mp3"},{"heb":"צָעִיף","fon":"tsaif","sign":"BUFANDA","audio":"audios/cde_tsaif.mp3"},{"heb":"פּוֹצֵץ","fon":"potsets","sign":"DETONA","audio":"audios/cde_potsets.mp3"},{"heb":"פִּצּוּעַ","fon":"pitsua","sign":"LESION","audio":"audios/cde_pitsua.mp3"},{"heb":"פִּתּוּחַ","fon":"pituaj","sign":"DESARROLLO","audio":"audios/de_pituaj.mp3"}]}};;;;
 const NIKUDOT_BLOCKS = {"block1":{"name":"Vocales básicas","series_trigger":"onboarding","vowels":[{"h":"ַ","name":"Pataj","sound":"A","example":"בַת"},{"h":"ָ","name":"Kamatz","sound":"A","example":"מָה"},{"h":"ֵ","name":"Tzeré","sound":"E","example":"שֵׁם"},{"h":"ֶ","name":"Segol","sound":"E","example":"מֶלֶךְ"},{"h":"ִ","name":"Jirik","sound":"I","example":"מִי"}]},"block2":{"name":"Vocales completas","series_trigger":"B2","vowels":[{"h":"ֹ","name":"Jolam","sound":"O","example":"שָׁלוֹם"},{"h":"וֹ","name":"Jolam malé","sound":"O","example":"תּוֹרָה"},{"h":"ֻ","name":"Kubutz","sound":"U","example":"חֻקַּק"},{"h":"וּ","name":"Shuruq","sound":"U","example":"בָּרוּךְ"}]},"block3":{"name":"Shva y jataf-vocales","series_trigger":"D1","vowels":[{"h":"ְ","name":"Shva","sound":"breve/muda","example":"שְׁמַע"},{"h":"ֲ","name":"Jataf-Pataj","sound":"A breve","example":"אֲבוֹת"},{"h":"ֱ","name":"Jataf-Segol","sound":"E breve","example":"אֱלֹהִים"},{"h":"ֳ","name":"Jataf-Kamatz","sound":"O breve","example":"חֳקֹק"}]}};
 
 
@@ -4581,7 +4581,7 @@ function cleanHebrew(text){
 
   // Luego filtrar dagesh selectivo (solo en פ כ ו)
   const DAGESH = '\u05BC';
-  const KEEP   = ['\u05E4','\u05DB','\u05D5','\u05D1']; // פ כ ו
+  const KEEP   = ['\u05E4','\u05DB','\u05D5']; // פ כ ו
   const chars  = [...result];
   let out = '';
   for(let i = 0; i < chars.length; i++){
@@ -5086,7 +5086,10 @@ function showSeriesPopup(key, anchorEl){
 }
 
 
+// PATH_HOME=true → home como "Camino al Bar Mitzvá" (renderPathHome). false → home clásico intacto.
+const PATH_HOME = false;
 function renderHome(){
+  if(PATH_HOME){ renderPathHome(); return; }
   // Regalo semanal de streak al abrir la app
   if(typeof checkWeeklyStreakGift === 'function') checkWeeklyStreakGift();
   _perf.end('app-init');
@@ -5220,7 +5223,6 @@ function renderHome(){
         </button>
       </div>
     </div>
-    ${reviewCount>0?`<div style="margin-top:6px;display:inline-block;background:#FEF3C7;border:1px solid #D4A843;border-radius:10px;padding:5px 12px;font-size:11px;color:#92400E;font-weight:700;">⏰ ${reviewCount} serie${reviewCount===1?"":"s"} con repaso</div>`:""}
   `;
   // ── SALUDO CON AVATAR Y MASCOTA ─────────────────────────────────
   // (header de stats se agrega después del CTA)
@@ -5228,7 +5230,9 @@ function renderHome(){
   const activeAv    = getActiveAvatarItem();
   const activePet   = getActivePetItem();
   const hasPet      = activePet && activePet.id !== 'none';
-  const petMsg      = hasPet ? activePet.msg[Math.floor(Math.random() * activePet.msg.length)] : null;
+  const _petMsgShown = !!sessionStorage.getItem('pet_msg_shown');
+  const petMsg      = (hasPet && !_petMsgShown) ? activePet.msg[Math.floor(Math.random() * activePet.msg.length)] : null;
+  if(hasPet && !_petMsgShown) sessionStorage.setItem('pet_msg_shown', '1');
   const hour        = new Date().getHours();
   const greeting    = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
   const greetName   = playerName ? greeting + ', ' + playerName + '!' : greeting + ' 👋';
@@ -5642,6 +5646,13 @@ function renderHome(){
   // ── DESAFÍOS — misiones + semana en el mismo panel
   const _cPanel = document.getElementById('challenges-panel');
   if(_cPanel){
+    // Repasos pendientes (movido del header — misma info, sin saturar el home)
+    if(reviewCount>0){
+      const _reviewLine = document.createElement('div');
+      _reviewLine.style.cssText = 'margin:12px 16px 0;background:#FEF3C7;border:1px solid #D4A843;border-radius:10px;padding:5px 12px;font-size:11px;color:#92400E;font-weight:700;display:inline-block;';
+      _reviewLine.textContent = '⏰ ' + reviewCount + ' serie' + (reviewCount===1?'':'s') + ' con repaso';
+      _cPanel.appendChild(_reviewLine);
+    }
     // Título misiones del día
     const _mTitle = document.createElement('div');
     _mTitle.style.cssText = 'padding:12px 16px 0;font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.08em;';
@@ -5700,13 +5711,41 @@ function renderHome(){
     });
   });
 
+  // ── EXTENSIÓN "Camino al Bar Mitzvá": 2 monedas más al final del mismo camino ──
+  // No toca series/lecciones existentes. BM_PATH_NODES=false para quitarlas sin afectar nada más.
+  const BM_PATH_NODES = true;
+  if(BM_PATH_NODES){
+    const _bmParashaKey = localStorage.getItem('heb_bm_parasha');
+    const _bmDateKey    = localStorage.getItem('heb_bm_date');
+    let _bmMetaForAliyah = null;
+    if(_bmParashaKey){
+      _bmMetaForAliyah = (typeof PARASHA_CATALOG !== 'undefined') ? PARASHA_CATALOG.find(p=>p.id===_bmParashaKey) : null;
+      const _seriesLeft = BASE_KEYS.filter(k=>!seriesDone(k)).length;
+      const _aliyaSub = _seriesLeft>0
+        ? ('Faltan '+_seriesLeft+' serie'+(_seriesLeft===1?'':'s')+' para practicarla a fondo')
+        : 'Disponible para practicar ahora';
+      sequence.push({type:'aliyah', parashaId:_bmParashaKey, label:'Tu aliá: '+(_bmMetaForAliyah?_bmMetaForAliyah.esp:_bmParashaKey), sub:_aliyaSub, isLocked:false, isComplete:false});
+    }
+    let _bmSub='Todavía no configuraste la fecha', _bmLabel='Tu Bar/Bat Mitzvá ✡️';
+    if(_bmDateKey){
+      const _today=new Date();_today.setHours(0,0,0,0);
+      const _bmD=new Date(_bmDateKey+'T00:00:00');
+      const _days=Math.ceil((_bmD-_today)/86400000);
+      const _valid=_days>=0&&_days<=730;
+      _bmSub = _valid ? (_days===0?'¡Hoy es el día!':_days===1?'Mañana':_days+' días') : 'Fecha ya pasada — actualizala cuando quieras';
+      if(_bmMetaForAliyah) _bmLabel=_bmMetaForAliyah.esp+' ✡️';
+    }
+    sequence.push({type:'bm', hasDate:!!_bmDateKey, label:_bmLabel, sub:_bmSub, isLocked:false, isComplete:false});
+  }
+
+
   const BANNER_H=90; // height reserved above coin for banner (including letters row)
   // Compute positions
   const LWAVE=[0.64,0.53,0.42]; // lesson x positions
   let y=8;
   const positions=sequence.map((item,idx)=>{
     let pos;
-    if(item.type==='series'){
+    if(item.type==='series'||item.type==='aliyah'||item.type==='bm'){
       if(idx>0) y+=GAP_S;
       const bannerSpace=(!item.isLocked)?BANNER_H+12:0;
       y+=bannerSpace;
@@ -5778,6 +5817,39 @@ function renderHome(){
         img.addEventListener("mouseenter",()=>{ img.style.transform="scale(1.07) translateY(-3px)"; });
         img.addEventListener("mouseleave",()=>{ img.style.transform=""; });
       }
+      wrap.appendChild(img);
+
+    } else if(item.type==='aliyah' || item.type==='bm'){
+      // ── Moneda final del camino: aliá del alumno / Bar-Bat Mitzvá ──
+      // Mismo lenguaje visual que las monedas de serie (banner + imagen), assets ya existentes.
+      const acColor = item.type==='aliyah' ? '#7c3aed' : (item.hasDate ? '#DC2626' : '#B89A74');
+      const bannerW=300;
+      const banner=document.createElement("div");
+      banner.style.cssText=`position:absolute;bottom:calc(100% + 10px);left:${(pos.w-bannerW)/2}px;background:${acColor};border-radius:12px;padding:8px 12px;width:${bannerW}px;min-width:${bannerW}px;box-shadow:0 3px 10px rgba(13,31,53,0.2);cursor:pointer;z-index:2;`;
+      banner.innerHTML=`
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;">${item.type==='aliyah'?'Tu lectura de Torá':'Bar/Bat Mitzvá'}</div>
+        <div style="font-size:13px;font-weight:900;color:white;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.label}</div>
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.9);margin-top:2px;">${item.sub}</div>`;
+      const _bmPathAction = ()=>{
+        if(item.type==='aliyah'){
+          (async()=>{
+            showToast('Cargando...','cyan');
+            const ok = await startParashaSession(item.parashaId, null);
+            if(ok) showAliyahSelect(item.parashaId);
+          })();
+        } else {
+          showBMSettingsModal();
+        }
+      };
+      banner.addEventListener("click", e=>{ e.stopPropagation(); _bmPathAction(); });
+      wrap.appendChild(banner);
+
+      const img=document.createElement("img");
+      img.src = item.type==='aliyah' ? IMG_MOISES : IMG_ARCA;
+      img.style.cssText=`width:${Math.round(pos.w*1.15)}px;height:auto;filter:drop-shadow(0 6px 14px rgba(13,31,53,0.28));transition:transform .15s;animation:coin-float 3s ease-in-out infinite;`;
+      wrap.addEventListener("click",_bmPathAction);
+      img.addEventListener("mouseenter",()=>{ img.style.transform="scale(1.07) translateY(-3px)"; });
+      img.addEventListener("mouseleave",()=>{ img.style.transform=""; });
       wrap.appendChild(img);
 
     } else {
@@ -6144,6 +6216,274 @@ function renderHome(){
 
 
 
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  PATH_HOME — "Camino al Bar Mitzvá" (home vertical, único CTA) ║
+// ║  Gateada por PATH_HOME. Reusa: getNextStep, seriesDone,        ║
+// ║  getLessons, lessonKey, needsReview, getStreak, startSeries,   ║
+// ║  startParashaSession, showAliyahSelect, showSeriesPopup,       ║
+// ║  showBMSettingsModal, toggleRankingPanel, toggleChallengesPanel║
+// ╚══════════════════════════════════════════════════════════════╝
+function _phEscape(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function renderPathHome(){
+  if(typeof checkWeeklyStreakGift === 'function') checkWeeklyStreakGift();
+  if(typeof _perf !== 'undefined'){ _perf.end('app-init'); _perf.start('render-home'); }
+  updateAchievementsBadge();
+  state.activeSeries = null; showView("home");
+  if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
+  runCoachCheck();
+
+  const baseC = document.getElementById("base-series-container");
+  const mixC  = document.getElementById("mix-series-container");
+  if(!baseC || !mixC) return;
+  baseC.innerHTML = ""; mixC.innerHTML = "";
+
+  const streak     = getStreak();
+  const nextStep   = getNextStep();
+  const bmDate     = localStorage.getItem('heb_bm_date');
+  const bmParasha  = localStorage.getItem('heb_bm_parasha');
+  const bmMeta     = (bmParasha && typeof PARASHA_CATALOG !== 'undefined') ? PARASHA_CATALOG.find(p=>p.id===bmParasha) : null;
+  const reviewCount = Object.keys(ALL_DATA).filter(k=>needsReview(k)).length;
+  // Claves reales de series base, derivadas de ALL_DATA (mismo orden de inserción del objeto)
+  const seriesKeys = Object.keys(ALL_DATA).filter(k=>ALL_DATA[k].type==='BASE');
+
+  // ── HEADER COMPACTO + BOTÓN "MÁS" (drawer) ──────────────────────
+  const header = document.createElement('div');
+  header.style.cssText = 'padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--sand-200);';
+  header.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      ${streak>0?`<span style="font-size:1.2rem;">🔥</span><span style="font-weight:900;color:#D97706;font-family:'Fraunces',serif;">${streak}</span>`:''}
+      <span style="font-weight:900;color:#C4963C;font-family:'Fraunces',serif;">₪ ${state.shekels.toLocaleString()}</span>
+      ${reviewCount>0?`<span style="font-size:10px;font-weight:700;color:#92400E;background:#FEF3C7;border-radius:8px;padding:3px 8px;">⏰ ${reviewCount}</span>`:''}
+    </div>
+    <button id="path-more-btn" data-action="toggle-more"
+      style="background:var(--sand-100);color:var(--navy-700);border:1.5px solid var(--sand-300);
+             border-radius:12px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;
+             display:flex;align-items:center;gap:5px;">
+      Más <span id="path-more-chev" style="transition:transform .2s;">▾</span>
+    </button>
+  `;
+  baseC.appendChild(header);
+
+  // Drawer secundario: ranking + desafíos + tienda (reusa paneles/funciones existentes)
+  const drawer = document.createElement('div');
+  drawer.id = 'path-more-drawer';
+  drawer.style.cssText = 'overflow:hidden;max-height:0;transition:max-height .3s cubic-bezier(.4,0,.2,1);';
+  drawer.innerHTML = `
+    <div style="display:flex;gap:8px;padding:10px 16px 0;">
+      <button id="ranking-btn" data-action="toggle-ranking" style="flex:1;background:var(--sand-100);color:var(--navy-700);
+        border:1.5px solid var(--sand-300);border-radius:12px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">🏅 Clase</button>
+      <button id="challenges-toggle-btn" data-action="toggle-challenges" style="flex:1;background:var(--sand-100);color:var(--navy-700);
+        border:1.5px solid var(--sand-300);border-radius:12px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">🎯 Desafíos <span id="challenges-btn-label">0</span></button>
+      <button id="coin-display" data-action="open-shop" style="flex:1;background:var(--sand-100);color:var(--navy-700);
+        border:1.5px solid var(--sand-300);border-radius:12px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">💰 Tienda</button>
+    </div>
+  `;
+  const rankingPanel = document.createElement('div');
+  rankingPanel.id = 'ranking-panel';
+  rankingPanel.style.cssText = 'overflow:hidden;max-height:0;transition:max-height .35s cubic-bezier(.4,0,.2,1);';
+  drawer.appendChild(rankingPanel);
+  const challengesPanel = document.createElement('div');
+  challengesPanel.id = 'challenges-panel';
+  challengesPanel.style.cssText = 'overflow:hidden;max-height:0;transition:max-height .35s cubic-bezier(.4,0,.2,1);';
+  drawer.appendChild(challengesPanel);
+  baseC.appendChild(drawer);
+
+  // Prefill del panel de desafíos (misma lógica que el home clásico, solo llamadas)
+  if(reviewCount>0){
+    const _rl = document.createElement('div');
+    _rl.style.cssText = 'margin:12px 16px 0;background:#FEF3C7;border:1px solid #D4A843;border-radius:10px;padding:5px 12px;font-size:11px;color:#92400E;font-weight:700;display:inline-block;';
+    _rl.textContent = '⏰ ' + reviewCount + ' serie' + (reviewCount===1?'':'s') + ' con repaso';
+    challengesPanel.appendChild(_rl);
+  }
+  const _mTitle = document.createElement('div');
+  _mTitle.style.cssText = 'padding:12px 16px 0;font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.08em;';
+  _mTitle.textContent = '🎯 Misiones del día';
+  challengesPanel.appendChild(_mTitle);
+  challengesPanel.appendChild(renderDailyQuestCard());
+  const _sep = document.createElement('div');
+  _sep.style.cssText = 'height:1px;background:var(--sand-200);margin:8px 16px;';
+  challengesPanel.appendChild(_sep);
+  const _wTitle = document.createElement('div');
+  _wTitle.style.cssText = 'padding:4px 16px 0;font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.08em;';
+  _wTitle.textContent = '🗓️ Desafíos de la semana';
+  challengesPanel.appendChild(_wTitle);
+  challengesPanel.appendChild(renderWeeklyChallengesCard());
+  if(typeof _updateChallengesBtnLabel === 'function') _updateChallengesBtnLabel();
+
+  // ── CONSTRUCCIÓN DEL CAMINO (nodos) ─────────────────────────────
+  const path = document.createElement('div');
+  path.id = 'path-home-track';
+  path.style.cssText = 'padding:8px 16px 40px;';
+  baseC.appendChild(path);
+
+  const nodes = [];
+
+  // 1) Series base — orden pedagógico real desde ALL_DATA
+  seriesKeys.forEach((key, si)=>{
+    const s = ALL_DATA[key];
+    const lessons = getLessons(key);
+    const totalDone = lessons.reduce((sum,_,li)=>sum+(state.progress[lessonKey(key,li)]||0),0);
+    const isComplete = seriesDone(key);
+    const isStarted = totalDone>0;
+    const prevDone = si===0 || seriesDone(seriesKeys[si-1]);
+    const isLocked = !isStarted && !prevDone;
+    const pct = Math.min(100, Math.round((totalDone/(s.words.length*3))*100));
+    const reviewNeeded = needsReview(key);
+    const isCurrent = !!(nextStep && !nextStep.isParasha && nextStep.key===key);
+    nodes.push({
+      type:'series', key, label:'Serie '+key, isComplete, isLocked, isCurrent, pct, reviewNeeded,
+      sub: isComplete ? 'Completa ✓' : reviewNeeded ? 'Repaso pendiente' : isLocked ? 'Bloqueada' : (pct+'% completada')
+    });
+  });
+
+  // 2) Nodo "Tu aliá" — si el alumno tiene parashá configurada
+  if(bmParasha){
+    const seriesLeft = seriesKeys.filter(k=>!seriesDone(k)).length;
+    const isCurrent = !!(nextStep && nextStep.isParasha);
+    const distanceTxt = isCurrent ? '¡Es tu turno!'
+      : seriesLeft>0 ? ('Faltan '+seriesLeft+' serie'+(seriesLeft===1?'':'s')+' para practicarla a fondo')
+      : 'Disponible para practicar';
+    nodes.push({
+      type:'aliyah', label:'Tu aliá: '+(bmMeta?bmMeta.esp:bmParasha), isCurrent,
+      isComplete:false, isLocked:false, sub:distanceTxt, parashaId:bmParasha
+    });
+  }
+
+  // 3) Nodo final — Bar/Bat Mitzvá
+  let bmDaysTxt = null, bmValid = false;
+  if(bmDate){
+    const today = new Date(); today.setHours(0,0,0,0);
+    const bm = new Date(bmDate+'T00:00:00');
+    const days = Math.ceil((bm-today)/86400000);
+    bmValid = days>=0 && days<=730;
+    bmDaysTxt = bmValid ? (days===0?'¡Hoy es el día!':days===1?'Mañana':days+' días') : 'Fecha ya pasada — actualizala cuando quieras';
+  }
+  nodes.push({
+    type:'bm', label: bmMeta ? bmMeta.esp+' ✡️' : 'Tu Bar/Bat Mitzvá ✡️',
+    isComplete:false, isLocked:false, isCurrent:false,
+    sub: bmDate ? bmDaysTxt : 'Todavía no configuraste la fecha',
+    hasDate: !!bmDate
+  });
+
+  // ── RENDER de nodos (vertical, transforms/opacity, sin libs) ────
+  nodes.forEach((node, idx)=>{
+    const isLast = idx===nodes.length-1;
+    const row = document.createElement('div');
+    row.className = 'path-node';
+    row.dataset.nodeIdx = String(idx);
+    row.style.cssText = 'display:flex;gap:12px;';
+
+    const accent = node.isComplete ? '#4A9B6F'
+      : node.reviewNeeded ? '#D97706'
+      : node.type==='aliyah' ? '#7c3aed'
+      : node.type==='bm' ? (node.hasDate ? '#DC2626' : '#B89A74')
+      : node.isLocked ? '#C4A07E'
+      : '#1B3A5C';
+
+    const marker = document.createElement('div');
+    marker.style.cssText = 'display:flex;flex-direction:column;align-items:center;width:34px;flex-shrink:0;';
+    const circle = document.createElement('div');
+    circle.style.cssText = `width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-size:15px;font-weight:900;color:white;background:${accent};
+      box-shadow:0 2px 6px rgba(13,31,53,0.18);${node.isCurrent?'transform:scale(1.15);':''}
+      transition:transform .15s;`;
+    circle.textContent = node.isComplete ? '✓' : node.isLocked ? '🔒' : node.type==='aliyah' ? '📖' : node.type==='bm' ? '✡️' : (idx+1);
+    marker.appendChild(circle);
+    if(!isLast){
+      const line = document.createElement('div');
+      line.style.cssText = `width:2px;flex:1;min-height:22px;background:${node.isComplete?'#4A9B6F':'var(--sand-300)'};margin-top:2px;`;
+      marker.appendChild(line);
+    }
+    row.appendChild(marker);
+
+    const card = document.createElement('div');
+    card.style.cssText = `flex:1;min-width:0;padding-bottom:22px;opacity:${node.isLocked?0.6:1};`;
+    card.innerHTML = `
+      <div style="font-size:14px;font-weight:900;color:var(--navy-800);">${_phEscape(node.label)}</div>
+      <div style="font-size:12px;color:${node.isCurrent?accent:'var(--sand-500)'};font-weight:${node.isCurrent?700:500};margin-top:2px;">${_phEscape(node.sub)}</div>
+      ${node.isCurrent ? `<button data-action="cta" data-node-idx="${idx}"
+          style="margin-top:10px;background:${accent};color:white;border:none;border-radius:12px;
+                 padding:10px 16px;font-size:13px;font-weight:900;font-family:'Fraunces',serif;
+                 cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,0.15);">Continuar →</button>` : ''}
+      ${node.type==='bm' && !node.hasDate ? `<button data-action="bm-setup" data-node-idx="${idx}"
+          style="margin-top:10px;background:none;border:1.5px dashed var(--sand-400);color:var(--sand-500);
+                 border-radius:12px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">Configurar fecha →</button>` : ''}
+    `;
+    row.appendChild(card);
+    path.appendChild(row);
+  });
+
+  // ── Delegación de eventos (sin onclick inline) ──────────────────
+  header.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    if(btn.dataset.action==='toggle-more'){
+      const isOpen = drawer.style.maxHeight!=='0px' && drawer.style.maxHeight!=='';
+      const chev = document.getElementById('path-more-chev');
+      if(isOpen){ drawer.style.maxHeight='0'; if(chev) chev.style.transform=''; }
+      else { drawer.style.maxHeight = drawer.scrollHeight+400+'px'; if(chev) chev.style.transform='rotate(180deg)'; }
+    }
+  });
+  drawer.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    if(btn.dataset.action==='toggle-ranking') toggleRankingPanel();
+    else if(btn.dataset.action==='toggle-challenges') toggleChallengesPanel();
+    else if(btn.dataset.action==='open-shop') showShopView();
+  });
+  path.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    const idx = parseInt(btn.dataset.nodeIdx, 10);
+    const node = nodes[idx];
+    if(!node) return;
+    if(btn.dataset.action==='bm-setup'){ showBMSettingsModal(); return; }
+    if(btn.dataset.action==='cta'){
+      if(node.type==='aliyah'){
+        (async()=>{
+          showToast('Cargando...','cyan');
+          const ok = await startParashaSession(node.parashaId, null);
+          if(ok) showAliyahSelect(node.parashaId);
+        })();
+      } else if(node.type==='series'){
+        startSeries(node.key, nextStep.lessonIdx);
+      }
+    }
+  });
+  // Tap en un nodo de aliá (aunque no sea el actual) → preview en la vista real
+  path.querySelectorAll('.path-node').forEach((row, idx)=>{
+    if(nodes[idx].type==='aliyah'){
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', e=>{
+        if(e.target.closest('[data-action]')) return; // el botón CTA ya maneja su propio click
+        showAliyahSelect(nodes[idx].parashaId);
+      });
+    } else if(nodes[idx].type==='series' && !nodes[idx].isLocked){
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', e=>{
+        if(e.target.closest('[data-action]')) return;
+        showSeriesPopup(nodes[idx].key, row);
+      });
+    }
+  });
+
+  setTimeout(updateCoinDisplay, 0);
+
+  // ── Scroll al nodo actual ────────────────────────────────────────
+  setTimeout(()=>{
+    const currentIdx = nodes.findIndex(n=>n.isCurrent);
+    const target = currentIdx>=0 ? path.children[currentIdx] : null;
+    if(target && typeof target.scrollIntoView==='function'){
+      target.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+  }, 60);
+}
 
 // ── PERSONALIZACIÓN BAR MITZVÁ ───────────────────────────────────
 // Modal para editar fecha y parashá desde la home
@@ -15758,7 +16098,10 @@ function runCoachCheck(){
     if(msg) setTimeout(() => showToast(msg, 'cyan'), 1800);
     return;
   }
-  setTimeout(() => showCoach('home'), 1500);
+  if(!sessionStorage.getItem('coach_home_shown')){
+    sessionStorage.setItem('coach_home_shown', '1');
+    setTimeout(() => showCoach('home'), 1500);
+  }
 }
 function analyzeUserBehavior(){ return getUserContext(); }
 // ╔═══════════════════════════════════════════════════════════╗
