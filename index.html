@@ -762,6 +762,22 @@ to   { transform: translateY(0);    opacity: 1; }
 @keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
 @keyframes fadeOut { from { opacity:1 } to { opacity:0 } }
 
+/* ── Modo Fraseo — bandas de unidades de lectura (teamim) ── */
+:root{
+  --fraseo-a-bg:rgba(59,130,246,0.08);
+  --fraseo-b-bg:rgba(217,119,6,0.09);
+  --fraseo-c-bg:rgba(13,148,136,0.08);
+  --fraseo-d-bg:rgba(124,58,237,0.07);
+}
+.fraseo-u0{background:var(--fraseo-a-bg);}
+.fraseo-u1{background:var(--fraseo-b-bg);}
+.fraseo-u2{background:var(--fraseo-c-bg);}
+.fraseo-u3{background:var(--fraseo-d-bg);}
+.fraseo-first{border-radius:0 8px 8px 0;}  /* RTL: primera palabra = extremo derecho */
+.fraseo-last{border-radius:8px 0 0 8px;}
+.fraseo-single{border-radius:8px;}
+.fraseo-gap{margin-left:12px;}             /* respiración tras pausa mayor (RTL) */
+
 </style>
 
   <!-- Preload assets críticos para percepción de velocidad -->
@@ -1695,6 +1711,11 @@ to   { transform: translateY(0);    opacity: 1; }
           font-size:11px;font-weight:700;" title="Mostrar/ocultar fonética">
           <span id="read-translit-icon">あ</span>
         </button>
+        <button id="read-fraseo-btn" style="background:var(--sand-200);color:var(--navy-700);
+          border:1.5px solid var(--sand-300);border-radius:10px;padding:8px 10px;
+          font-size:11px;font-weight:700;" title="Fraseo: ver las frases del versículo, como en el Jumash">
+          <span>♪</span>
+        </button>
         <button id="read-practice-btn" style="background:var(--gold-500);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;box-shadow:0 2px 0 var(--gold-600);">Practicar →</button>
       </div>
     </div>
@@ -2090,6 +2111,7 @@ function save(){
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.progress));
     localStorage.setItem("heb_shekels", String(state.shekels));
+    localStorage.setItem('heb_last_save_ts', String(Date.now()));
   } catch(e) {
     // QuotaExceededError: localStorage lleno
     dbg('save() error:', e.message);
@@ -4620,6 +4642,103 @@ function cleanTorahText(text){
     if(cp >= 0x0591 && cp <= 0x05AF) return false; // trope
     return true;
   }).join('');
+}
+
+// ── Modo Fraseo — ta'amei ha-mikrá como ayuda visual ─────────────────
+// Segmenta versículos en unidades de lectura según disyuntivos y las
+// pinta con bandas tenues. Capa 100% de presentación: no toca datos,
+// karaoke ni Read+Listen. Gate: FRASEO_MODE.
+const FRASEO_MODE = true;
+// Disyuntivos que cierran unidad: etnajtá, segol, zakef katón/gadol, tipjá, revia, tevir
+const FRASEO_DISJUNCTIVES = [0x0591,0x0592,0x0594,0x0595,0x0596,0x0597,0x059B];
+let _fraseoOn = false;
+try{ _fraseoOn = localStorage.getItem('heb_fraseo') === '1'; }catch(e){}
+
+function _wordEndsFraseoUnit(word){
+  if(!word) return false;
+  for(const ch of word){
+    if(FRASEO_DISJUNCTIVES.indexOf(ch.codePointAt(0)) !== -1) return true;
+  }
+  return false;
+}
+
+function _wordHasMajorPause(word){
+  if(!word) return false;
+  if(word.indexOf('\u05C3') !== -1) return true;                       // sof pasuk
+  for(const ch of word){ if(ch.codePointAt(0) === 0x0591) return true; } // etnajtá
+  return false;
+}
+
+// → [{from, to, major}] — índices inclusivos sobre el array de palabras.
+// Versículo sin teamim → 1 unidad (degradación silenciosa).
+function segmentVerseUnits(words){
+  const units = [];
+  let start = 0;
+  for(let i = 0; i < words.length; i++){
+    if(_wordEndsFraseoUnit(words[i]) || i === words.length - 1){
+      units.push({ from: start, to: i, major: _wordHasMajorPause(words[i]) });
+      start = i + 1;
+    }
+  }
+  return units;
+}
+
+// Aplica/retira el modo in-place sobre los spans existentes (sin re-render).
+function applyFraseoToVerseArea(on){
+  if(typeof FRASEO_MODE === 'undefined' || !FRASEO_MODE) return;
+  const area = document.getElementById('read-verses');
+  if(!area) return;
+  area.querySelectorAll('[data-verse-idx]').forEach(function(card){
+    const spans = card.querySelectorAll('span[data-word]');
+    if(!spans.length) return;
+    const words = [];
+    spans.forEach(function(s){ words.push(s.dataset.word || ''); });
+    if(on){
+      const units  = segmentVerseUnits(words);
+      const unitOf = new Array(words.length);
+      units.forEach(function(u, ui){
+        for(let i = u.from; i <= u.to; i++) unitOf[i] = { ui: ui, u: u };
+      });
+      spans.forEach(function(s, i){
+        s.textContent = s.dataset.word || s.textContent; // mostrar teamim reales
+        s.style.background = 'transparent';              // la banda vive en el wrapper
+        const w = s.parentElement;
+        const info = unitOf[i];
+        if(!w || !info) return;
+        w.classList.add('fraseo-u' + (info.ui % 4));
+        const first = i === info.u.from, last = i === info.u.to;
+        if(first && last) w.classList.add('fraseo-single');
+        else if(first)    w.classList.add('fraseo-first');
+        else if(last)     w.classList.add('fraseo-last');
+        if(last && info.u.major && info.u.to < words.length - 1) w.classList.add('fraseo-gap');
+      });
+    } else {
+      spans.forEach(function(s){
+        const original = s.dataset.word || '';
+        s.textContent = typeof cleanTorahText === 'function' ? cleanTorahText(original) : original;
+        // Restaurar fondo por estado de aprendizaje (colores del render original)
+        s.style.background = s.dataset.mastered === 'true' ? 'rgba(74,155,111,0.08)'
+                           : s.dataset.practiced === 'true' ? 'rgba(196,150,60,0.08)'
+                           : '';
+        const w = s.parentElement;
+        if(w) w.classList.remove('fraseo-u0','fraseo-u1','fraseo-u2','fraseo-u3',
+                                 'fraseo-first','fraseo-last','fraseo-single','fraseo-gap');
+      });
+    }
+  });
+}
+
+// Estado + botón + persistencia en un solo punto.
+function _setFraseoState(on){
+  _fraseoOn = !!on;
+  try{ localStorage.setItem('heb_fraseo', _fraseoOn ? '1' : '0'); }catch(e){}
+  const btn = document.getElementById('read-fraseo-btn');
+  if(btn){
+    btn.style.background  = _fraseoOn ? 'var(--navy-800)' : 'var(--sand-200)';
+    btn.style.color       = _fraseoOn ? 'white'           : 'var(--navy-700)';
+    btn.style.borderColor = _fraseoOn ? 'var(--navy-800)' : 'var(--sand-300)';
+  }
+  applyFraseoToVerseArea(_fraseoOn);
 }
 
 // Renders Hebrew word with silent shva (ְ) colored gray when it's silent.
@@ -8296,6 +8415,7 @@ function renderParashaRead(parashaId, aliyah){
   const noNikudBtn = document.getElementById('read-no-nikud-btn');
   if(noNikudBtn){
     noNikudBtn.addEventListener('click', () => {
+      if(!_noNikudOn && _fraseoOn) _setFraseoState(false); // exclusión mutua con Fraseo
       _noNikudOn = !_noNikudOn;
       const icon = document.getElementById('read-nikud-icon');
       if(icon) icon.textContent = _noNikudOn ? 'ת' : 'תּ';
@@ -8324,6 +8444,22 @@ function renderParashaRead(parashaId, aliyah){
         showToast('📜 Modo Torá — sin nikudot, como en el Séfer', 'cyan');
       }
     });
+  }
+
+  // Toggle Fraseo — frases del versículo con teamim (FRASEO_MODE)
+  const fraseoBtn = document.getElementById('read-fraseo-btn');
+  if(fraseoBtn){
+    if(typeof FRASEO_MODE !== 'undefined' && FRASEO_MODE){
+      fraseoBtn.style.display = '';
+      fraseoBtn.onclick = () => {              // onclick: idempotente entre renders
+        if(!_fraseoOn && _noNikudOn && noNikudBtn) noNikudBtn.click(); // exclusión mutua
+        _setFraseoState(!_fraseoOn);
+        if(_fraseoOn) showToast('♪ Fraseo — las frases del versículo, como en el Jumash', 'cyan');
+      };
+      if(_fraseoOn) _setFraseoState(true);     // reaplicar preferencia persistida
+    } else {
+      fraseoBtn.style.display = 'none';
+    }
   }
 
   // Botones de karaoke (se reconectan cada vez que se renderiza la vista)
@@ -11356,6 +11492,7 @@ function updateGameUI(){
 }
 
 function nextChallenge(){
+  state._challengeResolved = false;
   if(state.pool.length===0){ showCelebration(); return; }
   hideTranslitFading(); // limpiar pista antes del siguiente ejercicio
   state.writeAttempts=0; // resetear intentos de escritura para la nueva palabra
@@ -12841,6 +12978,7 @@ function showWordIntroFromError(){
 
 // ── ENGINE: HANDLE SUCCESS ────────────────────────────────────────
 function handleSuccess(){
+  if(state._challengeResolved) return; state._challengeResolved = true;
   hideTranslitFading(); // ocultar pista de fonética al responder
   const word=getCurrentWord(); if(!word) return;
   stopAudio();
@@ -15662,6 +15800,7 @@ async function syncProgressToSupabase(force){
       everDone:   typeof getEverDone === 'function' ? getEverDone() : {},
       inventory:  typeof getInventory === 'function' ? getInventory() : {},
       milestones: { firstAliyah: typeof getFirstAliyahMilestone === 'function' ? getFirstAliyahMilestone() : null },
+      word_states: (()=>{ try{ return JSON.parse(localStorage.getItem('heb_word_states_v1')||'{}'); }catch(e){ return {}; } })(),
     };
     const { error } = await _sb.from('user_progress').upsert({
       user_id:    _authUser.id,
@@ -15898,7 +16037,7 @@ async function initAuth(){
       const remote = await loadProgressFromSupabase();
       if(remote && remote.updated_at){
         const remoteTs  = new Date(remote.updated_at).getTime();
-        const localTs   = (await loadProgress())?.savedAt || 0;
+        const localTs   = parseInt(localStorage.getItem('heb_last_save_ts')||'0') || (await loadProgress())?.savedAt || 0;
         const localEmpty = _isLocalProgressEmpty();
         if(localEmpty && typeof trackEvent === 'function'){
           trackEvent('storage_evicted_recovered', { hadRemote: true });
