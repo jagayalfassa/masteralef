@@ -5,12 +5,12 @@
 //
 // DEPENDENCIAS GLOBALES REQUERIDAS (definidas en index.html):
 //   _sb, _authUser, _authProfile, _requireInstitution
-//   ALL_DATA, showToast, showView, dbg, trackEvent
+//   ALL_DATA, PARASHA_CATALOG, showToast, showView, dbg, trackEvent, esc
 //   document (DOM ya disponible porque usa defer)
 //
 
 /* globals _sb, _authUser, _authProfile, _requireInstitution, ALL_DATA,
-           showToast, showView, dbg, trackEvent */
+           PARASHA_CATALOG, showToast, showView, dbg, trackEvent, esc */
 
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  TEACHER DASHBOARD — Sistema completo                     ║
@@ -92,7 +92,7 @@ function tdRenderClassSwitcher(){
       'style="padding:5px 12px;border-radius:8px;border:none;font-size:11.5px;font-weight:700;cursor:pointer;' +
       'background:' + (active ? 'var(--navy-800)' : 'var(--sand-200)') + ';' +
       'color:' + (active ? 'white' : 'var(--navy-700)') + ';">' +
-      (c.name || 'Clase') + '</button>';
+      esc(c.name || 'Clase') + '</button>';
   }).join('');
 }
 
@@ -329,7 +329,7 @@ function tdRenderStudentList(){
           'display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">' + cfg.icon + '</div>' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-weight:700;color:var(--navy-800);font-size:14px;' +
-            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</div>' +
+            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(name) + '</div>' +
           '<div style="font-size:11px;color:var(--sand-500);margin-top:2px;">Última sesión: ' + lastDate + '</div>' +
           '<div style="margin-top:6px;background:var(--sand-200);height:5px;border-radius:99px;overflow:hidden;">' +
             '<div style="height:100%;width:' + pct + '%;background:' + (pct >= 70 ? 'var(--success)' : pct >= 30 ? 'var(--gold-500)' : 'var(--sand-400)') + ';border-radius:99px;transition:width .4s;"></div>' +
@@ -528,11 +528,11 @@ function tdOpenStudent(studentId){
 
     <!-- Acción: enviar mensaje -->
     <div style="background:white;border:1.5px solid var(--sand-300);border-radius:12px;padding:14px;">
-      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📩 Enviar mensaje a ${name}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📩 Enviar mensaje a ${esc(name)}</div>
       <textarea id="td-msg-student-${studentId}" placeholder="Escribe un mensaje de aliento..."
         style="width:100%;padding:10px;border:1.5px solid var(--sand-300);border-radius:10px;
                font-size:13px;min-height:72px;resize:none;font-family:inherit;color:var(--navy-800);outline:none;box-sizing:border-box;"></textarea>
-      <button id="td-send-msg-btn" data-student-id="${studentId}" data-student-name="${name.replace(/"/g,'&quot;')}"
+      <button id="td-send-msg-btn" data-student-id="${studentId}" data-student-name="${esc(name)}"
         style="margin-top:8px;width:100%;padding:10px;border-radius:10px;border:none;
                background:var(--navy-800);color:white;font-size:13px;font-weight:700;cursor:pointer;">
         Enviar mensaje
@@ -646,7 +646,7 @@ function tdRenderWeeklyReport(){
         'padding:8px 0;border-top:1px solid var(--sand-200);cursor:pointer;">' +
         '<span style="font-size:1rem;">' + pCfg.icon + '</span>' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:13px;font-weight:600;color:var(--navy-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</div>' +
+          '<div style="font-size:13px;font-weight:600;color:var(--navy-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(name) + '</div>' +
           '<div style="font-size:10px;color:var(--sand-500);">' + pred.daysLeft + ' días · ' + pred.pct + '% → ' + pred.projected + '%</div>' +
         '</div>' +
         '<div style="text-align:right;flex-shrink:0;">' +
@@ -676,7 +676,7 @@ function tdRenderWeeklyReport(){
         'padding:8px 0;border-bottom:' + (i < topStudents.length - 1 ? '1px solid var(--sand-200)' : 'none') + ';cursor:pointer;">' +
         '<span style="font-size:1.2rem;">' + ['🥇','🥈','🥉'][i] + '</span>' +
         '<div style="flex:1;">' +
-          '<div style="font-size:13px;font-weight:700;color:var(--navy-800);">' + name + '</div>' +
+          '<div style="font-size:13px;font-weight:700;color:var(--navy-800);">' + esc(name) + '</div>' +
           '<div style="margin-top:4px;height:4px;background:var(--sand-200);border-radius:99px;overflow:hidden;">' +
             '<div style="height:100%;width:' + pct + '%;background:var(--gold-500);border-radius:99px;"></div></div>' +
         '</div>' +
@@ -694,7 +694,7 @@ function tdRenderWeeklyReport(){
     inactiveThisWeek.forEach(function(s){
       var name = s.name || s.email?.split('@')[0] || 'Alumno';
       html += '<span onclick="tdOpenStudent(\'' + s.id + '\')" style="font-size:11px;font-weight:700;color:var(--navy-700);' +
-        'background:var(--sand-100);border:1.5px solid var(--sand-200);border-radius:99px;padding:4px 10px;cursor:pointer;">' + name + '</span>';
+        'background:var(--sand-100);border:1.5px solid var(--sand-200);border-radius:99px;padding:4px 10px;cursor:pointer;">' + esc(name) + '</span>';
     });
     html += '</div></div>';
   }
@@ -731,19 +731,151 @@ function isLeaderboardEnabled(){
   return localStorage.getItem(TD_LEADERBOARD_KEY) !== 'false';
 }
 
-function tdRenderClassSettings(){
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  ASIGNACIONES (I3) — crear tarea semanal + ver % completado ║
+// ╚═══════════════════════════════════════════════════════════╝
+let _tdAssignments = []; // cache de asignaciones de la clase activa
+
+async function tdLoadAssignments(){
+  _tdAssignments = [];
+  if(!_sb || !_tdClassData) return;
+  const { data, error } = await _sb
+    .from('assignments')
+    .select('id, type, target, due_date, created_at')
+    .eq('class_id', _tdClassData.id)
+    .order('created_at', { ascending: false });
+  if(error){ dbg('[Assignments] tdLoadAssignments error:', error.message); return; }
+  _tdAssignments = data || [];
+  if(!_tdAssignments.length) return;
+
+  const ids = _tdAssignments.map(a => a.id);
+  const { data: prog, error: progErr } = await _sb
+    .from('assignment_progress')
+    .select('assignment_id')
+    .in('assignment_id', ids);
+  if(progErr){ dbg('[Assignments] progress error:', progErr.message); return; }
+  const doneCounts = {};
+  (prog || []).forEach(p => { doneCounts[p.assignment_id] = (doneCounts[p.assignment_id] || 0) + 1; });
+  _tdAssignments.forEach(a => { a._doneCount = doneCounts[a.id] || 0; });
+}
+
+function tdAssignmentLabel(a){
+  if(a.type === 'serie'){
+    const meta = (typeof ALL_DATA !== 'undefined') ? ALL_DATA[a.target?.key] : null;
+    return meta?.name || a.target?.key || 'Serie';
+  }
+  if(a.type === 'aliyah'){
+    const pMeta   = (typeof PARASHA_CATALOG !== 'undefined') ? PARASHA_CATALOG.find(p => p.id === a.target?.parashaId) : null;
+    const alLabel = a.target?.aliyah ? ('Aliyá ' + a.target.aliyah) : 'Completa';
+    return (pMeta?.esp || a.target?.parashaId || 'Torá') + ' · ' + alLabel;
+  }
+  return 'Tarea';
+}
+
+function tdRenderAssignmentsSection(){
+  const total = _tdStudents.length;
+  const seriesOptions = (typeof ALL_DATA !== 'undefined' ? Object.keys(ALL_DATA) : [])
+    .filter(k => ALL_DATA[k].type === 'BASE')
+    .map(k => '<option value="' + k + '">' + k + '</option>').join('');
+  const parashaOptions = (typeof PARASHA_CATALOG !== 'undefined' ? PARASHA_CATALOG : [])
+    .map(p => '<option value="' + p.id + '">' + esc(p.esp) + '</option>').join('');
+
+  const listHtml = _tdAssignments.length
+    ? _tdAssignments.map(a => {
+        const pct    = total ? Math.round((a._doneCount || 0) / total * 100) : 0;
+        const dueTxt = a.due_date
+          ? new Date(a.due_date + 'T00:00:00').toLocaleDateString('es', { day:'numeric', month:'short' })
+          : 'Sin fecha';
+        return '<div style="background:var(--sand-100);border-radius:10px;padding:10px 12px;margin-bottom:6px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<div style="font-size:12.5px;font-weight:700;color:var(--navy-800);">' + esc(tdAssignmentLabel(a)) + '</div>' +
+            '<div style="font-size:11px;font-weight:700;color:var(--sand-500);">' + esc(dueTxt) + '</div>' +
+          '</div>' +
+          '<div style="margin-top:6px;background:var(--sand-200);height:5px;border-radius:99px;overflow:hidden;">' +
+            '<div style="height:100%;width:' + pct + '%;background:var(--success);border-radius:99px;"></div>' +
+          '</div>' +
+          '<div style="font-size:10px;color:var(--sand-500);margin-top:3px;">' + (a._doneCount || 0) + '/' + total + ' completado — ' + pct + '%</div>' +
+        '</div>';
+      }).join('')
+    : '<div style="font-size:12px;color:var(--sand-500);text-align:center;padding:10px 0;">Sin asignaciones todavía</div>';
+
+  return `
+    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:10px;">📌 Asignaciones de la clase</div>
+      ${listHtml}
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--sand-200);">
+        <select id="td-assign-type" style="width:100%;padding:9px 10px;border:1.5px solid var(--sand-300);border-radius:8px;font-size:12.5px;margin-bottom:6px;color:var(--navy-800);">
+          <option value="serie">Serie (base)</option>
+          <option value="aliyah">Aliyá de Torá</option>
+        </select>
+        <select id="td-assign-serie" style="width:100%;padding:9px 10px;border:1.5px solid var(--sand-300);border-radius:8px;font-size:12.5px;margin-bottom:6px;color:var(--navy-800);">
+          ${seriesOptions}
+        </select>
+        <select id="td-assign-parasha" style="display:none;width:100%;padding:9px 10px;border:1.5px solid var(--sand-300);border-radius:8px;font-size:12.5px;margin-bottom:6px;color:var(--navy-800);">
+          ${parashaOptions}
+        </select>
+        <input id="td-assign-aliyah" type="number" min="1" max="7" placeholder="N° de aliyá (vacío = parashá completa)"
+          style="display:none;width:100%;padding:9px 10px;border:1.5px solid var(--sand-300);border-radius:8px;font-size:12.5px;margin-bottom:6px;box-sizing:border-box;color:var(--navy-800);">
+        <input id="td-assign-due" type="date"
+          style="width:100%;padding:9px 10px;border:1.5px solid var(--sand-300);border-radius:8px;font-size:12.5px;margin-bottom:8px;box-sizing:border-box;color:var(--navy-800);">
+        <button id="td-assign-create-btn"
+          style="width:100%;padding:10px;border-radius:10px;border:none;background:var(--navy-800);color:white;font-size:13px;font-weight:700;cursor:pointer;">
+          + Crear asignación
+        </button>
+        <div id="td-assign-status" style="font-size:11px;color:var(--sand-500);text-align:center;margin-top:6px;min-height:14px;"></div>
+      </div>
+    </div>`;
+}
+
+async function tdCreateAssignment(){
+  if(!_sb || !_authUser || !_tdClassData) return;
+  const status = document.getElementById('td-assign-status');
+  const type    = document.getElementById('td-assign-type')?.value;
+  const due     = document.getElementById('td-assign-due')?.value || null;
+
+  let target = {};
+  if(type === 'serie'){
+    const key = document.getElementById('td-assign-serie')?.value;
+    if(!key){ if(status) status.textContent = 'Elegí una serie'; return; }
+    target = { key };
+  } else {
+    const parashaId = document.getElementById('td-assign-parasha')?.value;
+    const aliyahRaw = document.getElementById('td-assign-aliyah')?.value;
+    if(!parashaId){ if(status) status.textContent = 'Elegí una parashá'; return; }
+    target = { parashaId };
+    if(aliyahRaw) target.aliyah = parseInt(aliyahRaw, 10);
+  }
+
+  if(status) status.textContent = 'Creando...';
+  try {
+    const { error } = await _sb.from('assignments').insert({
+      class_id:   _tdClassData.id,
+      created_by: _authUser.id,
+      type, target,
+      due_date:   due,
+    });
+    if(error){ if(status) status.textContent = 'Error: ' + error.message; return; }
+    showToast('✓ Asignación creada', 'green');
+    trackEvent('assignment_created', { type });
+    await tdRenderClassSettings(); // refetch + re-render (incluye la sección de asignaciones)
+  } catch(e){ if(status) status.textContent = 'Error: ' + e.message; }
+}
+
+async function tdRenderClassSettings(){
   const container = document.getElementById('td-content');
   if(!container) return;
 
   const cls  = _tdClassData;
   const code = cls?.code || '—';
 
+  if(cls && typeof tdLoadAssignments === 'function') await tdLoadAssignments();
+
   container.innerHTML = `
     ${cls ? `
     <!-- Clase existente -->
     <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
       <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;margin-bottom:4px;">Clase activa</div>
-      <div style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:var(--navy-800);margin-bottom:12px;">${cls.name}</div>
+      <div style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:var(--navy-800);margin-bottom:12px;">${esc(cls.name)}</div>
       <div style="font-size:12px;color:var(--sand-500);margin-bottom:6px;">Código para que se unan:</div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="flex:1;background:var(--sand-100);border:2px dashed var(--sand-400);border-radius:10px;
@@ -784,6 +916,8 @@ function tdRenderClassSettings(){
       </button>
     </div>`}
 
+    <!-- ── Asignaciones (I3) — solo si ya hay clase creada ── -->
+    ${cls && typeof tdRenderAssignmentsSection === 'function' ? tdRenderAssignmentsSection() : ''}
 
     <!-- ── Licencia institucional ───────────────────────── -->
     ${(function(){
@@ -895,6 +1029,23 @@ function tdRenderClassSettings(){
       </button>
       <div id="td-broadcast-status" style="font-size:12px;color:var(--sand-500);text-align:center;min-height:16px;margin-top:6px;"></div>
     </div>`;
+
+  // Wiring de la sección de asignaciones (si hay clase activa)
+  if(cls){
+    const typeSel = document.getElementById('td-assign-type');
+    if(typeSel){
+      typeSel.addEventListener('change', function(){
+        const isAliyah = this.value === 'aliyah';
+        const serieSel   = document.getElementById('td-assign-serie');
+        const parashaSel = document.getElementById('td-assign-parasha');
+        const aliyahIn   = document.getElementById('td-assign-aliyah');
+        if(serieSel)   serieSel.style.display   = isAliyah ? 'none'  : 'block';
+        if(parashaSel) parashaSel.style.display = isAliyah ? 'block' : 'none';
+        if(aliyahIn)   aliyahIn.style.display   = isAliyah ? 'block' : 'none';
+      });
+    }
+    document.getElementById('td-assign-create-btn')?.addEventListener('click', tdCreateAssignment);
+  }
 }
 
 // ── Leaderboard toggle ───────────────────────────────────────
