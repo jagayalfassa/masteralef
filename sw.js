@@ -3,7 +3,7 @@
 // ║  Para actualizar: cambiar CACHE_VERSION abajo                ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const CACHE_STATIC  = `alefmaster-static-${CACHE_VERSION}`;
 const CACHE_DYNAMIC = `alefmaster-dynamic-${CACHE_VERSION}`;
 
@@ -87,9 +87,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // JSON datos (parasha, tefilot) → Cache First dinámico
+  // JSON datos (parasha, tefilot) → Stale While Revalidate (correcciones sin bump de versión)
   if(url.pathname.endsWith('.json')){
-    event.respondWith(cacheFirst(request, CACHE_DYNAMIC));
+    event.respondWith(staleWhileRevalidate(request, CACHE_DYNAMIC));
     return;
   }
 
@@ -137,7 +137,10 @@ self.addEventListener('notificationclick', event => {
 // ── ESTRATEGIAS ───────────────────────────────────────────────
 async function networkFirst(req){
   try {
-    const res = await fetch(req);
+    const res = await Promise.race([
+      fetch(req),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))
+    ]);
     if(res.ok){
       const cache = await caches.open(CACHE_STATIC);
       cache.put(req, res.clone());
