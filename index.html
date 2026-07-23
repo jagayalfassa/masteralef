@@ -762,6 +762,52 @@ to   { transform: translateY(0);    opacity: 1; }
 @keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
 @keyframes fadeOut { from { opacity:1 } to { opacity:0 } }
 
+/* ── Rashi Guides — motor de coachmarks "Rashi te muestra" ──────────── */
+.rashi-guide-visual {
+  position: fixed; z-index: 9700; pointer-events: none;
+  border-radius: 14px; padding: 6px;
+  box-shadow: 0 0 0 9999px rgba(13,31,53,0.75);
+}
+.rashi-guide-catcher {
+  position: fixed; inset: 0; z-index: 9700; background: transparent;
+}
+.rashi-guide-proxy {
+  position: fixed; z-index: 9702; background: transparent; border-radius: 14px;
+  cursor: pointer;
+}
+.rashi-guide-figure {
+  position: fixed; z-index: 9703; display: flex; flex-direction: column;
+  align-items: center; max-width: 260px; text-align: center;
+  animation: slideUp .35s ease both;
+}
+.rashi-guide-figure.is-closing { animation: fadeOut .2s ease both; }
+.rashi-guide-figure img {
+  width: 90px; height: auto; object-fit: contain;
+  filter: drop-shadow(0 8px 20px rgba(13,31,53,0.25));
+}
+.rashi-guide-bubble {
+  background: #fff; color: var(--navy-800, #0D1F35); border-radius: 16px;
+  padding: 12px 16px; font-size: 14px; font-weight: 600; line-height: 1.35;
+  box-shadow: 0 8px 24px rgba(13,31,53,0.3); margin-top: 6px; position: relative;
+}
+.rashi-guide-hint {
+  display: block; margin-top: 6px; font-size: 12px; font-weight: 700; opacity: .85;
+}
+.rashi-guide-btn {
+  margin-top: 10px; border: none; border-radius: 10px; padding: 10px 20px;
+  font-size: 14px; font-weight: 800; color: #fff; cursor: pointer;
+  background: linear-gradient(135deg,#D4A843,#A67C28);
+  box-shadow: 0 4px 0 #8a6420;
+}
+@keyframes rashiGuideShake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-6px); }
+  40%     { transform: translateX(6px); }
+  60%     { transform: translateX(-4px); }
+  80%     { transform: translateX(4px); }
+}
+.rashi-guide-figure.rg-shake { animation: rashiGuideShake .4s ease; }
+
 /* ── Modo Fraseo — bandas de unidades de lectura (teamim) ── */
 :root{
   --fraseo-a-bg:rgba(59,130,246,0.08);
@@ -8624,8 +8670,8 @@ const TUTORIAL_TEXTS = {
   DETECT:   { icon:'🔍', title:'Reconocé la pronunciación', body:'Ves la palabra en hebreo. Elegí cómo se pronuncia — opciones más parecidas para ponerte a prueba.' },
 };
 
-function showTutorialIfNeeded(mode){
-  if(isTutorialSeen(mode)) return;
+function showTutorialIfNeeded(mode, force){
+  if(!force && isTutorialSeen(mode)) return;
   const t = TUTORIAL_TEXTS[mode];
   if(!t) return;
 
@@ -9902,10 +9948,7 @@ function _showAnchorsIfNeeded(seriesKey, onDone){
 // ║  NIKUDOT BLOQUE 2 — Jolam, Shuruq, Kubutz (vocales O y U)  ║
 // ║  Se muestra la primera vez que el alumno entra a Serie B2.  ║
 // ╚═══════════════════════════════════════════════════════════════╝
-function _showVowelsIntro2(onDone){
-  if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
-
-  const VOWELS2 = [
+const VOWELS_BLOCK2 = [
     {
       nikud: '\u05B9',  name: 'Jolam', sound: 'O',
       example: '\u05DB\u05BC\u05B9\u05DC = kol',
@@ -9931,6 +9974,11 @@ function _showVowelsIntro2(onDone){
       tip: 'Vav con un punto en el medio. Suena "U". Es la versi\u00f3n "completa" del Kubutz.'
     },
   ];
+
+function _showVowelsIntro2(onDone){
+  if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
+
+  const VOWELS2 = VOWELS_BLOCK2;
 
   let step = 0;
   const overlay = document.createElement('div');
@@ -10023,10 +10071,7 @@ function _showVowelsIntro2(onDone){
 // ║  NIKUDOT BLOQUE 3 — Shva y Jataf-vocales                     ║
 // ║  Se muestra la primera vez que el alumno entra a Serie D1.  ║
 // ╚═══════════════════════════════════════════════════════════════╝
-function _showVowelsIntro3(onDone){
-  if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
-
-  const VOWELS3 = [
+const VOWELS_BLOCK3 = [
     {
       nikud: '\u05B0',  name: 'Shva', sound: 'e breve / silencio',
       example: '\u05D1\u05B0\u05BC = be / \u05DE\u05B0 = me',
@@ -10052,6 +10097,11 @@ function _showVowelsIntro3(onDone){
       tip: 'Shva + Kamatz juntos. El menos com\u00fan de los tres. Suena como una "O" muy breve.'
     },
   ];
+
+function _showVowelsIntro3(onDone){
+  if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
+
+  const VOWELS3 = VOWELS_BLOCK3;
 
   let step = 0;
   const overlay = document.createElement('div');
@@ -10145,11 +10195,7 @@ function _showVowelsIntro3(onDone){
 // Pantalla de introducción a los 6 nikudot principales (Bloque 1).
 // Se muestra solo la primera vez, antes de la Serie A.
 // onDone() se llama al terminar.
-function _showVowelsIntro(onDone){
-  if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
-
-  // Bloque 1 — 6 vocales plenas (las más frecuentes en la Torá y el Sidur)
-  const VOWELS = [
+const VOWELS_BLOCK1 = [
     { nikud:'ָ',  name:'Kamatz', sound:'A', example:'שָׁ = sha',  color:'#C4963C', tip:'La raya con pie debajo de la letra — suena "A"' },
     { nikud:'ַ',  name:'Pataj',  sound:'A', example:'מַ = ma',   color:'#B45309', tip:'La raya sola debajo de la letra — también suena "A"' },
     { nikud:'ֶ',  name:'Segol',  sound:'E', example:'מֶ = me',   color:'#2563EB', tip:'Tres puntos en triángulo debajo de la letra — suena "E"' },
@@ -10157,6 +10203,12 @@ function _showVowelsIntro(onDone){
     { nikud:'ֹ',  name:'Jolam',  sound:'O', example:'לֹ = lo',   color:'#D97706', tip:'Un punto arriba a la izquierda de la letra — suena "O"' },
     { nikud:'ּו', name:'Shuruk', sound:'U', example:'שׁוּ = shu', color:'#059669', tip:'Un vav con punto en el medio — suena "U"' },
   ];
+
+function _showVowelsIntro(onDone){
+  if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
+
+  // Bloque 1 — 6 vocales plenas (las más frecuentes en la Torá y el Sidur)
+  const VOWELS = VOWELS_BLOCK1;
 
   let step = 0;
 
@@ -11470,6 +11522,7 @@ function startMission(){
   }
   document.getElementById("game-percentage").innerText=p+"%";
   updateGameUI(); nextChallenge();
+  if(RASHI_GUIDES_MODE){ setTimeout(() => rashiGuide('game-help'), 600); }
 }
 function updateGameUI(){
   updateHudShekels();
@@ -11951,6 +12004,7 @@ function hideTranslitFading(){
 // renderGameChallenge, renderSelectMode, renderWriteMode,
 // renderListenMode, renderArrangeMode, renderArrangeTiles
 function renderGameChallenge(){
+  _ensureRashiHelpBtn();
   state.challenge_start = Date.now();
   state.challenge_first_try = true;
   const word=getCurrentWord(); if(!word) return;
@@ -18496,6 +18550,384 @@ setMascotState('idle');
     dbg('[Mascota] Sistema de vida activo: parpadeo + follow + micro-delay');
   }
 
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+// ── RASHI GUIDES — motor de coachmarks "Rashi te muestra" ──────────────
+// Gate: RASHI_GUIDES_MODE = false desactiva toda la feature sin tocar nada más.
+// ══════════════════════════════════════════════════════════════════════
+const RASHI_GUIDES_MODE = true;
+
+const RASHI_GUIDES = {
+  // Guía demo — ningún flujo la dispara todavía.
+  // Probar manualmente: rashiGuide('demo') desde la consola, parado en la vista de lectura.
+  demo: {
+    target: '#read-practice-btn',
+    text: 'Tocá acá para practicar la lectura de este versículo 📖',
+    mascot: 'idle',
+    completeOnTargetTap: true,
+    once: true
+  },
+  'game-help': {
+    target: '#rashi-help-btn',
+    text: '¡Hola! Soy Rashi 👋 Si te olvidás cómo suena un puntito, tocame y te lo muestro.',
+    mascot: 'idle',
+    completeOnTargetTap: true
+  }
+};
+
+const RASHI_GUIDE_MASCOT_IMG = {
+  idle: 'img/rashi-idle.png',
+  happy: 'img/rashi-happy.png',
+  thinking: 'img/rashi-thinking.png'
+};
+
+let _rashiGuideShownThisView = false;
+let _rashiGuideQueue = [];
+let _rashiGuideActive = null; // { id, els:{}, cleanup:fn }
+
+function _rashiGuideKey(id){ return 'heb_rguide_' + id; }
+
+function rashiGuide(id){
+  if(!RASHI_GUIDES_MODE) return;
+  if(_rashiGuideActive) return; // ya hay una guía abierta — no superponer
+  const guide = RASHI_GUIDES[id];
+  if(!guide) return;
+  if(guide.once !== false && localStorage.getItem(_rashiGuideKey(id))) return;
+
+  const target = document.querySelector(guide.target);
+  if(!target || target.offsetParent === null) return;
+
+  if(_rashiGuideShownThisView){
+    if(!_rashiGuideQueue.includes(id)) _rashiGuideQueue.push(id);
+    return;
+  }
+
+  const elapsed = Date.now() - (_coachMemory.shownAt || 0);
+  if(elapsed < 15000){
+    if(!_rashiGuideQueue.includes(id)) _rashiGuideQueue.push(id);
+    setTimeout(() => rashiGuide(id), 15000 - elapsed + 200);
+    return;
+  }
+
+  _rashiGuideShownThisView = true;
+  target.scrollIntoView({ block: 'center' });
+  setTimeout(() => _rashiGuideRender(id, guide, target), 260);
+}
+
+function _rashiGuideRender(id, guide, target){
+  if(!document.body.contains(target) || target.offsetParent === null){
+    _rashiGuideShownThisView = false; // no llegó a mostrarse, no penalizar la vista
+    return;
+  }
+
+  const pad = 6;
+  const rect = target.getBoundingClientRect();
+  const box = {
+    top: rect.top - pad, left: rect.left - pad,
+    width: rect.width + pad * 2, height: rect.height + pad * 2
+  };
+
+  const visual = document.createElement('div');
+  visual.className = 'rashi-guide-visual';
+  Object.assign(visual.style, {
+    top: box.top + 'px', left: box.left + 'px',
+    width: box.width + 'px', height: box.height + 'px'
+  });
+
+  const catcher = document.createElement('div');
+  catcher.className = 'rashi-guide-catcher';
+
+  const figure = document.createElement('div');
+  figure.className = 'rashi-guide-figure';
+  figure.setAttribute('role', 'dialog');
+  figure.setAttribute('aria-label', guide.text);
+
+  const img = document.createElement('img');
+  img.src = RASHI_GUIDE_MASCOT_IMG[guide.mascot] || RASHI_GUIDE_MASCOT_IMG.idle;
+  img.alt = 'Rashi';
+  img.onerror = function(){ this.style.display = 'none'; };
+
+  const bubble = document.createElement('div');
+  bubble.className = 'rashi-guide-bubble';
+  bubble.textContent = guide.text;
+
+  const hint = document.createElement('span');
+  hint.className = 'rashi-guide-hint';
+  if(guide.completeOnTargetTap){
+    hint.textContent = 'Tocá el botón para probarlo';
+    bubble.appendChild(hint);
+  }
+
+  let btn = null;
+  if(!guide.completeOnTargetTap){
+    btn = document.createElement('button');
+    btn.className = 'rashi-guide-btn';
+    btn.textContent = '¡Entendido!';
+    btn.addEventListener('click', () => _rashiGuideClose(id, true));
+  }
+
+  figure.appendChild(img);
+  figure.appendChild(bubble);
+  if(btn) figure.appendChild(btn);
+
+  document.body.appendChild(visual);
+  document.body.appendChild(catcher);
+  document.body.appendChild(figure);
+
+  let proxy = null;
+  if(guide.completeOnTargetTap){
+    proxy = document.createElement('div');
+    proxy.className = 'rashi-guide-proxy';
+    Object.assign(proxy.style, {
+      top: box.top + 'px', left: box.left + 'px',
+      width: box.width + 'px', height: box.height + 'px'
+    });
+    proxy.addEventListener('click', (e) => {
+      e.preventDefault();
+      _rashiGuideClose(id, true);
+      target.click();
+    });
+    document.body.appendChild(proxy);
+  }
+
+  function positionFigure(){
+    const r = target.getBoundingClientRect();
+    const fRect = figure.getBoundingClientRect();
+    const upperHalf = r.top < window.innerHeight / 2;
+    let top = upperHalf ? (r.bottom + 16) : (r.top - fRect.height - 16);
+    top = Math.max(12, Math.min(top, window.innerHeight - fRect.height - 12));
+    let left = r.left + r.width / 2 - fRect.width / 2;
+    left = Math.max(12, Math.min(left, window.innerWidth - fRect.width - 12));
+    figure.style.top = top + 'px';
+    figure.style.left = left + 'px';
+  }
+
+  function positionSpotlight(){
+    const r = target.getBoundingClientRect();
+    const b = { top: r.top - pad, left: r.left - pad, width: r.width + pad * 2, height: r.height + pad * 2 };
+    Object.assign(visual.style, { top: b.top + 'px', left: b.left + 'px', width: b.width + 'px', height: b.height + 'px' });
+    if(proxy){
+      Object.assign(proxy.style, { top: b.top + 'px', left: b.left + 'px', width: b.width + 'px', height: b.height + 'px' });
+    }
+    positionFigure();
+  }
+
+  positionFigure();
+
+  function shake(){
+    figure.classList.remove('rg-shake');
+    void figure.offsetWidth; // reflow para reiniciar la animación
+    figure.classList.add('rg-shake');
+    hint.textContent = guide.completeOnTargetTap
+      ? '👆 Tocá el botón iluminado'
+      : '👆 Tocá "¡Entendido!" para continuar';
+    if(!bubble.contains(hint)) bubble.appendChild(hint);
+  }
+
+  catcher.addEventListener('click', shake);
+
+  const onResize = () => positionSpotlight();
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', onResize);
+
+  const onKey = (e) => { if(e.key === 'Escape') _rashiGuideClose(id, false); };
+  document.addEventListener('keydown', onKey);
+
+  // Salvaguarda: si el target desaparece o deja de ser visible (cambio de
+  // vista, re-render), cerrar solo sin marcar la guía como vista.
+  const safetyInterval = setInterval(() => {
+    if(!document.body.contains(target) || target.offsetParent === null){
+      _rashiGuideClose(id, false);
+    }
+  }, 500);
+
+  _rashiGuideActive = {
+    id,
+    els: { visual, catcher, figure, proxy },
+    cleanup(){
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+      document.removeEventListener('keydown', onKey);
+      clearInterval(safetyInterval);
+    }
+  };
+}
+
+function _rashiGuideClose(id, completed){
+  const active = _rashiGuideActive;
+  if(!active || active.id !== id) return;
+  active.cleanup();
+  const { visual, catcher, figure, proxy } = active.els;
+  figure.classList.add('is-closing');
+  [visual, catcher, proxy].forEach(el => { if(el) el.style.animation = 'fadeOut .2s ease both'; });
+  setTimeout(() => {
+    [visual, catcher, figure, proxy].forEach(el => { if(el && el.parentNode) el.parentNode.removeChild(el); });
+  }, 220);
+  _rashiGuideActive = null;
+
+  if(completed){
+    try { localStorage.setItem(_rashiGuideKey(id), '1'); } catch(e){}
+    trackEvent('rashi_guide_done', { id });
+  }
+
+  if(_rashiGuideQueue.length){
+    const nextId = _rashiGuideQueue.shift();
+    setTimeout(() => rashiGuide(nextId), 400);
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════════════════
+// ── RASHI AYUDA — botón permanente "profe al lado" en la vista de juego ─
+// Gate: reutiliza RASHI_GUIDES_MODE. Si es false, no se inserta nada.
+// ══════════════════════════════════════════════════════════════════════
+const RASHI_HELP_VOWEL_BLOCKS = [
+  { flagKey: 'heb_vowels_intro_done', label: 'Bloque 1', vowels: VOWELS_BLOCK1 },
+  { flagKey: 'heb_vowels_b1_done',    label: 'Bloque 2', vowels: VOWELS_BLOCK2 },
+  { flagKey: 'heb_vowels_c1_done',    label: 'Bloque 3', vowels: VOWELS_BLOCK3 },
+];
+
+function _ensureRashiHelpBtn(){
+  if(!RASHI_GUIDES_MODE) return;
+  if(document.getElementById('rashi-help-btn')) return;
+  const gameView = document.getElementById('view-game');
+  if(!gameView) return;
+
+  const row = document.createElement('div');
+  row.id = 'rashi-help-row';
+  row.style.cssText = 'display:flex;justify-content:flex-end;padding:6px 14px 0;background:var(--sand-100);';
+
+  const btn = document.createElement('button');
+  btn.id = 'rashi-help-btn';
+  btn.type = 'button';
+  btn.setAttribute('aria-label', 'Ayuda de Rashi');
+  btn.style.cssText = 'width:34px;height:34px;border-radius:50%;border:2px solid var(--gold-500);' +
+    'padding:0;background:white;overflow:hidden;cursor:pointer;flex-shrink:0;' +
+    'box-shadow:0 2px 6px rgba(13,31,53,0.12);';
+
+  const img = document.createElement('img');
+  img.src = 'img/rashi-idle.png';
+  img.alt = 'Rashi';
+  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+  img.onerror = function(){ this.style.display = 'none'; };
+
+  btn.appendChild(img);
+  btn.addEventListener('click', _openRashiHelpSheet);
+  row.appendChild(btn);
+  gameView.insertBefore(row, gameView.firstChild);
+}
+
+function _rashiHelpVowelsHtml(){
+  const unlocked = RASHI_HELP_VOWEL_BLOCKS.filter(b => localStorage.getItem(b.flagKey));
+  if(unlocked.length === 0){
+    return '<p style="font-size:13px;color:var(--sand-500);text-align:center;padding:12px 0;">' +
+      'Todavía no viste ninguna vocal nueva. ¡Van a aparecer acá a medida que avances!</p>';
+  }
+  return unlocked.map(block => `
+    <div style="margin-bottom:14px;">
+      <p style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;
+                letter-spacing:0.08em;margin-bottom:8px;">${block.label}</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        ${block.vowels.map(v => `
+          <div style="background:var(--sand-100);border-radius:12px;padding:10px 6px;text-align:center;">
+            <div style="font-family:'Noto Serif Hebrew',serif;font-size:1.7rem;font-weight:900;
+                        color:${v.color};line-height:1;">${v.nikud}</div>
+            <div style="font-size:11px;font-weight:900;color:${v.color};margin-top:4px;">"${v.sound}"</div>
+            <div style="font-size:9px;color:var(--sand-500);margin-top:2px;line-height:1.3;">${v.tip}</div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function _openRashiHelpSheet(){
+  if(document.getElementById('rashi-help-sheet')) return;
+  if(typeof stopAudio === 'function') stopAudio();
+
+  const mode = state.currentChallenge ? state.currentChallenge.mode : null;
+  trackEvent('rashi_help_open', { mode });
+
+  const overlay = document.createElement('div');
+  overlay.id = 'rashi-help-sheet';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9100',
+    'background:rgba(13,31,53,0.72)',
+    'display:flex;align-items:flex-end;justify-content:center',
+    'backdrop-filter:blur(2px)',
+    'animation:fadeIn .2s ease'
+  ].join(';');
+
+  overlay.innerHTML = `
+    <div id="rashi-help-panel" style="background:white;border-radius:24px 24px 0 0;
+                padding:20px 20px 24px;max-width:400px;width:100%;
+                max-height:80vh;overflow-y:auto;
+                box-shadow:0 -4px 32px rgba(0,0,0,0.15);
+                animation:slideUp .3s cubic-bezier(.34,1.56,.64,1)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1.4rem;">🧑‍🏫</span>
+          <span style="font-size:16px;font-weight:900;color:var(--navy-800);">Ayuda de Rashi</span>
+        </div>
+        <button id="rashi-help-close" aria-label="Cerrar" style="border:none;background:var(--sand-100);
+                width:28px;height:28px;border-radius:50%;font-size:14px;color:var(--sand-500);
+                cursor:pointer;line-height:1;">✕</button>
+      </div>
+
+      <p style="font-size:12px;font-weight:700;color:var(--gold-500);text-transform:uppercase;
+                letter-spacing:0.06em;margin-bottom:8px;">Los puntitos y sus sonidos</p>
+      <div id="rashi-help-vowels" style="margin-bottom:18px;">${_rashiHelpVowelsHtml()}</div>
+
+      <button id="rashi-help-tutorial-btn" style="width:100%;padding:14px;border-radius:14px;
+              background:linear-gradient(135deg,#C4963C,#A67C28);color:white;
+              border:none;font-size:14px;font-weight:900;cursor:pointer;
+              box-shadow:0 4px 0 #8a6420;">
+        ¿Qué hago en este ejercicio?
+      </button>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const vowelsBox = overlay.querySelector('#rashi-help-vowels');
+  if(vowelsBox){
+    let tracked = false;
+    vowelsBox.addEventListener('scroll', () => {
+      if(tracked) return;
+      tracked = true;
+      trackEvent('rashi_help_vowels_view', {});
+    });
+  }
+
+  function close(){
+    overlay.style.animation = 'fadeOut .2s ease forwards';
+    setTimeout(() => overlay.remove(), 200);
+  }
+
+  overlay.addEventListener('click', (e) => { if(e.target === overlay) close(); });
+  overlay.querySelector('#rashi-help-close').addEventListener('click', close);
+  overlay.querySelector('#rashi-help-tutorial-btn').addEventListener('click', () => {
+    close();
+    if(mode) setTimeout(() => showTutorialIfNeeded(mode, true), 220);
+  });
+}
+
+window.rashiGuide = rashiGuide;
+
+// Hook aditivo sobre showView: resetea el límite de 1 guía por vista y
+// procesa la cola. NO se edita el cuerpo original de showView.
+(function _wrapShowViewForRashiGuides(){
+  if(typeof showView !== 'function' || showView._rashiWrapped) return;
+  const _origShowView = showView;
+  const _wrapped = function(v){
+    _origShowView(v);
+    _rashiGuideShownThisView = false;
+    if(RASHI_GUIDES_MODE && _rashiGuideQueue.length){
+      const nextId = _rashiGuideQueue.shift();
+      setTimeout(() => rashiGuide(nextId), 400);
+    }
+  };
+  _wrapped._rashiWrapped = true;
+  // eslint-disable-next-line no-global-assign
+  showView = _wrapped;
 })();
 </script>
 
