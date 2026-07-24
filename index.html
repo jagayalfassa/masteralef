@@ -142,6 +142,7 @@ transition: width .2s ease, background .2s ease;
 }
 .ob-dot.active { width: 22px; border-radius: 4px; background: white; }
 @keyframes ob-fadein { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
+@keyframes vcheck-shake { 0%,100% { transform:translateX(0); } 20% { transform:translateX(-8px); } 40% { transform:translateX(8px); } 60% { transform:translateX(-5px); } 80% { transform:translateX(5px); } }
 
 /* Respetar preferencia de movimiento reducido */
 @media (prefers-reduced-motion: reduce) {
@@ -8527,6 +8528,18 @@ function renderParashaRead(parashaId, aliyah){
   if(typeof renderAliyahAssignmentButton === 'function'){
     renderAliyahAssignmentButton(parashaId, aliyah);
   }
+
+  // ── P5: coachmarks Rashi de la vista de lectura ────────────────────
+  // El motor (rashiGuide) decide cuál mostrar y encola el resto —
+  // 1 por entrada a la vista, respetando el anti-spam existente.
+  if(RASHI_GUIDES_MODE){
+    setTimeout(() => {
+      rashiGuide('read-karaoke');
+      if(typeof FRASEO_MODE !== 'undefined' && FRASEO_MODE) rashiGuide('read-fraseo');
+      rashiGuide('read-translit');
+      if(Object.keys(getEverDone()).length > 0) rashiGuide('read-nonikud');
+    }, 700);
+  }
 }
 
 // ── PARASHA PRACTICE ──────────────────────────────────────────────
@@ -8662,12 +8675,12 @@ function isTutorialSeen(mode){
 }
 
 const TUTORIAL_TEXTS = {
-  SELECT:   { icon:'👆', title:'Elegí la pronunciación', body:'Leé la palabra en hebreo y tocá la opción que indica cómo se pronuncia.' },
-  LISTEN:   { icon:'👂', title:'Escuchá y elegí', body:'Tocá el botón 🔊 para escuchar la palabra y elegí la letra hebrea correcta.' },
-  WRITE:    { icon:'✍️', title:'Escribí la pronunciación', body:'Mirá la palabra en hebreo y escribí cómo suena usando letras latinas.' },
-  ARRANGE:  { icon:'🔀', title:'Ordená los bloques', body:'Tocá los bloques de sílabas en el orden correcto para formar la pronunciación.' },
-  COMPLETE: { icon:'🧩', title:'Completá la sílaba', body:'Falta una sílaba. Mirá la palabra y elegí la opción que la completa.' },
-  DETECT:   { icon:'🔍', title:'Reconocé la pronunciación', body:'Ves la palabra en hebreo. Elegí cómo se pronuncia — opciones más parecidas para ponerte a prueba.' },
+  SELECT:   { icon:'👆', title:'¡A ver cómo suena!', body:'Leé la palabra en hebreo y tocá la opción que dice cómo se pronuncia. Cuando la elegís bien, ¡ya la sabés leer!' },
+  LISTEN:   { icon:'👂', title:'¡Escuchame con atención!', body:'Tocá el botón 🔊 para oír la palabra y elegí la letra hebrea que le corresponde.' },
+  WRITE:    { icon:'✍️', title:'¡Escribila como suena!', body:'Mirá la palabra en hebreo y escribí su pronunciación con letras que ya conocés.' },
+  ARRANGE:  { icon:'🔀', title:'¡Ayudame a ordenarla!', body:'Tocá los bloques en el orden correcto para armar cómo suena la palabra. Cuando quede bien ordenada, ¡la lograste!' },
+  COMPLETE: { icon:'🧩', title:'¡Le falta una sílaba!', body:'Mirá la palabra y elegí la opción que la completa. ¡Vos podés terminarla!' },
+  DETECT:   { icon:'🔍', title:'¡Fijate bien, son parecidas!', body:'Todas las opciones suenan casi igual, pero solo una es la correcta. Elegí con cuidado.' },
 };
 
 function showTutorialIfNeeded(mode, force){
@@ -8693,8 +8706,11 @@ function showTutorialIfNeeded(mode, force){
                 box-shadow:0 -4px 32px rgba(0,0,0,0.15);
                 animation:slideUp .3s cubic-bezier(.34,1.56,.64,1)">
       <div style="text-align:center;margin-bottom:14px;">
-        <div style="font-size:2.5rem;margin-bottom:8px;">${t.icon}</div>
-        <div style="font-size:16px;font-weight:900;color:#1B3A5C;margin-bottom:6px;">${t.title}</div>
+        <img src="img/rashi-thinking.png" alt="Rashi" style="width:72px;height:72px;object-fit:contain;margin-bottom:8px;" onerror="this.style.display='none'">
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px;">
+          <span style="font-size:1.2rem;line-height:1;">${t.icon}</span>
+          <span style="font-size:16px;font-weight:900;color:#1B3A5C;">${t.title}</span>
+        </div>
         <div style="font-size:14px;color:#5C6E82;line-height:1.5;">${t.body}</div>
       </div>
       <button id="tut-ok" style="width:100%;padding:14px;border-radius:14px;
@@ -8705,7 +8721,7 @@ function showTutorialIfNeeded(mode, force){
       </button>
       <button id="tut-skip" style="width:100%;padding:8px;border:none;background:none;
               font-size:12px;color:#B89A74;cursor:pointer;margin-top:6px;">
-        No mostrar más tutoriales
+        No volver a mostrar este tutorial
       </button>
     </div>`;
 
@@ -8717,8 +8733,11 @@ function showTutorialIfNeeded(mode, force){
     setTimeout(() => overlay.remove(), 200);
   });
   overlay.querySelector('#tut-skip').addEventListener('click', () => {
-    // Marcar todos como vistos
-    Object.keys(TUTORIAL_TEXTS).forEach(m => markTutorialSeen(m));
+    // Kill-switch por modo, NO global: antes esto marcaba TODOS los modos
+    // como vistos (incluidos los que el alumno nunca vio, ej. ARRANGE/DETECT).
+    // Ahora se comporta igual que el botón principal: solo el modo actual.
+    markTutorialSeen(mode);
+    trackEvent('tutorial_skip_mode', {mode});
     overlay.style.animation = 'fadeOut .2s ease forwards';
     setTimeout(() => overlay.remove(), 200);
   });
@@ -9826,6 +9845,20 @@ function startSeries(key, lessonIdx){
   }
   state.activeLesson=lessonIdx;
 
+  // Reprogramación de intro de vocales diferida (solo Bloque 1 / A1 —
+  // es la única intro con "Ver más tarde"). Se chequea ANTES del atajo
+  // normal de startMission para poder reinsertar la intro pendiente.
+  if(key === 'A1' && !localStorage.getItem('heb_vowels_intro_done') &&
+     localStorage.getItem('heb_vowels_intro_defer')){
+    localStorage.removeItem('heb_vowels_intro_defer');
+    _showVowelsIntro((deferred) => {
+      if(!deferred){ localStorage.setItem('heb_vowels_intro_done','1'); }
+      _lessonInterstitialSkipNext = true; // ya se mostró la intro de vocales
+      startMission();
+    });
+    return;
+  }
+
   const anyDone = (state.progress[lessonKey(key,0)]||0)>0;
   const isMix   = ALL_DATA[key].type==='MIX';
 
@@ -9841,8 +9874,12 @@ function startSeries(key, lessonIdx){
   // Primera vez en esta serie — mostrar intro de letras
   // Bloque 1 — nikudot plenos: antes de A1 (solo una vez)
   if(key === 'A1' && !localStorage.getItem('heb_vowels_intro_done')){
-    _showVowelsIntro(() => {
-      localStorage.setItem('heb_vowels_intro_done','1');
+    _showVowelsIntro((deferred) => {
+      if(deferred){
+        _deferVowelsIntro();
+      } else {
+        localStorage.setItem('heb_vowels_intro_done','1');
+      }
       _showAnchorsIfNeeded(key, () => {
         const letters=getCurrentLetters();
         if(letters.length===0){ state.trainingIdx=0; showView('pre-training'); return; }
@@ -9885,6 +9922,21 @@ function startSeries(key, lessonIdx){
 
 // Marcar intro vista al completar la primera lección de una serie
 function _markIntroSeen(key){ localStorage.setItem('heb_intro_seen_' + key, '1'); }
+
+// Reagenda de la intro de vocales (Bloque 1) tras "Ver más tarde".
+// Máximo 2 reintentos: al 3er defer se abandona definitivamente.
+function _deferVowelsIntro(){
+  const attempts = (parseInt(localStorage.getItem('heb_vowels_intro_defer_count')||'0', 10)) + 1;
+  if(attempts >= 3){
+    localStorage.setItem('heb_vowels_intro_done', '1');
+    localStorage.removeItem('heb_vowels_intro_defer');
+    localStorage.removeItem('heb_vowels_intro_defer_count');
+    trackEvent('vowels_intro_abandoned');
+  } else {
+    localStorage.setItem('heb_vowels_intro_defer', String(Date.now()));
+    localStorage.setItem('heb_vowels_intro_defer_count', String(attempts));
+  }
+}
 
 // ╔═══════════════════════════════════════════════════════════════╗
 // ║  PALABRAS ANCLA — Motivación contextual                      ║
@@ -9975,6 +10027,106 @@ const VOWELS_BLOCK2 = [
     },
   ];
 
+// ══════════════════════════════════════════════════════════════════════
+// ── MICRO-CHECK ACTIVO DE VOCALES (P4) ──────────────────────────────────
+// Fase de 3 preguntas insertada al final de cada intro de vocales, dentro
+// del mismo overlay. No hay puntaje ni castigo: se avanza al acertar las
+// 3. En error, se re-pregunta esa vocal al final (cola).
+// ══════════════════════════════════════════════════════════════════════
+function _pickVowelDistractors(target, pool, count){
+  const others = pool.filter(v => v !== target);
+  const distinct = shuffle(others.filter(v => v.sound !== target.sound), Date.now() % 1000 + 1);
+  const sameSound = shuffle(others.filter(v => v.sound === target.sound), Date.now() % 1000 + 7);
+  return distinct.concat(sameSound).slice(0, count);
+}
+
+function _runVowelsMicroCheck(overlay, vowels, priorPool, blockLabel, onComplete){
+  const pool = vowels.concat(priorPool || []);
+  const n = Math.min(3, vowels.length);
+  const base = shuffle(vowels, Date.now() % 1000 + 3).slice(0, n);
+  const directions = ['sound2nikud', 'nikud2sound', 'sound2nikud'];
+  let queue = base.map((v, i) => ({ vowel: v, dir: directions[i % directions.length] }));
+  let errors = 0;
+
+  function renderHeader(){
+    return `
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px;">
+        <img src="img/rashi-happy.png" alt="Rashi" style="width:64px;height:64px;object-fit:contain;">
+        <div style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:white;text-align:left;">
+          ¡A ver si me seguiste! 😄
+        </div>
+      </div>`;
+  }
+
+  function renderQuestion(){
+    if(queue.length === 0){
+      overlay.innerHTML = `
+        <div style="font-size:2.5rem;margin-bottom:12px;">✅</div>
+        <div style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:900;color:white;">
+          ¡Perfecto!
+        </div>`;
+      trackEvent('vowels_check_done', { block: blockLabel, errors });
+      setTimeout(() => { overlay.remove(); onComplete(); }, 500);
+      return;
+    }
+
+    const item = queue[0];
+    const target = item.vowel;
+    const dir = item.dir;
+    const distractors = _pickVowelDistractors(target, pool, 2);
+    const options = shuffle([target].concat(distractors), Date.now() % 1000 + 11);
+
+    const promptHTML = dir === 'sound2nikud'
+      ? `<div style="font-size:${target.sound.length > 6 ? '1.6rem' : '3rem'};font-weight:900;color:white;margin-bottom:28px;">"${target.sound}"</div>`
+      : `<div style="font-family:'Noto Serif Hebrew',serif;font-size:5rem;font-weight:900;color:${target.color};margin-bottom:28px;">${target.nikud}</div>`;
+
+    overlay.innerHTML = `
+      ${renderHeader()}
+      ${promptHTML}
+      <div id="vcheck-options" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;">
+        ${options.map((v, i) => {
+          const label = dir === 'sound2nikud' ? v.nikud : v.sound;
+          const isNikud = dir === 'sound2nikud';
+          return `<button class="vcheck-opt" data-idx="${i}"
+            style="background:rgba(255,255,255,0.08);border:2px solid transparent;border-radius:14px;
+                   padding:14px 16px;color:white;cursor:pointer;
+                   font-family:${isNikud ? "'Noto Serif Hebrew',serif" : "'Fraunces',serif"};
+                   font-size:${isNikud ? '1.8rem' : '1.1rem'};font-weight:900;">
+            ${label}
+          </button>`;
+        }).join('')}
+      </div>`;
+
+    overlay.querySelectorAll('.vcheck-opt').forEach((btn, i) => {
+      btn.addEventListener('click', () => {
+        overlay.querySelectorAll('.vcheck-opt').forEach(b => b.style.pointerEvents = 'none');
+        const chosen = options[i];
+        const correctBtn = [...overlay.querySelectorAll('.vcheck-opt')][options.indexOf(target)];
+        if(chosen === target){
+          btn.style.background = '#1a3a28';
+          btn.style.borderColor = '#2a6a48';
+          queue.shift();
+          setTimeout(renderQuestion, 400);
+        } else {
+          errors++;
+          btn.style.animation = 'vcheck-shake .4s ease';
+          btn.style.borderColor = '#8a2222';
+          btn.style.background = '#1a0808';
+          if(correctBtn){
+            correctBtn.style.background = '#1a3a28';
+            correctBtn.style.borderColor = '#2a6a48';
+          }
+          const requeued = queue.shift();
+          queue.push(requeued);
+          setTimeout(renderQuestion, 1100);
+        }
+      });
+    });
+  }
+
+  renderQuestion();
+}
+
 function _showVowelsIntro2(onDone){
   if(typeof window._hideSplash === 'function'){ window._hideSplash(); window._hideSplash = null; }
 
@@ -10018,16 +10170,11 @@ function _showVowelsIntro2(onDone){
           font-size:15px;font-weight:900;font-family:'Fraunces',serif;
           cursor:pointer;box-shadow:0 4px 0 #075985;">
           Ver cada una →
-        </button>
-        <button id="vi2-skip" style="background:none;border:none;color:rgba(255,255,255,0.4);
-          font-size:13px;cursor:pointer;margin-top:14px;padding:6px;">
-          Saltar introducción
         </button>`;
       overlay.querySelector('#vi2-next').addEventListener('click', () => { step=1; render(); });
-      overlay.querySelector('#vi2-skip').addEventListener('click', () => { overlay.remove(); onDone(); });
     } else {
       const vi = step - 1;
-      if(vi >= VOWELS2.length){ overlay.remove(); onDone(); return; }
+      if(vi >= VOWELS2.length){ _runVowelsMicroCheck(overlay, VOWELS2, VOWELS_BLOCK1, 'block2', onDone); return; }
       const v = VOWELS2[vi];
       overlay.innerHTML = `
         <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.4);
@@ -10142,16 +10289,11 @@ function _showVowelsIntro3(onDone){
           font-size:15px;font-weight:900;font-family:'Fraunces',serif;
           cursor:pointer;box-shadow:0 4px 0 #92400E;">
           Ver cada una →
-        </button>
-        <button id="vi3-skip" style="background:none;border:none;color:rgba(255,255,255,0.4);
-          font-size:13px;cursor:pointer;margin-top:14px;padding:6px;">
-          Saltar introducción
         </button>`;
       overlay.querySelector('#vi3-next').addEventListener('click', () => { step=1; render(); });
-      overlay.querySelector('#vi3-skip').addEventListener('click', () => { overlay.remove(); onDone(); });
     } else {
       const vi = step - 1;
-      if(vi >= VOWELS3.length){ overlay.remove(); onDone(); return; }
+      if(vi >= VOWELS3.length){ _runVowelsMicroCheck(overlay, VOWELS3, VOWELS_BLOCK1.concat(VOWELS_BLOCK2), 'block3', onDone); return; }
       const v = VOWELS3[vi];
       overlay.innerHTML = `
         <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.4);
@@ -10251,13 +10393,13 @@ function _showVowelsIntro(onDone){
         </button>
         <button id="vi-skip" style="background:none;border:none;color:rgba(255,255,255,0.4);
           font-size:13px;cursor:pointer;margin-top:14px;padding:6px;">
-          Saltar introducción
+          Ver más tarde
         </button>`;
       overlay.querySelector('#vi-next').addEventListener('click', () => { step=1; render(); });
-      overlay.querySelector('#vi-skip').addEventListener('click', () => { overlay.remove(); onDone(); });
+      overlay.querySelector('#vi-skip').addEventListener('click', () => { overlay.remove(); onDone(true); });
     } else {
       const vi = step - 1; // índice en VOWELS (0-4)
-      if(vi >= VOWELS.length){ overlay.remove(); onDone(); return; }
+      if(vi >= VOWELS.length){ _runVowelsMicroCheck(overlay, VOWELS, [], 'block1', () => onDone(false)); return; }
       const v = VOWELS[vi];
       overlay.innerHTML = `
         <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.4);
@@ -10929,7 +11071,7 @@ function renderTraining(){
         feedbackSuccess();
         setTimeout(()=>{
           state.trainingIdx++;
-          if(state.trainingIdx>=total){ setTimeout(startMission,300); }
+          if(state.trainingIdx>=total){ _lessonInterstitialSkipNext = true; setTimeout(startMission,300); }
           else renderTraining();
         },600);
       } else {
@@ -10943,7 +11085,7 @@ function renderTraining(){
     optsDiv.appendChild(btn);
   });
 }
-function skipTraining(){ showToast("¡Comenzamos!","cyan"); startMission(); }
+function skipTraining(){ showToast("¡Comenzamos!","cyan"); _lessonInterstitialSkipNext = true; startMission(); }
 
 
 
@@ -18573,6 +18715,31 @@ const RASHI_GUIDES = {
     text: '¡Hola! Soy Rashi 👋 Si te olvidás cómo suena un puntito, tocame y te lo muestro.',
     mascot: 'idle',
     completeOnTargetTap: true
+  },
+  // ── P5: coachmarks de la vista de lectura de Torá ──────────────────
+  'read-karaoke': {
+    target: '#karaoke-btn',
+    text: 'Tocá acá y leemos juntos: te voy marcando palabra por palabra.',
+    mascot: 'happy',
+    completeOnTargetTap: true
+  },
+  'read-fraseo': {
+    target: '#read-fraseo-btn',
+    text: 'Este botón te muestra las frases del versículo con sus colores, ¡como en el Jumash!',
+    mascot: 'idle',
+    completeOnTargetTap: true
+  },
+  'read-translit': {
+    target: '#read-transliterate-btn',
+    text: 'Si una palabra te cuesta, este botón te muestra cómo se pronuncia.',
+    mascot: 'thinking',
+    completeOnTargetTap: false
+  },
+  'read-nonikud': {
+    target: '#read-no-nikud-btn',
+    text: 'Modo experto: el texto sin puntitos, igualito al Séfer Torá. ¡Para valientes!',
+    mascot: 'thinking',
+    completeOnTargetTap: false
   }
 };
 
@@ -18928,6 +19095,98 @@ window.rashiGuide = rashiGuide;
   _wrapped._rashiWrapped = true;
   // eslint-disable-next-line no-global-assign
   showView = _wrapped;
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+// ── LESSON INTERSTITIAL — tarjeta de contexto entre lecciones (P5-A) ───
+// Gate: LESSON_INTERSTITIAL_MODE = false desactiva toda la feature.
+// ══════════════════════════════════════════════════════════════════════
+const LESSON_INTERSTITIAL_MODE = true;
+let _lessonInterstitialSkipNext = false; // true si ya se mostró intro/anchors/training en este flujo
+let _lessonInterstitialLastKey  = null;  // sesión (no localStorage): evita repetir para la misma lección
+
+function _lessonInterstitialContent(key){
+  const data = ALL_DATA[key];
+  if(!data) return { big: '', isMix: false };
+  if(data.type === 'MIX'){
+    return { big: data.name || 'Palabras combinadas', isMix: true };
+  }
+  return { big: (data.letters || []).join('  '), isMix: false };
+}
+
+function _showLessonInterstitial(onDone){
+  const key = state.activeSeries;
+  const lessonIdx = state.activeLesson;
+  const lkey = lessonKey(key, lessonIdx);
+
+  // Nunca dos veces seguidas para la misma lección en la misma sesión.
+  if(_lessonInterstitialLastKey === lkey){
+    onDone();
+    return;
+  }
+  _lessonInterstitialLastKey = lkey;
+
+  const lessons   = getLessons(key);
+  const total     = lessons.length || 1;
+  const doneCount = lessons.filter((_,i) => lessonDone(key,i)).length;
+  const pct       = Math.round((doneCount/total)*100);
+  const content   = _lessonInterstitialContent(key);
+
+  const overlay = document.createElement('div');
+  overlay.id = 'lesson-interstitial-overlay';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9500',
+    'background:linear-gradient(160deg,#1B3A5C,#0D1F35)',
+    'display:flex;flex-direction:column;align-items:center;justify-content:center',
+    'padding:28px 24px;text-align:center;cursor:pointer'
+  ].join(';');
+
+  const bigHtml = content.isMix
+    ? '<div style="font-family:Fraunces,serif;font-size:1.6rem;font-weight:900;color:white;max-width:320px;">' + content.big + '</div>'
+    : '<div style="font-family:\'Noto Serif Hebrew\',serif;font-size:3rem;font-weight:900;color:#C4963C;direction:rtl;">' + content.big + '</div>';
+
+  overlay.innerHTML =
+    '<div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:18px;">Lección ' + (lessonIdx+1) + '</div>' +
+    bigHtml +
+    '<div style="width:100%;max-width:220px;height:4px;background:rgba(255,255,255,0.15);border-radius:4px;margin-top:28px;overflow:hidden;">' +
+      '<div style="width:' + pct + '%;height:100%;background:#67E8F9;"></div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+
+  let closed = false;
+  function close(){
+    if(closed) return;
+    closed = true;
+    overlay.style.animation = 'fadeOut .2s ease forwards';
+    setTimeout(() => {
+      if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      onDone();
+    }, 200);
+  }
+
+  overlay.addEventListener('click', close);
+  setTimeout(close, 1600);
+}
+
+// Hook aditivo sobre startMission: muestra el interstitial antes del
+// primer ejercicio, salvo que ya se haya mostrado una intro/anchors/
+// training en este mismo flujo (ver _lessonInterstitialSkipNext).
+// NO se edita el cuerpo original de startMission.
+(function _wrapStartMissionForInterstitial(){
+  if(typeof startMission !== 'function' || startMission._interstitialWrapped) return;
+  const _origStartMission = startMission;
+  const _wrapped = function(){
+    if(LESSON_INTERSTITIAL_MODE && !_lessonInterstitialSkipNext){
+      _showLessonInterstitial(_origStartMission);
+    } else {
+      _lessonInterstitialSkipNext = false;
+      _origStartMission();
+    }
+  };
+  _wrapped._interstitialWrapped = true;
+  // eslint-disable-next-line no-global-assign
+  startMission = _wrapped;
 })();
 </script>
 
