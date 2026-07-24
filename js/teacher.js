@@ -76,16 +76,13 @@ function tdRenderClassSwitcher(){
   const nameEl = document.getElementById('td-class-name');
   if(!nameEl || !nameEl.parentNode) return;
   let sw = document.getElementById('td-class-switcher');
-  if(_tdAllClasses.length <= 1){
-    if(sw) sw.remove();
-    return;
-  }
   if(!sw){
     sw = document.createElement('div');
     sw.id = 'td-class-switcher';
     sw.style.cssText = 'display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;';
     nameEl.parentNode.appendChild(sw);
   }
+  // Siempre visible (aunque haya 1 sola clase) para que el multi-clase sea descubrible
   sw.innerHTML = _tdAllClasses.map(c => {
     const active = c.id === _tdClassData?.id;
     return '<button onclick="tdSelectClass(\'' + c.id + '\')" ' +
@@ -93,7 +90,10 @@ function tdRenderClassSwitcher(){
       'background:' + (active ? 'var(--navy-800)' : 'var(--sand-200)') + ';' +
       'color:' + (active ? 'white' : 'var(--navy-700)') + ';">' +
       esc(c.name || 'Clase') + '</button>';
-  }).join('');
+  }).join('') +
+  '<button onclick="tdPromptNewClass()" title="Crear otra clase" ' +
+    'style="padding:5px 12px;border-radius:8px;border:1.5px dashed var(--sand-400);font-size:11.5px;' +
+    'font-weight:700;cursor:pointer;background:white;color:var(--navy-700);">＋ Nueva clase</button>';
 }
 
 async function tdSelectClass(classId){
@@ -168,7 +168,7 @@ async function tdLoadStudentsForActiveClass(){
   if(ids.length){
     const { data: progs, error: progsErr } = await _sb
       .from('user_progress')
-      .select('user_id, progress, shekels, updated_at, bm_date, created_at')
+      .select('user_id, progress, shekels, extra_data, updated_at, bm_date, created_at')
       .in('user_id', ids);
     if(progsErr){
       dbg('[Teacher] loadDashboard progress error:', progsErr.message);
@@ -219,15 +219,15 @@ function tdActivityStatus(student){
 
 // ── Calcular % de progreso ────────────────────────────────────
 function tdCalcProgress(student){
-  const progress = student.prog?.progress || {};
-  if(!Object.keys(progress).length) return 0;
+  const wordStates = student.prog?.extra_data?.word_states;
+  if(!wordStates || !Object.keys(wordStates).length) return 0;
   let total = 0, mastered = 0;
-  Object.values(ALL_DATA).forEach(serie => {
+  Object.entries(ALL_DATA).forEach(([seriesKey, serie]) => {
     if(serie.type !== 'BASE') return;
-    (serie.words || []).forEach(w => {
+    (serie.words || []).forEach((w, wordIdx) => {
       total++;
-      const ws = progress[w.fon];
-      if(ws && ws.correct >= 3) mastered++;
+      const ws = wordStates[seriesKey + '_' + wordIdx];
+      if(ws && ws.status === 'mastered') mastered++;
     });
   });
   return total > 0 ? Math.round(mastered / total * 100) : 0;
@@ -529,6 +529,13 @@ function tdOpenStudent(studentId){
     <!-- Acción: enviar mensaje -->
     <div style="background:white;border:1.5px solid var(--sand-300);border-radius:12px;padding:14px;">
       <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📩 Enviar mensaje a ${esc(name)}</div>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">
+        ${TD_MSG_TEMPLATES.map((t, i) => `
+          <button onclick="tdApplyMsgTemplate('${studentId}', ${i})"
+            style="flex:0 0 auto;padding:6px 10px;border-radius:999px;border:1.5px solid var(--sand-300);
+                   background:var(--sand-100);color:var(--navy-700);font-size:11px;font-weight:700;
+                   cursor:pointer;white-space:nowrap;">${t.label}</button>`).join('')}
+      </div>
       <textarea id="td-msg-student-${studentId}" placeholder="Escribe un mensaje de aliento..."
         style="width:100%;padding:10px;border:1.5px solid var(--sand-300);border-radius:10px;
                font-size:13px;min-height:72px;resize:none;font-family:inherit;color:var(--navy-800);outline:none;box-sizing:border-box;"></textarea>
@@ -537,9 +544,30 @@ function tdOpenStudent(studentId){
                background:var(--navy-800);color:white;font-size:13px;font-weight:700;cursor:pointer;">
         Enviar mensaje
       </button>
+    </div>
+
+    <!-- Gestión del alumno -->
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button id="td-rename-student-btn" data-student-id="${studentId}"
+        style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--sand-300);
+               background:white;color:var(--navy-700);font-size:12px;font-weight:700;cursor:pointer;">
+        ✏️ Cambiar nombre
+      </button>
+      <button id="td-remove-student-btn" data-student-id="${studentId}" data-student-name="${esc(name)}"
+        style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #FECACA;
+               background:#FEF2F2;color:#991B1B;font-size:12px;font-weight:700;cursor:pointer;">
+        🗑 Quitar de la clase
+      </button>
     </div>`;
 
   detail.style.display = 'block';
+
+  const renameBtn = document.getElementById('td-rename-student-btn');
+  if(renameBtn) renameBtn.addEventListener('click', function(){ tdRenameStudent(this.dataset.studentId); });
+  const removeBtn = document.getElementById('td-remove-student-btn');
+  if(removeBtn) removeBtn.addEventListener('click', function(){
+    tdRemoveStudentFromClass(this.dataset.studentId, this.dataset.studentName);
+  });
 
   // data-attributes + addEventListener: evita interpolar el nombre del
   // alumno dentro de un onclick inline (riesgo de inyección / escape manual).
@@ -875,7 +903,15 @@ async function tdRenderClassSettings(){
     <!-- Clase existente -->
     <div style="background:white;border:1.5px solid var(--sand-300);border-radius:14px;padding:16px;">
       <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;margin-bottom:4px;">Clase activa</div>
-      <div style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:var(--navy-800);margin-bottom:12px;">${esc(cls.name)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <div style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:var(--navy-800);flex:1;">${esc(cls.name)}</div>
+        <button onclick="tdRenameClass()" title="Renombrar clase"
+          style="padding:8px 10px;border-radius:10px;border:1.5px solid var(--sand-300);background:white;
+                 color:var(--navy-700);font-size:13px;cursor:pointer;">✏️</button>
+        <button onclick="tdDeleteClass()" title="Eliminar clase"
+          style="padding:8px 10px;border-radius:10px;border:1.5px solid #FECACA;background:#FEF2F2;
+                 color:#991B1B;font-size:13px;cursor:pointer;">🗑</button>
+      </div>
       <div style="font-size:12px;color:var(--sand-500);margin-bottom:6px;">Código para que se unan:</div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="flex:1;background:var(--sand-100);border:2px dashed var(--sand-400);border-radius:10px;
@@ -1054,10 +1090,14 @@ async function tdRenderClassSettings(){
 
 // ── Crear clase ───────────────────────────────────────────────
 async function tdCreateClass(){
+  const nameInput = document.getElementById('td-new-class-name');
+  await tdCreateClassNamed(nameInput?.value.trim());
+}
+
+// Crea una clase con el nombre dado (usada por el form y por "＋ Nueva clase")
+async function tdCreateClassNamed(name){
   if(!_sb || !_authUser) return;
   if(!_requireInstitution('crear clase')) return;
-  const nameInput = document.getElementById('td-new-class-name');
-  const name = nameInput?.value.trim();
   if(!name){ showToast('Escribí un nombre para la clase', 'warn'); return; }
 
   // Generar código único 6 caracteres
@@ -1078,6 +1118,103 @@ async function tdCreateClass(){
     tdSwitchTab('class');
     loadTeacherDashboard();
   } catch(e){ showToast('Error: ' + e.message, 'warn'); }
+}
+
+// "＋ Nueva clase" desde el switcher
+function tdPromptNewClass(){
+  const name = prompt('Nombre de la nueva clase (ej: Bar Mitzvá 2027):');
+  if(name === null) return;
+  tdCreateClassNamed(name.trim());
+}
+
+// ── Renombrar / eliminar clase activa ─────────────────────────
+async function tdRenameClass(){
+  if(!_sb || !_tdClassData) return;
+  const nuevo = prompt('Nuevo nombre para la clase:', _tdClassData.name || '');
+  if(nuevo === null) return;
+  const name = nuevo.trim();
+  if(!name){ showToast('El nombre no puede quedar vacío', 'warn'); return; }
+  const { error } = await _sb.from('classes').update({ name }).eq('id', _tdClassData.id);
+  if(error){ showToast('Error: ' + error.message, 'warn'); return; }
+  _tdClassData.name = name;
+  const c = _tdAllClasses.find(x => x.id === _tdClassData.id);
+  if(c) c.name = name;
+  const nameEl = document.getElementById('td-class-name');
+  if(nameEl) nameEl.textContent = name;
+  tdRenderClassSwitcher();
+  tdRenderClassSettings();
+  showToast('✓ Clase renombrada', 'green');
+  trackEvent('teacher_class_renamed', {});
+}
+
+async function tdDeleteClass(){
+  if(!_sb || !_tdClassData) return;
+  const nm = _tdClassData.name || 'esta clase';
+  if(!confirm('¿Eliminar la clase "' + nm + '"?\n\nLos alumnos quedarán desvinculados (no se borran sus cuentas ni su progreso).')) return;
+  if(!confirm('Última confirmación: esta acción no se puede deshacer. ¿Eliminar "' + nm + '"?')) return;
+  const { error } = await _sb.from('classes').delete().eq('id', _tdClassData.id);
+  if(error){ showToast('Error: ' + error.message, 'warn'); return; }
+  showToast('Clase eliminada', 'green');
+  trackEvent('teacher_class_deleted', {});
+  _tdClassData = null;
+  loadTeacherDashboard();
+}
+
+// ── Renombrar alumno (RPC — valida que sea alumno del docente) ──
+async function tdRenameStudent(studentId){
+  if(!_sb) return;
+  const st = _tdStudents.find(s => s.id === studentId);
+  const nuevo = prompt('Nuevo nombre para el alumno:', st?.name || '');
+  if(nuevo === null) return;
+  const name = nuevo.trim();
+  if(!name){ showToast('El nombre no puede quedar vacío', 'warn'); return; }
+  const { data: res, error } = await _sb.rpc('teacher_rename_student', {
+    p_student: studentId, p_name: name,
+  });
+  if(error || !res || res.ok !== true){
+    showToast('No se pudo renombrar: ' + (error?.message || res?.reason || 'error'), 'warn');
+    return;
+  }
+  if(st) st.name = res.name;
+  tdRenderStudentList();
+  tdOpenStudent(studentId);
+  showToast('✓ Nombre actualizado', 'green');
+  trackEvent('teacher_student_renamed', {});
+}
+
+// ── Quitar alumno de la clase activa (no borra su cuenta) ─────
+async function tdRemoveStudentFromClass(studentId, studentName){
+  if(!_sb || !_tdClassData) return;
+  if(!confirm('¿Quitar a ' + studentName + ' de la clase "' + (_tdClassData.name || '') + '"?\n\nSu cuenta y su progreso NO se borran; puede volver a unirse con el código.')) return;
+  const { error } = await _sb.from('class_members').delete()
+    .eq('class_id', _tdClassData.id)
+    .eq('student_id', studentId);
+  if(error){ showToast('Error: ' + error.message, 'warn'); return; }
+  const detail = document.getElementById('td-student-detail');
+  if(detail) detail.style.display = 'none';
+  showToast('✓ ' + studentName + ' fue quitado de la clase', 'green');
+  trackEvent('teacher_student_removed', {});
+  await tdLoadStudentsForActiveClass();
+}
+
+// ── Plantillas de mensajes para alumnos ───────────────────────
+const TD_MSG_TEMPLATES = [
+  { label: '👏 Felicitar',      body: '¡Kol hakavod! Esta semana avanzaste muchísimo 👏' },
+  { label: '🔥 Racha',          body: 'Vi que practicaste hoy — ¡seguí así que vas muy bien!' },
+  { label: '👋 Te extrañamos',  body: 'Hace unos días que no entrás a practicar. ¿Todo bien? Te espero 🙂' },
+  { label: '🔤 Vocales',        body: 'Las vocales necesitan un repasito — tocá a Rashi en el juego y las ves todas juntas.' },
+  { label: '🎧 Escuchar',       body: 'Probá el modo Escuchar y repetir con tu aliá — 10 minutos hoy hacen la diferencia.' },
+  { label: '🏁 Casi lo lográs', body: '¡Ya casi terminás tu serie! Un empujoncito más y desbloqueás la siguiente.' },
+  { label: '🤝 Repasamos',      body: 'Mañana repasamos juntos en clase lo que te costó — no te preocupes.' },
+  { label: '♪ Fraseo',          body: 'Tu lectura de Torá viene muy bien — esta semana sumale el modo Fraseo ♪.' },
+  { label: '⏱ 10 min/día',      body: 'Acordate: mejor 10 minutos por día que 1 hora el domingo 😉' },
+  { label: '🎤 Tu ceremonia',   body: '¡Tu ceremonia se acerca! Practicá tu aliá con el karaoke todos los días.' },
+];
+
+function tdApplyMsgTemplate(studentId, idx){
+  const t  = TD_MSG_TEMPLATES[idx];
+  const ta = document.getElementById('td-msg-student-' + studentId);
+  if(t && ta){ ta.value = t.body; ta.focus(); }
 }
 
 // ── Enviar mensaje a un alumno individual ─────────────────────
