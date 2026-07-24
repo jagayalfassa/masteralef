@@ -1536,7 +1536,7 @@ to   { transform: translateY(0);    opacity: 1; }
     </div>
 
     <!-- Hebrew word — the hero -->
-    <div id="hebrew-word-card" style="background:white;border-radius:24px;border:1.5px solid var(--sand-300);padding:15px 24px 15px;margin-bottom:16px;text-align:center;box-shadow:0 4px 20px rgba(13,31,53,0.06);">
+    <div id="hebrew-word-card" style="background:white;border-radius:24px;border:1.5px solid var(--sand-300);padding:28px 24px 22px;margin-bottom:16px;text-align:center;box-shadow:0 4px 20px rgba(13,31,53,0.06);">
       <!-- Instrucción contextual del challenge -->
       <p id="word-challenge-instruction" style="font-size:10px;font-weight:700;color:var(--sand-400);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;text-align:center;min-height:14px;"></p>
       <div id="hebrew-word" class="hebrew-text" style="color:#1B3A5C;transition:transform 0.45s;line-height:1.3;">שָׁלוֹם</div>
@@ -1544,13 +1544,13 @@ to   { transform: translateY(0);    opacity: 1; }
       <div id="translit-fade" style="
         font-family:'Inter',sans-serif;font-size:1rem;font-weight:700;
         color:var(--gold-600);letter-spacing:0.04em;
-        min-height:1px;margin-top:1px;
+        min-height:24px;margin-top:6px;
         opacity:0;transition:opacity 0.6s ease;
         pointer-events:none;
       "></div>
       <div id="shva-notice" style="margin-top:10px;"></div>
       <!-- Decorative line bottom -->
-      <div style="display:flex;align-items:center;gap:10px;margin-top:5px;opacity:0.4;">
+      <div style="display:flex;align-items:center;gap:10px;margin-top:16px;opacity:0.4;">
         <div style="flex:1;height:1px;background:var(--sand-400);"></div>
         <div style="width:6px;height:6px;border-radius:50%;background:var(--sand-400);"></div>
         <div style="flex:1;height:1px;background:var(--sand-400);"></div>
@@ -16408,43 +16408,29 @@ async function joinClassByCode(code){
     return false;
   };
   try {
-    // Buscar la clase
-    const { data: cls } = await _sb
-      .from('classes')
-      .select('id, institution_id')
-      .eq('code', code.toUpperCase())
-      .single();
-    if(!cls){ showToast('Código de clase inválido', 'warn'); return false; }
-
-    // Unirse a la clase
-    const { error: upErr } = await _sb.from('class_members').upsert({
-      class_id:   cls.id,
-      student_id: _authUser.id,
-      joined_at:  new Date().toISOString(),
-    }, { onConflict: 'class_id,student_id' });
-    if(upErr) return _failJoin('upsert', upErr);
-
-    // Verificar que la fila realmente exista antes de festejar
-    const { data: check, error: checkErr } = await _sb
-      .from('class_members')
-      .select('class_id, student_id')
-      .eq('class_id', cls.id)
-      .eq('student_id', _authUser.id)
-      .maybeSingle();
-    if(checkErr) return _failJoin('verify', checkErr);
-    if(!check) return _failJoin('verify', new Error('fila no encontrada tras upsert'));
-
-    // Heredar institution_id de la clase
-    if(cls.institution_id){
-      const { error: profErr } = await _sb.from('profiles').update({
-        institution_id: cls.institution_id,
-      }).eq('id', _authUser.id);
-      if(profErr) return _failJoin('profile_update', profErr);
-      if(_authProfile) _authProfile.institution_id = cls.institution_id;
+    // RPC SECURITY DEFINER — resuelve el ciclo de RLS: un alumno no-miembro
+    // no puede leer classes (policy is_class_member), por eso el SELECT por
+    // código devolvía 0 filas y PostgREST respondía 406. El RPC hace la
+    // búsqueda + insert + herencia de institución server-side, atómico.
+    const { data: res, error: rpcErr } = await _sb.rpc('join_class_by_code', { p_code: code });
+    if(rpcErr) return _failJoin('rpc', rpcErr);
+    if(!res || res.ok !== true){
+      const reason = res && res.reason;
+      if(reason === 'invalid_code'){ showToast('Código de clase inválido — revisalo con tu profe', 'warn'); return false; }
+      if(reason === 'code_expired'){ showToast('Ese código venció — pedile uno nuevo a tu profe', 'warn'); return false; }
+      if(reason === 'class_full'){ showToast('La clase ya está completa', 'warn'); return false; }
+      if(reason === 'not_authenticated'){ showToast('Ingresá con tu cuenta primero', 'warn'); return false; }
+      return _failJoin('rpc_reason', new Error(reason || 'desconocido'));
     }
 
+    // Sincronizar institution_id local (el RPC ya lo actualizó en la DB)
+    if(_authProfile && res.institution_id) _authProfile.institution_id = res.institution_id;
+
     try { localStorage.removeItem(PENDING_JOIN_KEY); } catch(e){ /* silencioso */ }
-    showToast('✓ Te uniste a la clase', 'green');
+    const clsName = res.class_name ? ' «' + res.class_name + '»' : '';
+    showToast(res.already
+      ? 'Ya estabas en la clase' + clsName + ' ✓'
+      : '✓ Te uniste a la clase' + clsName + ' 🎉', 'green');
     return true;
   } catch(e){ return _failJoin('exception', e); }
 }
