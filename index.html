@@ -2033,6 +2033,12 @@ to   { transform: translateY(0);    opacity: 1; }
       Entrar →
     </button>
 
+    <button onclick="authForgotPassword()"
+      style="background:none;border:none;color:var(--navy-600);font-size:13px;font-weight:600;
+             cursor:pointer;padding:6px;margin-top:6px;text-decoration:underline;">
+      ¿Olvidaste tu contraseña?
+    </button>
+
     <button onclick="authSkip()"
       style="background:none;border:none;color:var(--sand-400);font-size:13px;
              cursor:pointer;padding:6px;margin-top:4px;">
@@ -16275,6 +16281,10 @@ async function initAuth(){
         await _loadProfile(_authUser.id);
         _authProfileCache = _authProfile;
         _updateAuthHeader();
+      } else if(event === 'PASSWORD_RECOVERY'){
+        // Usuario llegó desde el link del mail de recuperación
+        if(session?.user) _authUser = session.user;
+        _showNewPasswordSheet();
       } else if(event === 'SIGNED_OUT'){
         _authUser = null; _authProfile = null; _authProfileCache = null;
         _updateAuthHeader();
@@ -16708,7 +16718,18 @@ async function authSubmit(){
     localStorage.setItem('heb_welcomed', '1');
     renderHome();
   } catch(e){
-    _authShowError(e.message || 'Error al iniciar sesión');
+    const raw = e.message || '';
+    let msg = raw || 'Error al iniciar sesión';
+    if(/email not confirmed/i.test(raw)){
+      msg = 'Tu cuenta todavía no está confirmada. Revisá tu correo (y spam), o avisale a tu profe.';
+    } else if(/invalid login credentials/i.test(raw)){
+      msg = 'Email o contraseña incorrectos. Si no te acordás, tocá "¿Olvidaste tu contraseña?".';
+    } else if(/user already registered/i.test(raw)){
+      msg = 'Ese email ya tiene cuenta — probá "Ingresá" en vez de crear una nueva.';
+    } else if(/rate limit/i.test(raw)){
+      msg = 'Demasiados intentos seguidos — esperá un minuto y probá de nuevo.';
+    }
+    _authShowError(msg);
   } finally {
     btn.disabled = false;
     btn.textContent = _authMode === 'login' ? 'Entrar →' : 'Crear cuenta →';
@@ -16718,6 +16739,66 @@ async function authSubmit(){
 function authSkip(){
   localStorage.setItem('heb_welcomed', '1');
   renderHome();
+}
+
+// ── Recuperación de contraseña ────────────────────────────────
+async function authForgotPassword(){
+  if(!_sb){ showToast('Supabase no configurado', 'warn'); return; }
+  const email = (document.getElementById('auth-email')?.value || '').trim();
+  if(!email){
+    _authShowError('Escribí tu email arriba y volvé a tocar "¿Olvidaste tu contraseña?"');
+    return;
+  }
+  try {
+    const { error } = await _sb.auth.resetPasswordForEmail(email, {
+      redirectTo: location.origin + location.pathname,
+    });
+    if(error) throw error;
+    showToast('📧 Te enviamos un mail para cambiar la contraseña. Revisá spam.', 'green');
+  } catch(e){
+    _authShowError('No se pudo enviar el mail: ' + (e.message || e));
+  }
+}
+
+// Sheet para elegir la contraseña nueva (llega desde el link del mail)
+function _showNewPasswordSheet(){
+  const old = document.getElementById('new-pass-sheet');
+  if(old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'new-pass-sheet';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9650;background:rgba(13,31,53,0.6);' +
+    'display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.2s ease;';
+  ov.innerHTML =
+    '<div style="background:white;border-radius:20px;padding:24px 20px;width:100%;max-width:380px;' +
+      'box-sizing:border-box;text-align:center;animation:slideUp 0.25s ease;">' +
+      '<div style="font-size:16px;font-weight:800;color:var(--navy-800);margin-bottom:6px;">' +
+        'Elegí tu nueva contraseña</div>' +
+      '<div style="font-size:12px;color:var(--sand-500);margin-bottom:14px;">Mínimo 6 caracteres</div>' +
+      '<input id="new-pass-input" type="password" placeholder="Nueva contraseña" ' +
+        'style="padding:12px 14px;border:2px solid var(--sand-300);border-radius:12px;font-size:15px;' +
+        'color:var(--navy-800);outline:none;width:100%;box-sizing:border-box;">' +
+      '<button id="new-pass-go" style="margin-top:14px;width:100%;padding:13px;border:none;' +
+        'border-radius:12px;background:linear-gradient(135deg,#1B3A5C,#2A5280);color:white;' +
+        'font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 0 #0D1F35;">' +
+        'Guardar contraseña</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  document.getElementById('new-pass-go').onclick = async () => {
+    const pass = document.getElementById('new-pass-input').value;
+    if(!pass || pass.length < 6){ showToast('Mínimo 6 caracteres', 'warn'); return; }
+    const btn = document.getElementById('new-pass-go');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try {
+      const { error } = await _sb.auth.updateUser({ password: pass });
+      if(error) throw error;
+      ov.remove();
+      showToast('✓ Contraseña actualizada — ya quedaste adentro', 'green');
+      _updateAuthHeader();
+    } catch(e){
+      btn.disabled = false; btn.textContent = 'Guardar contraseña';
+      showToast('Error: ' + (e.message || e), 'warn');
+    }
+  };
 }
 
 // ╔═══════════════════════════════════════════════════════════╗
