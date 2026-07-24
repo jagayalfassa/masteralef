@@ -13955,6 +13955,9 @@ async function _renderRankingPanel(panel){
       '<div style="font-size:2rem;margin-bottom:6px;">🏅</div>' +
       '<div style="font-size:13px;color:var(--sand-500);">Todavía no hay compañeros en tu clase</div>' +
       '<div style="font-size:11px;color:var(--sand-400);margin-top:4px;">Pedile el código de clase a tu profesor/a</div>' +
+      '<button onclick="showJoinClassSheet(false)" style="margin-top:10px;padding:10px 18px;border:none;' +
+        'border-radius:12px;background:var(--navy-800);color:white;font-size:13px;font-weight:700;' +
+        'cursor:pointer;">🎓 Ingresar código de clase</button>' +
       '</div>';
     panel.style.maxHeight = panel.scrollHeight + 20 + 'px';
     return;
@@ -16446,6 +16449,63 @@ async function joinClassByCode(code){
   } catch(e){ return _failJoin('exception', e); }
 }
 
+// ── Sheet "Unirse a una clase" — único punto de entrada de código ──
+// welcome=true → versión post-registro ("¡Último paso!")
+function showJoinClassSheet(welcome){
+  if(!_authUser){ showToast('Ingresá o creá tu cuenta primero', 'warn'); showView('auth'); return; }
+  const old = document.getElementById('join-class-sheet');
+  if(old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'join-class-sheet';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(13,31,53,0.55);' +
+    'display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;';
+  ov.innerHTML =
+    '<div style="background:white;border-radius:24px 24px 0 0;padding:24px 20px 28px;width:100%;' +
+      'max-width:480px;box-sizing:border-box;animation:slideUp 0.25s ease;text-align:center;">' +
+      '<img src="img/rashi-happy.png" alt="Rashi" style="width:72px;height:auto;object-fit:contain;" ' +
+        'onerror="this.style.display=\'none\'">' +
+      '<div style="font-size:17px;font-weight:800;color:var(--navy-800);margin:8px 0 4px;">' +
+        (welcome ? '¡Último paso! 🎉' : 'Unirse a una clase') + '</div>' +
+      '<div style="font-size:13px;color:var(--sand-500);margin-bottom:16px;">' +
+        (welcome ? 'Si tu profe te dio un código de clase, ponelo acá y ya quedás conectado con tu aula.'
+                 : 'Pedile el código a tu profesor/a e ingresalo acá.') + '</div>' +
+      '<input id="join-class-input" type="text" placeholder="Código de clase (ej: ALEF23)" ' +
+        'autocomplete="off" autocapitalize="characters" ' +
+        'style="padding:13px 14px;border:2px solid var(--sand-300);border-radius:14px;font-size:16px;' +
+        'font-weight:700;color:var(--navy-800);background:white;outline:none;width:100%;' +
+        'box-sizing:border-box;text-transform:uppercase;letter-spacing:0.12em;text-align:center;" ' +
+        'oninput="this.value=this.value.toUpperCase()">' +
+      '<button id="join-class-go" style="margin-top:14px;width:100%;padding:14px;border:none;' +
+        'border-radius:14px;background:linear-gradient(135deg,#D4A843,#A67C28);color:white;' +
+        'font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 0 #8a6420;">' +
+        'Unirse a mi clase</button>' +
+      '<button id="join-class-skip" style="margin-top:10px;width:100%;padding:10px;border:none;' +
+        'background:none;color:var(--sand-500);font-size:13px;font-weight:600;cursor:pointer;">' +
+        (welcome ? 'No tengo código — más tarde' : 'Cancelar') + '</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  const close = () => { ov.style.animation = 'fadeOut 0.18s ease'; setTimeout(() => ov.remove(), 170); };
+  ov.addEventListener('click', e => { if(e.target === ov) close(); });
+  document.getElementById('join-class-skip').onclick = close;
+  document.getElementById('join-class-go').onclick = async () => {
+    const code = document.getElementById('join-class-input').value.trim();
+    if(!code){ showToast('Ingresá el código primero', 'warn'); return; }
+    const btn = document.getElementById('join-class-go');
+    btn.disabled = true; btn.textContent = 'Uniéndote…';
+    const ok = await joinClassByCode(code);
+    btn.disabled = false; btn.textContent = 'Unirse a mi clase';
+    if(ok){
+      if(typeof trackEvent === 'function') trackEvent('class_join_sheet', { welcome: !!welcome });
+      close();
+      // Refrescar ranking si el panel está abierto
+      const panel = document.getElementById('ranking-panel');
+      if(panel && panel.style.maxHeight && panel.style.maxHeight !== '0px' &&
+         typeof _renderRankingPanel === 'function'){ _renderRankingPanel(panel); }
+    }
+  };
+  setTimeout(() => { const i = document.getElementById('join-class-input'); if(i) i.focus(); }, 300);
+}
+
 // ── Reintento de membership pendiente (localStorage → Supabase) ──
 async function _retryPendingMemberships(){
   if(!_sb || !_authUser) return;
@@ -16475,7 +16535,35 @@ function _updateAuthHeader(){
     existing.title = `${_authUser.email} · ${role === 'teacher' ? 'Profesor' : 'Alumno'}${instName ? ' · ' + instName : ''}`;
     existing.onclick   = () => {
       _closeMenu();
-      if(confirm(`Cerrar sesión de ${_authUser.email}?`)) authLogout();
+      // Alumnos: mini-menú con "Unirse a una clase"; docentes: logout directo
+      if(role === 'student'){
+        const oldM = document.getElementById('user-mini-menu');
+        if(oldM){ oldM.remove(); return; }
+        const rect = existing.getBoundingClientRect();
+        const mm = document.createElement('div');
+        mm.id = 'user-mini-menu';
+        mm.style.cssText = 'position:fixed;top:' + (rect.bottom + 6) + 'px;right:10px;z-index:9500;' +
+          'background:white;border-radius:14px;box-shadow:0 8px 30px rgba(13,31,53,0.25);' +
+          'overflow:hidden;min-width:200px;animation:fadeIn 0.15s ease;';
+        mm.innerHTML =
+          '<button id="umm-join" style="display:block;width:100%;padding:13px 16px;border:none;' +
+            'background:none;text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);' +
+            'cursor:pointer;">🎓 Unirse a una clase</button>' +
+          '<button id="umm-logout" style="display:block;width:100%;padding:13px 16px;border:none;' +
+            'border-top:1px solid var(--sand-200);background:none;text-align:left;font-size:14px;' +
+            'font-weight:700;color:var(--sand-500);cursor:pointer;">🚪 Cerrar sesión</button>';
+        document.body.appendChild(mm);
+        const closeMM = () => { mm.remove(); document.removeEventListener('click', outside, true); };
+        const outside = (e) => { if(!mm.contains(e.target) && e.target !== existing) closeMM(); };
+        setTimeout(() => document.addEventListener('click', outside, true), 0);
+        document.getElementById('umm-join').onclick = () => { closeMM(); showJoinClassSheet(false); };
+        document.getElementById('umm-logout').onclick = () => {
+          closeMM();
+          if(confirm(`Cerrar sesión de ${_authUser.email}?`)) authLogout();
+        };
+      } else {
+        if(confirm(`Cerrar sesión de ${_authUser.email}?`)) authLogout();
+      }
     };
   } else {
     existing.innerHTML = '🔑 Entrar';
@@ -16622,6 +16710,9 @@ async function authSubmit(){
       if(_authRole === 'student' && window._pendingClassCode){
         await joinClassByCode(window._pendingClassCode);
         window._pendingClassCode = null;
+      } else if(_authRole === 'student' && _authUser){
+        // Momento clave: registro completo → ofrecer unirse a la clase YA
+        setTimeout(() => showJoinClassSheet(true), 900);
       }
     }
     document.getElementById('auth-error').style.display = 'none';
