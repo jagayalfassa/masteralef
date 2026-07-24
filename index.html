@@ -15889,7 +15889,10 @@ async function authSignup(email, password, name, role, institutionId){
   if(error) throw error;
   _authUser = data.user;
   if(_authUser){
-    await _sb.from('profiles').upsert({
+    // El profile ya lo crea un trigger en la DB (handle_new_user); este upsert
+    // solo completa institution_id. Si falla (p.ej. sin sesión), se registra
+    // en vez de fallar en silencio — el trigger garantiza el profile igual.
+    const { error: profUpErr } = await _sb.from('profiles').upsert({
       id:             _authUser.id,
       email,
       name:           name || '',
@@ -15897,6 +15900,10 @@ async function authSignup(email, password, name, role, institutionId){
       institution_id: institutionId || null,
       created_at:     new Date().toISOString(),
     });
+    if(profUpErr){
+      dbg('[Auth] profiles upsert post-signup falló:', profUpErr.message);
+      if(typeof trackEvent === 'function') trackEvent('profile_upsert_failed', { error: profUpErr.message });
+    }
   }
   return data.user;
 }
