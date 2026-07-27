@@ -37,10 +37,11 @@ async function loadTeacherDashboard(){
   try {
     // Cargar TODAS las clases del teacher (antes: .maybeSingle() rompía
     // silenciosamente con 2+ clases -> mostraba alumnos de toda la institución)
+    // Sin .eq('teacher_id'): la RLS ya devuelve las clases donde sos
+    // owner O co-docente (private.is_class_teacher ampliada).
     const { data: classesData, error: classesErr } = await _sb
       .from('classes')
       .select('*')
-      .eq('teacher_id', _authUser.id)
       .order('created_at', { ascending: true });
 
     if(classesErr){
@@ -897,6 +898,7 @@ async function tdRenderClassSettings(){
   const code = cls?.code || '—';
 
   if(cls && typeof tdLoadAssignments === 'function') await tdLoadAssignments();
+  if(cls) setTimeout(() => tdLoadClassTeachers(), 0); // tras innerHTML
 
   container.innerHTML = `
     ${cls ? `
@@ -905,12 +907,15 @@ async function tdRenderClassSettings(){
       <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;margin-bottom:4px;">Clase activa</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
         <div style="font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:var(--navy-800);flex:1;">${esc(cls.name)}</div>
+        ${cls.teacher_id === _authUser?.id ? `
         <button onclick="tdRenameClass()" title="Renombrar clase"
           style="padding:8px 10px;border-radius:10px;border:1.5px solid var(--sand-300);background:white;
                  color:var(--navy-700);font-size:13px;cursor:pointer;">✏️</button>
         <button onclick="tdDeleteClass()" title="Eliminar clase"
           style="padding:8px 10px;border-radius:10px;border:1.5px solid #FECACA;background:#FEF2F2;
-                 color:#991B1B;font-size:13px;cursor:pointer;">🗑</button>
+                 color:#991B1B;font-size:13px;cursor:pointer;">🗑</button>` : `
+        <span style="font-size:10px;font-weight:700;color:var(--sand-500);background:var(--sand-100);
+                     border-radius:8px;padding:4px 8px;">Co-docente</span>`}
       </div>
       <div style="font-size:12px;color:var(--sand-500);margin-bottom:6px;">Código para que se unan:</div>
       <div style="display:flex;align-items:center;gap:10px;">
@@ -936,6 +941,11 @@ async function tdRenderClassSettings(){
                  font-size:12px;font-weight:700;cursor:pointer;min-width:70px;">
           ${cls?.leaderboard_enabled !== false ? '✓ Activo' : 'Inactivo'}
         </button>
+      </div>
+      <!-- Docentes de la clase -->
+      <div id="td-teachers-section" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--sand-200);">
+        <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">👥 Docentes de esta clase</div>
+        <div id="td-teachers-list" style="font-size:12px;color:var(--sand-500);">Cargando…</div>
       </div>
     </div>` : `
     <!-- Sin clase — crear -->
@@ -1092,6 +1102,141 @@ async function tdRenderClassSettings(){
 async function tdCreateClass(){
   const nameInput = document.getElementById('td-new-class-name');
   await tdCreateClassNamed(nameInput?.value.trim());
+}
+
+// ── Docentes de la clase: listado + invitación por email ──────
+async function tdLoadClassTeachers(){
+  const box = document.getElementById('td-teachers-list');
+  if(!box || !_sb || !_tdClassData) return;
+  try {
+    const { data: res, error } = await _sb.rpc('get_class_teachers', { p_class: _tdClassData.id });
+    if(error || !res || res.ok !== true){
+      box.textContent = 'No se pudo cargar la lista de docentes.';
+      return;
+    }
+    const isOwner = !!res.is_owner;
+    let html = (res.teachers || []).map(t => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--sand-100);">
+        <div style="flex:1;">
+          <span style="font-weight:700;color:var(--navy-800);font-size:12.5px;">${esc(t.name || t.email)}</span>
+          ${t.is_owner ? '<span style="font-size:9.5px;font-weight:700;color:#A67C28;background:rgba(212,168,67,0.15);border-radius:6px;padding:2px 6px;margin-left:6px;">Titular</span>' : ''}
+          <div style="font-size:10.5px;color:var(--sand-500);">${esc(t.email || '')}</div>
+        </div>
+        ${isOwner && !t.is_owner ? `
+        <button onclick="tdRemoveCoTeacher('${t.id}', '${esc(t.name || t.email)}')"
+          style="padding:6px 9px;border-radius:8px;border:1.5px solid #FECACA;background:#FEF2F2;
+                 color:#991B1B;font-size:11px;font-weight:700;cursor:pointer;">Quitar</button>` : ''}
+      </div>`).join('');
+
+    if(isOwner && (res.invites || []).length){
+      html += res.invites.map(inv => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--sand-100);">
+          <div style="flex:1;">
+            <span style="font-weight:700;color:var(--sand-500);font-size:12.5px;">${esc(inv.email)}</span>
+            <span style="font-size:9.5px;font-weight:700;color:var(--sand-500);background:var(--sand-100);border-radius:6px;padding:2px 6px;margin-left:6px;">Invitación pendiente</span>
+          </div>
+          <button onclick="tdResendInviteMail('${esc(inv.email)}')"
+            style="padding:6px 9px;border-radius:8px;border:1.5px solid var(--sand-300);background:white;
+                   color:var(--navy-700);font-size:11px;font-weight:700;cursor:pointer;">📧 Reenviar</button>
+          <button onclick="tdRevokeInvite('${esc(inv.email)}')"
+            style="padding:6px 9px;border-radius:8px;border:1.5px solid #FECACA;background:#FEF2F2;
+                   color:#991B1B;font-size:11px;font-weight:700;cursor:pointer;">✕</button>
+        </div>`).join('');
+    }
+
+    if(isOwner){
+      html += `
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <input id="td-invite-email" type="email" placeholder="email@del-docente.com"
+            style="flex:1;padding:9px 11px;border:1.5px solid var(--sand-300);border-radius:10px;
+                   font-size:12.5px;color:var(--navy-800);outline:none;box-sizing:border-box;">
+          <button onclick="tdInviteCoTeacher()"
+            style="padding:9px 13px;border-radius:10px;border:none;background:var(--navy-800);
+                   color:white;font-size:12px;font-weight:700;cursor:pointer;">＋ Invitar</button>
+        </div>
+        <div style="font-size:10px;color:var(--sand-500);margin-top:6px;">
+          Si ya tiene cuenta de docente, entra a la clase al instante. Si no, se abre un mail de
+          invitación listo para enviar y queda agregado apenas se registre con ese email.
+        </div>`;
+    }
+    box.innerHTML = html || '<div style="font-size:12px;color:var(--sand-500);">Solo vos por ahora.</div>';
+  } catch(e){
+    box.textContent = 'Error al cargar docentes.';
+    dbg('[Teacher] tdLoadClassTeachers:', e.message);
+  }
+}
+
+function _tdInviteMailto(email){
+  const cls = _tdClassData;
+  const asunto = 'Invitación a AlefMaster — clase "' + (cls?.name || '') + '"';
+  const cuerpo =
+    'Hola!\n\n' +
+    'Te invito como docente a mi clase "' + (cls?.name || '') + '" en AlefMaster.\n\n' +
+    'Registrate como DOCENTE con este mismo email (' + email + ') en:\n' +
+    'https://alefmaster.com\n\n' +
+    'Al crear tu cuenta vas a entrar directamente a la clase, con acceso al seguimiento de los alumnos.\n\n' +
+    '¡Nos vemos adentro!';
+  return 'mailto:' + encodeURIComponent(email) +
+    '?subject=' + encodeURIComponent(asunto) +
+    '&body=' + encodeURIComponent(cuerpo);
+}
+
+async function tdInviteCoTeacher(){
+  if(!_sb || !_tdClassData) return;
+  const input = document.getElementById('td-invite-email');
+  const email = (input?.value || '').trim().toLowerCase();
+  if(!email){ showToast('Escribí el email del docente', 'warn'); return; }
+  const { data: res, error } = await _sb.rpc('invite_co_teacher', {
+    p_class: _tdClassData.id, p_email: email,
+  });
+  if(error || !res || res.ok !== true){
+    const r = res?.reason;
+    const msgs = {
+      not_owner:        'Solo el docente titular puede invitar.',
+      invalid_email:    'Ese email no parece válido.',
+      self_invite:      'Ese sos vos 🙂',
+      exists_as_student:'Ese email ya tiene cuenta de ALUMNO — no se puede agregar como docente.',
+    };
+    showToast(msgs[r] || ('Error: ' + (error?.message || r || 'desconocido')), 'warn');
+    return;
+  }
+  if(input) input.value = '';
+  trackEvent('teacher_coteacher_invited', { status: res.status });
+  if(res.status === 'added'){
+    showToast('✓ ' + (res.name || email) + ' fue agregado como co-docente', 'green');
+  } else {
+    showToast('✓ Invitación creada — se abre el mail para enviársela', 'green');
+    // Abrir el mail prellenado del owner (invitación directa)
+    setTimeout(() => { window.location.href = _tdInviteMailto(email); }, 600);
+  }
+  tdLoadClassTeachers();
+}
+
+function tdResendInviteMail(email){
+  window.location.href = _tdInviteMailto(email);
+}
+
+async function tdRevokeInvite(email){
+  if(!_sb || !_tdClassData) return;
+  if(!confirm('¿Cancelar la invitación a ' + email + '?')) return;
+  const { data: res, error } = await _sb.rpc('revoke_co_teacher_invite', {
+    p_class: _tdClassData.id, p_email: email,
+  });
+  if(error || !res || res.ok !== true){ showToast('No se pudo cancelar', 'warn'); return; }
+  showToast('Invitación cancelada', 'green');
+  tdLoadClassTeachers();
+}
+
+async function tdRemoveCoTeacher(teacherId, teacherName){
+  if(!_sb || !_tdClassData) return;
+  if(!confirm('¿Quitar a ' + teacherName + ' como docente de esta clase?')) return;
+  const { data: res, error } = await _sb.rpc('remove_co_teacher', {
+    p_class: _tdClassData.id, p_teacher: teacherId,
+  });
+  if(error || !res || res.ok !== true){ showToast('No se pudo quitar', 'warn'); return; }
+  showToast('✓ ' + teacherName + ' ya no es docente de la clase', 'green');
+  trackEvent('teacher_coteacher_removed', {});
+  tdLoadClassTeachers();
 }
 
 // Crea una clase con el nombre dado (usada por el form y por "＋ Nueva clase")
