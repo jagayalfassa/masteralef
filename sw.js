@@ -3,7 +3,7 @@
 // ║  Para actualizar: cambiar CACHE_VERSION abajo                ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const CACHE_STATIC  = `alefmaster-static-${CACHE_VERSION}`;
 const CACHE_DYNAMIC = `alefmaster-dynamic-${CACHE_VERSION}`;
 
