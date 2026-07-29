@@ -11845,6 +11845,14 @@ function showCelebration(){
 }
 function _runCelebration(){
   feedbackCelebration();
+  // Momentos con contexto (uno por celebración, en orden de prioridad):
+  // sin cuenta → invitar a crearla; con cuenta → permiso de push; luego → instalar PWA
+  setTimeout(() => {
+    if(!_authUser){ _showAuthPrompt(); }
+    else if(('Notification' in window) && Notification.permission === 'default' &&
+            localStorage.getItem('heb_push_asked') !== '1'){ _maybeAskPushPermission(); }
+    else { _maybeOfferInstall(); }
+  }, 2600);
   const key=state.activeSeries;
   const s=ALL_DATA[key];
   const lessons=getLessons(key);
@@ -15462,7 +15470,7 @@ function saveWithIDB(){
 // ║  PUSH NOTIFICATIONS                                       ║
 // ╚═══════════════════════════════════════════════════════════╝
 
-const VAPID_PUBLIC_KEY = ''; // Completar con tu clave VAPID cuando tengas backend
+const VAPID_PUBLIC_KEY = 'BI7KLgkhiDFGOH6LGgUwVTwtCT_7O2MW5UtiXxS2WJ3ZTb-an_BRG8-_56U8cdLPF13eCMfNN964y_s__0Z6sFE';
 
 async function subscribeUserToPush(){
   if(!('PushManager' in window)){
@@ -15510,6 +15518,141 @@ function urlBase64ToUint8Array(base64String){
   const base64  = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
   const rawData = atob(base64);
   return new Uint8Array([...rawData].map(c => c.charCodeAt(0)));
+}
+
+// Guardar la suscripción push del usuario logueado en Supabase
+async function savePushSubscription(sub){
+  if(!_sb || !_authUser || !sub?.endpoint) return;
+  try {
+    const json = sub.toJSON ? sub.toJSON() : sub;
+    const { error } = await _sb.from('push_subscriptions').upsert({
+      user_id:  _authUser.id,
+      endpoint: json.endpoint,
+      p256dh:   json.keys?.p256dh || '',
+      auth:     json.keys?.auth   || '',
+    }, { onConflict: 'endpoint' });
+    if(error) dbg('[Push] guardar suscripción falló:', error.message);
+    else trackEvent('push_subscribed', {});
+  } catch(e){ dbg('[Push] savePushSubscription:', e.message); }
+}
+
+// ── Permiso de notificaciones con contexto (Rashi) ────────────
+// Se ofrece tras completar una lección, nunca al abrir la app.
+function _maybeAskPushPermission(){
+  try {
+    if(!('PushManager' in window) || !('Notification' in window)) return;
+    if(Notification.permission !== 'default') return;   // ya decidió
+    if(!_authUser) return;                               // sin cuenta no hay dónde guardar
+    if(localStorage.getItem('heb_push_asked') === '1') return;
+    if(document.getElementById('push-ask-sheet')) return;
+
+    const ov = document.createElement('div');
+    ov.id = 'push-ask-sheet';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9550;background:rgba(13,31,53,0.55);' +
+      'display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;';
+    ov.innerHTML =
+      '<div style="background:white;border-radius:24px 24px 0 0;padding:24px 20px 28px;width:100%;' +
+        'max-width:480px;box-sizing:border-box;text-align:center;animation:slideUp 0.25s ease;">' +
+        '<img src="img/rashi-happy.png" alt="Rashi" style="width:76px;height:auto;object-fit:contain;" ' +
+          'onerror="this.style.display=\'none\'">' +
+        '<div style="font-size:16px;font-weight:800;color:var(--navy-800);margin:8px 0 6px;">' +
+          '¿Activamos las notificaciones?</div>' +
+        '<div style="font-size:13px;color:var(--sand-500);margin-bottom:16px;line-height:1.5;">' +
+          'Tu profesor/a te va a enviar notificaciones para ayudarte a mejorar.</div>' +
+        '<button id="push-ask-yes" style="width:100%;padding:14px;border:none;border-radius:14px;' +
+          'background:linear-gradient(135deg,#D4A843,#A67C28);color:white;font-size:15px;' +
+          'font-weight:800;cursor:pointer;box-shadow:0 4px 0 #8a6420;">🔔 Activar notificaciones</button>' +
+        '<button id="push-ask-no" style="width:100%;margin-top:10px;padding:10px;border:none;' +
+          'background:none;color:var(--sand-500);font-size:13px;font-weight:600;cursor:pointer;">Ahora no</button>' +
+      '</div>';
+    document.body.appendChild(ov);
+    const close = () => { ov.style.animation = 'fadeOut 0.18s ease'; setTimeout(() => ov.remove(), 170); };
+    document.getElementById('push-ask-no').onclick = () => {
+      localStorage.setItem('heb_push_asked', '1');
+      trackEvent('push_ask_declined', {});
+      close();
+    };
+    document.getElementById('push-ask-yes').onclick = async () => {
+      localStorage.setItem('heb_push_asked', '1');
+      close();
+      const sub = await subscribeAndSave();
+      if(sub && sub.endpoint) showToast('🔔 ¡Listo! Te va a llegar todo lo de tu profe', 'green');
+    };
+    trackEvent('push_ask_shown', {});
+  } catch(e){ dbg('[Push] _maybeAskPushPermission:', e.message); }
+}
+
+// ── Guía de instalación de la PWA ─────────────────────────────
+let _bipEvent = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _bipEvent = e; });
+
+function _isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function showInstallGuide(){
+  if(_isStandalone()){ showToast('¡La app ya está instalada! 🎉', 'green'); return; }
+  const old = document.getElementById('install-guide-sheet');
+  if(old) old.remove();
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const steps = _bipEvent
+    ? '<button id="install-now-btn" style="width:100%;padding:14px;border:none;border-radius:14px;' +
+        'background:linear-gradient(135deg,#1B3A5C,#2A5280);color:white;font-size:15px;font-weight:800;' +
+        'cursor:pointer;box-shadow:0 4px 0 #0D1F35;">⬇️ Instalar ahora</button>'
+    : (isIOS
+      ? '<div style="text-align:left;font-size:13.5px;color:var(--navy-800);line-height:2;">' +
+          '<b>1.</b> Tocá el botón <b>Compartir</b> <span style="font-size:16px;">⎋</span> abajo en Safari<br>' +
+          '<b>2.</b> Bajá y elegí <b>"Agregar a pantalla de inicio"</b> ➕<br>' +
+          '<b>3.</b> Tocá <b>"Agregar"</b> — ¡y listo!</div>'
+      : '<div style="text-align:left;font-size:13.5px;color:var(--navy-800);line-height:2;">' +
+          '<b>1.</b> Tocá el menú <b>⋮</b> del navegador<br>' +
+          '<b>2.</b> Elegí <b>"Agregar a la pantalla principal"</b> o <b>"Instalar app"</b><br>' +
+          '<b>3.</b> Confirmá — ¡y listo!</div>');
+  const ov = document.createElement('div');
+  ov.id = 'install-guide-sheet';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9550;background:rgba(13,31,53,0.55);' +
+    'display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;';
+  ov.innerHTML =
+    '<div style="background:white;border-radius:24px 24px 0 0;padding:24px 20px 28px;width:100%;' +
+      'max-width:480px;box-sizing:border-box;text-align:center;animation:slideUp 0.25s ease;">' +
+      '<img src="img/rashi-happy.png" alt="Rashi" style="width:70px;height:auto;object-fit:contain;" ' +
+        'onerror="this.style.display=\'none\'">' +
+      '<div style="font-size:16px;font-weight:800;color:var(--navy-800);margin:8px 0 6px;">' +
+        'Instalá AlefMaster en tu celu 📲</div>' +
+      '<div style="font-size:12.5px;color:var(--sand-500);margin-bottom:14px;line-height:1.6;text-align:left;">' +
+        '✓ Se abre con un toque, como cualquier app<br>' +
+        '✓ Funciona aunque no tengas internet<br>' +
+        '✓ Los mensajes de tu profe te llegan como notificación' +
+        (isIOS ? ' (en iPhone, solo con la app instalada)' : '') + '</div>' +
+      steps +
+      '<button id="install-later-btn" style="width:100%;margin-top:12px;padding:10px;border:none;' +
+        'background:none;color:var(--sand-500);font-size:13px;font-weight:600;cursor:pointer;">Más tarde</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  const close = () => { ov.style.animation = 'fadeOut 0.18s ease'; setTimeout(() => ov.remove(), 170); };
+  document.getElementById('install-later-btn').onclick = () => {
+    try{ localStorage.setItem('heb_install_dismiss_ts', String(Date.now())); }catch(e){}
+    close();
+  };
+  const nowBtn = document.getElementById('install-now-btn');
+  if(nowBtn) nowBtn.onclick = async () => {
+    close();
+    if(_bipEvent){ _bipEvent.prompt(); const r = await _bipEvent.userChoice; trackEvent('pwa_install_choice', { outcome: r.outcome }); _bipEvent = null; }
+  };
+  trackEvent('install_guide_shown', {});
+}
+
+// Ofrecer la instalación en home (dismiss = 7 días de silencio)
+function _maybeOfferInstall(){
+  try {
+    if(_isStandalone()) return;
+    if(document.getElementById('install-guide-sheet') || document.getElementById('push-ask-sheet') ||
+       document.getElementById('auth-prompt-banner')) return;
+    const ts = parseInt(localStorage.getItem('heb_install_dismiss_ts') || '0', 10);
+    if(ts && Date.now() - ts < 7 * 24 * 3600 * 1000) return;
+    if(!isOnboardingDone()) return;
+    showInstallGuide();
+  } catch(e){}
 }
 
 // ╔═══════════════════════════════════════════════════════════╗
@@ -16560,6 +16703,16 @@ function _updateAuthHeader(){
         const outside = (e) => { if(!mm.contains(e.target) && e.target !== existing) closeMM(); };
         setTimeout(() => document.addEventListener('click', outside, true), 0);
         document.getElementById('umm-join').onclick = () => { closeMM(); showJoinClassSheet(false); };
+        if(!_isStandalone()){
+          const inst = document.createElement('button');
+          inst.style.cssText = 'display:block;width:100%;padding:13px 16px;border:none;' +
+            'border-top:1px solid var(--sand-200);background:none;text-align:left;font-size:14px;' +
+            'font-weight:700;color:var(--navy-800);cursor:pointer;';
+          inst.textContent = '📲 Instalar la app';
+          inst.onclick = () => { closeMM(); showInstallGuide(); };
+          const logoutBtn = document.getElementById('umm-logout');
+          mm.insertBefore(inst, logoutBtn);
+        }
         document.getElementById('umm-logout').onclick = () => {
           closeMM();
           if(confirm(`Cerrar sesión de ${_authUser.email}?`)) authLogout();
@@ -17661,7 +17814,40 @@ function startOnboardingFlow(){
   _obShekels = 0;
   _obTimers  = [];
   _obMount();
-  _obPhase_intro();
+  _obPhase_welcome();
+}
+
+// Pantalla 0: explicar QUÉ va a pasar y A DÓNDE lleva (claridad primer ingreso)
+function _obPhase_welcome(){
+  _obClearTimers();
+  _obRender(`
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                min-height:70vh;padding:24px;text-align:center;
+                animation:ob-pop .5s cubic-bezier(.34,1.56,.64,1) both;">
+      <img src="img/rashi-happy.png" alt="Rashi"
+        style="width:110px;height:auto;object-fit:contain;" onerror="this.style.display='none'">
+      <div style="font-size:24px;font-weight:800;color:#e8eaf0;margin-top:14px;font-family:sans-serif;">
+        ¡Hola! Soy Rashi 👋
+      </div>
+      <div style="font-size:14.5px;color:#8892b0;margin-top:12px;line-height:1.7;
+                  font-family:sans-serif;max-width:320px;">
+        Te doy la bienvenida a <b style="color:#e8eaf0;">AlefMaster</b>, donde vas a aprender
+        a leer hebreo para tu Bar/Bat Mitzvá.<br><br>
+        <b style="color:#e8eaf0;">Primero:</b> conocé tus primeras 3 letras — son 2 minutos.<br>
+        <b style="color:#e8eaf0;">Después:</b> creá tu cuenta y unite a la clase de tu moré
+        con el código que te dio.
+      </div>
+      <button id="ob-welcome-go"
+        style="margin-top:28px;padding:15px 40px;border:none;border-radius:40px;
+               background:linear-gradient(135deg,#3aad6e,#2d8a56);color:white;
+               font-size:16px;font-weight:800;font-family:sans-serif;cursor:pointer;
+               box-shadow:0 4px 0 #1f6440;">
+        ¡Empezar! →
+      </button>
+    </div>
+  `);
+  const go = document.getElementById('ob-welcome-go');
+  if(go) go.onclick = () => { trackEvent('ob_welcome_start', {}); _obPhase_intro(); };
 }
 
 // ── DOM root ──────────────────────────────────────────────────
@@ -18099,7 +18285,13 @@ function _obFinish(){
       saveProgress();
     }
   } catch(e){}
-  _obClose(() => renderHome());
+  _obClose(() => {
+    renderHome();
+    // Claridad post-onboarding: qué pasó y cuál es el siguiente paso
+    setTimeout(() => {
+      if(!_authUser) _showAuthPrompt();
+    }, 800);
+  });
 }
 
 function resetOnboarding(){
@@ -18165,8 +18357,9 @@ function _showAuthPrompt(){
 
   banner.innerHTML = `
     <div style="max-width:420px;margin:0 auto;text-align:center;">
-      <p style="font-size:13px;color:var(--sand-500);margin-bottom:12px;">
-        ¡Guardá tu progreso para no perderlo!
+      <p style="font-size:13px;color:var(--sand-500);margin-bottom:12px;line-height:1.5;">
+        ¡Guardá tu progreso para no perderlo!<br>
+        <span style="font-size:12px;">Con tu cuenta también podés unirte a la clase de tu moré con el código que te dio.</span>
       </p>
       <div style="display:flex;gap:10px;">
         <button onclick="document.getElementById('auth-prompt-banner').remove();authSwitchTab('signup');showView('auth');"
