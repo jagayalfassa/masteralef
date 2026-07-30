@@ -4427,6 +4427,19 @@ function invalidateParashaCache(){
   }
 }
 
+// Acceso directo a la parashá del Bar/Bat Mitzvá desde la tarjeta de home.
+// Reutiliza el mismo flujo del CTA principal (carga + selector de aliá).
+async function openBMParasha(parashaId){
+  const id = parashaId || localStorage.getItem('heb_bm_parasha');
+  if(!id){ showToast('Todavía no elegiste tu parashá', 'warn'); return; }
+  showToast('Cargando...', 'cyan');
+  const ok = await startParashaSession(id, null);
+  if(ok){
+    if(typeof trackEvent === 'function') trackEvent('bm_card_open_parasha', {});
+    showAliyahSelect(id);
+  }
+}
+
 // ── START PARASHA SESSION ─────────────────────────────────────────
 // Punto de entrada principal: carga parashá, construye índice y cachea.
 // Si la parashá ya está cargada NO hace fetch de nuevo.
@@ -5808,13 +5821,23 @@ function renderHome(){
             </div>
           </div>
 
-          <button onclick="event.stopPropagation();showSidurExplorer(0);"
-            style="width:100%;background:var(--sand-100);color:var(--navy-700);
-                   border:1.5px solid var(--sand-300);border-radius:12px;
-                   padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;
-                   display:flex;align-items:center;justify-content:center;gap:5px;">
-            📜 Explorar Sidur
-          </button>
+          <div style="display:flex;gap:8px;">
+            ${bmParasha ? `
+            <button onclick="event.stopPropagation();openBMParasha('${bmParasha}');"
+              style="flex:1;background:var(--navy-800);color:white;
+                     border:1.5px solid var(--navy-800);border-radius:12px;
+                     padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;
+                     display:flex;align-items:center;justify-content:center;gap:5px;">
+              📖 Mi parashá
+            </button>` : ''}
+            <button onclick="event.stopPropagation();showSidurExplorer(0);"
+              style="flex:1;background:var(--sand-100);color:var(--navy-700);
+                     border:1.5px solid var(--sand-300);border-radius:12px;
+                     padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;
+                     display:flex;align-items:center;justify-content:center;gap:5px;">
+              📜 ${bmParasha ? 'Sidur' : 'Explorar Sidur'}
+            </button>
+          </div>
         </div>`;
       baseC.appendChild(bmDash);
     }
