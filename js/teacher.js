@@ -246,15 +246,94 @@ function tdSwitchTab(tab){
     btn.style.color           = active ? 'var(--navy-800)' : 'var(--sand-500)';
     btn.style.borderBottom    = active ? '2.5px solid var(--navy-800)' : '2.5px solid transparent';
   });
-  if(tab === 'students')    tdRenderStudentList();
+  if(tab === 'students')  { tdRenderStudentList(); tdLoadInbox(); }
   else if(tab === 'week')   tdRenderWeeklyReport();
   else                      tdRenderClassSettings();
+}
+
+// ── Bandeja de consultas de alumnos (type='student') ──────────
+let _tdInbox = [];
+
+async function tdLoadInbox(){
+  if(!_sb || !_authUser) return;
+  try {
+    const { data, error } = await _sb
+      .from('notifications')
+      .select('id, title, body, created_at, read')
+      .eq('user_id', _authUser.id)
+      .eq('type', 'student')
+      .eq('read', false)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if(error){ dbg('[Teacher] inbox error:', error.message); return; }
+    _tdInbox = data || [];
+    tdRenderInbox();
+  } catch(e){ dbg('[Teacher] tdLoadInbox:', e.message); }
+}
+
+function tdRenderInbox(){
+  const box = document.getElementById('td-inbox');
+  if(!box) return;
+  if(!_tdInbox.length){ box.innerHTML = ''; return; }
+  box.innerHTML =
+    '<div style="font-size:12px;font-weight:800;color:var(--navy-800);margin:4px 0 8px;">' +
+      '💬 Consultas de alumnos (' + _tdInbox.length + ')</div>' +
+    _tdInbox.map(function(n){
+      const when = new Date(n.created_at).toLocaleDateString('es-AR', { day:'numeric', month:'short' });
+      // Buscar al alumno por nombre en el título "💬 {nombre} tiene una consulta"
+      const nm = (n.title || '').replace('💬 ', '').replace(' tiene una consulta', '');
+      const st = (_tdStudents || []).find(function(s){ return (s.name || '') === nm; });
+      return '<div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px;' +
+          'padding:12px;margin-bottom:8px;">' +
+          '<div style="font-size:12.5px;font-weight:700;color:var(--navy-800);margin-bottom:2px;">' +
+            esc(nm) + ' <span style="font-weight:600;color:var(--sand-500);font-size:11px;">· ' + when + '</span></div>' +
+          '<div style="font-size:13px;color:var(--navy-700);line-height:1.5;margin-bottom:10px;">' +
+            esc(n.body) + '</div>' +
+          '<div style="display:flex;gap:8px;">' +
+            (st ? '<button data-inbox-reply="' + n.id + '" data-sid="' + st.id + '" data-sname="' + esc(nm) + '" ' +
+              'style="flex:1;padding:9px;border-radius:9px;border:none;background:var(--navy-800);color:white;' +
+              'font-size:12px;font-weight:700;cursor:pointer;">Responder</button>' : '') +
+            '<button data-inbox-done="' + n.id + '" ' +
+              'style="' + (st ? '' : 'flex:1;') + 'padding:9px 12px;border-radius:9px;border:1.5px solid var(--sand-300);' +
+              'background:white;color:var(--sand-500);font-size:12px;font-weight:700;cursor:pointer;">Marcar leída</button>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+
+  box.querySelectorAll('[data-inbox-reply]').forEach(function(b){
+    b.addEventListener('click', function(){
+      tdMarkInboxRead(this.dataset.inboxReply);
+      tdOpenStudent(this.dataset.sid);
+      setTimeout(function(){
+        const ta = document.getElementById('td-msg-student-' + b.dataset.sid);
+        if(ta) ta.focus();
+      }, 200);
+    });
+  });
+  box.querySelectorAll('[data-inbox-done]').forEach(function(b){
+    b.addEventListener('click', function(){ tdMarkInboxRead(this.dataset.inboxDone); });
+  });
+}
+
+async function tdMarkInboxRead(notifId){
+  if(!_sb || !notifId) return;
+  try { await _sb.from('notifications').update({ read: true }).eq('id', notifId); } catch(e){}
+  _tdInbox = _tdInbox.filter(function(n){ return n.id !== notifId; });
+  tdRenderInbox();
+  trackEvent('teacher_inbox_read', {});
 }
 
 // ── Lista de alumnos ──────────────────────────────────────────
 function tdRenderStudentList(){
   const container = document.getElementById('td-content');
   if(!container) return;
+
+  // Contenedor de la bandeja de consultas (se llena async vía tdLoadInbox)
+  if(!document.getElementById('td-inbox')){
+    const inbox = document.createElement('div');
+    inbox.id = 'td-inbox';
+    container.parentNode.insertBefore(inbox, container);
+  }
 
   // Skeleton mientras carga — reemplazado por lista real
   if(container.textContent.trim() === '' || container.querySelector('#td-skeleton')){
