@@ -5840,6 +5840,19 @@ function renderHome(){
           </div>
         </div>`;
       baseC.appendChild(bmDash);
+
+      // Acceso "Escribir a mi moré" (solo alumnos con clase)
+      if(_authProfile?.role !== 'teacher'){
+        const askWrap = document.createElement('div');
+        askWrap.style.cssText = 'padding:0 14px 10px;';
+        askWrap.innerHTML =
+          '<button onclick="showMessageTeacherSheet(\'\')" ' +
+            'style="width:100%;background:white;color:var(--navy-700);border:1.5px solid var(--sand-300);' +
+            'border-radius:14px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;' +
+            'display:flex;align-items:center;justify-content:center;gap:6px;">' +
+            '💬 Escribir a mi moré</button>';
+        baseC.appendChild(askWrap);
+      }
     }
   }
 
@@ -16530,6 +16543,65 @@ async function showBackendNotifications(){
   }
 }
 
+// ── Alumno → moré: sheet para escribir una consulta ───────────
+function showMessageTeacherSheet(prefill){
+  if(!_authUser){ showToast('Ingresá con tu cuenta primero', 'warn'); showView('auth'); return; }
+  const old = document.getElementById('msg-teacher-sheet');
+  if(old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'msg-teacher-sheet';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(13,31,53,0.55);' +
+    'display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;';
+  ov.innerHTML =
+    '<div style="background:white;border-radius:24px 24px 0 0;padding:22px 20px 26px;width:100%;' +
+      'max-width:480px;box-sizing:border-box;animation:slideUp 0.25s ease;">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
+        '<img src="img/rashi-thinking.png" alt="Rashi" style="width:52px;height:auto;object-fit:contain;" ' +
+          'onerror="this.style.display=\'none\'">' +
+        '<div>' +
+          '<div style="font-size:15px;font-weight:800;color:var(--navy-800);">Escribile a tu moré</div>' +
+          '<div style="font-size:12px;color:var(--sand-500);">Contale tu duda y te va a responder 🙂</div>' +
+        '</div>' +
+      '</div>' +
+      '<textarea id="msg-teacher-body" rows="4" placeholder="Escribí tu pregunta acá…" ' +
+        'style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid var(--sand-300);' +
+        'border-radius:14px;font-size:15px;color:var(--navy-800);outline:none;resize:none;' +
+        'font-family:inherit;">' + (prefill ? String(prefill).replace(/</g,'&lt;') : '') + '</textarea>' +
+      '<button id="msg-teacher-send" style="margin-top:12px;width:100%;padding:14px;border:none;' +
+        'border-radius:14px;background:linear-gradient(135deg,#1B3A5C,#2A5280);color:white;' +
+        'font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 0 #0D1F35;">Enviar consulta</button>' +
+      '<button id="msg-teacher-cancel" style="margin-top:10px;width:100%;padding:10px;border:none;' +
+        'background:none;color:var(--sand-500);font-size:13px;font-weight:600;cursor:pointer;">Cancelar</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  const close = () => { ov.style.animation = 'fadeOut 0.18s ease'; setTimeout(() => ov.remove(), 170); };
+  ov.addEventListener('click', e => { if(e.target === ov) close(); });
+  document.getElementById('msg-teacher-cancel').onclick = close;
+  document.getElementById('msg-teacher-send').onclick = async () => {
+    const body = document.getElementById('msg-teacher-body').value.trim();
+    if(!body){ showToast('Escribí tu pregunta primero', 'warn'); return; }
+    const btn = document.getElementById('msg-teacher-send');
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    try {
+      const { data: res, error } = await _sb.rpc('student_message_teacher', { p_body: body });
+      if(error || !res || res.ok !== true){
+        const r = res?.reason;
+        if(r === 'no_class'){ showToast('Todavía no estás en ninguna clase — unite con el código de tu moré', 'warn'); }
+        else { showToast('No se pudo enviar: ' + (error?.message || r || 'error'), 'warn'); }
+        btn.disabled = false; btn.textContent = 'Enviar consulta';
+        return;
+      }
+      trackEvent('student_message_sent', { teachers: res.teachers });
+      close();
+      showToast('✓ ¡Enviado! Tu moré te va a responder', 'green');
+    } catch(e){
+      showToast('Error: ' + e.message, 'warn');
+      btn.disabled = false; btn.textContent = 'Enviar consulta';
+    }
+  };
+  setTimeout(() => { const t = document.getElementById('msg-teacher-body'); if(t) t.focus(); }, 300);
+}
+
 /** Popup especial para mensajes del profesor */
 function _showTeacherMessage(notif){
   const overlay = document.createElement('div');
@@ -16545,6 +16617,11 @@ function _showTeacherMessage(notif){
       <button onclick="this.closest('div[style]').remove(); trackEvent('teacher_notif_dismissed', {});"
         style="width:100%;padding:12px;border-radius:12px;border:none;background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">
         Entendido ✓
+      </button>
+      <button onclick="this.closest('div[style]').remove(); showMessageTeacherSheet('');"
+        style="width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1.5px solid var(--sand-300);
+               background:white;color:var(--navy-700);font-size:14px;font-weight:700;cursor:pointer;">
+        💬 Responder a mi moré
       </button>
     </div>`;
   document.body.appendChild(overlay);
