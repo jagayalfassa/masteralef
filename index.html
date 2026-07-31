@@ -6151,67 +6151,45 @@ function renderHome(){
 
   // Bereshit: at Serie A level (left)
   const topBereshit=posSerieA.y;
-  mapOuter.appendChild(makeFig('img/bereshit.png', 130, 'left', topBereshit));
 
-  // Noe: between A and B (right)
-  const topNoe=Math.round((posSerieA.y + posSerieB.y) / 2);
-  mapOuter.appendChild(makeFig('img/noe.png', 140, 'right', topNoe));
-
-  // Abraham: between B and C (left)  ← swapped with Moises
-  const topAbraham=Math.round((posSerieB.y + posSerieC.y) / 2);
-  mapOuter.appendChild(makeFig('img/abraham.png', 130, 'left', topAbraham));
-
-  // Moises: between C and D (right)  ← swapped with Abraham
-  const topMoises=Math.round((posSerieC.y + posSerieD.y) / 2);
-  mapOuter.appendChild(makeFig(IMG_MOISES, 130, 'right', topMoises));
-
-  // Tabernaculo: between D and E (left)
-  const topTabernaculo=Math.round((posSerieD.y + posSerieE.y) / 2);
-  mapOuter.appendChild(makeFig('img/tabernaculo.png', 140, 'left', topTabernaculo));
-
-  // Arca del Pacto: between D and E (right)
-  const topArca=Math.round((posSerieD.y + posSerieE.y) / 2) + 80;
-  mapOuter.appendChild(makeFig(IMG_ARCA, 200, 'right', topArca));
-
-  // Monte Nebo: after Serie E (right)
-  const topNebo=posSerieE.y + 120;
-  mapOuter.appendChild(makeFig('img/moises-monte-nebo.png', 140, 'left', topNebo));
-
-  // ── Línea de tiempo histórica (post-Torá) ────────────────────
-  // Decorativa: continúa el camino hacia abajo con el orden de la historia.
-  // Espaciado fijo, alternando lados como las figuras de arriba.
-  const HIST_FIGS = [
-    'img/hist-01-entrada-tierra.png',
-    'img/hist-02-jerico.png',
-    'img/hist-03-jueces.png',
-    'img/hist-04-saul.png',
-    'img/hist-05-david.png',
-    'img/hist-06-arca-jerusalem.png',
-    'img/hist-07-templo-salomon.png',
-    'img/hist-08-reino-dividido.png',
-    'img/hist-09-exilio.png',
-    'img/hist-10-destruccion-templo1.png',
-    'img/hist-11-januca.png',
-    'img/hist-12-destruccion-templo2.png',
-    'img/hist-13-yavne.png',
-    'img/hist-14-diaspora.png',
-    'img/hist-15-espana.png',
-    'img/hist-16-shoa.png',
-    'img/hist-17-israel.png',
-    'img/hist-18-israel-hoy.png',
+  // ── Línea de tiempo completa: Bereshit → historia, paso uniforme ──
+  // Todas las figuras equidistantes. El paso se calcula para conservar la
+  // densidad bíblica actual (Bereshit e Historia empiezan donde ya estaban).
+  const TL_FIGS = [
+    { src:'img/bereshit.png',    w:130 },
+    { src:'img/noe.png',         w:140 },
+    { src:'img/abraham.png',     w:130 },
+    { src:IMG_MOISES,            w:130 },
+    { src:'img/tabernaculo.png', w:140 },
+    { src:IMG_ARCA,              w:200 },
+    { src:'img/moises-monte-nebo.png', w:140 },
+    { src:'img/hist-01-entrada-tierra.png',     w:160 },
+    { src:'img/hist-02-jerico.png',             w:160 },
+    { src:'img/hist-03-jueces.png',             w:160 },
+    { src:'img/hist-04-saul.png',               w:160 },
+    { src:'img/hist-05-david.png',              w:160 },
+    { src:'img/hist-06-arca-jerusalem.png',     w:160 },
+    { src:'img/hist-07-templo-salomon.png',     w:160 },
+    { src:'img/hist-08-reino-dividido.png',     w:160 },
+    { src:'img/hist-09-exilio.png',             w:160 },
+    { src:'img/hist-10-destruccion-templo1.png',w:160 },
+    { src:'img/hist-11-januca.png',             w:160 },
+    { src:'img/hist-12-destruccion-templo2.png',w:160 },
+    { src:'img/hist-13-yavne.png',              w:160 },
+    { src:'img/hist-14-diaspora.png',           w:160 },
+    { src:'img/hist-15-espana.png',             w:160 },
+    { src:'img/hist-16-shoa.png',               w:160 },
+    { src:'img/hist-17-israel.png',             w:160 },
+    { src:'img/hist-18-israel-hoy.png',         w:160 },
   ];
-  // Repartir las figuras DENTRO del camino existente (sin extender el lienzo):
-  // desde justo debajo de Monte Nebo hasta el final del camino de series (totalH).
-  const HIST_START = topNebo + 150;           // arranca debajo de Nebo
-  const HIST_END   = totalH - 40;             // termina donde termina el camino
-  const HIST_SPAN  = Math.max(0, HIST_END - HIST_START);
-  const HIST_STEP  = HIST_FIGS.length > 1 ? HIST_SPAN / (HIST_FIGS.length - 1) : 0;
-  // Tamaño de figura acotado al paso para que no se solapen cuando el camino es corto
-  const HIST_W     = Math.max(160, Math.min(140, Math.round(HIST_STEP * 0.9)));
-  HIST_FIGS.forEach((figSrc, i) => {
-    const top  = Math.round(HIST_START + i * HIST_STEP);
-    const side = i % 2 === 0 ? 'right' : 'left'; // Nebo quedó a la izq → arrancamos der
-    mapOuter.appendChild(makeFig(figSrc, HIST_W, side, top));
+  // Paso uniforme = reparte las 25 figuras entre Bereshit y el final del
+  // camino de series (totalH), para que la última caiga justo ahí.
+  const TL_END  = totalH - 40;
+  const TL_STEP = Math.round((TL_END - topBereshit) / (TL_FIGS.length - 1));
+  TL_FIGS.forEach((f, i) => {
+    const top  = topBereshit + i * TL_STEP;
+    const side = i % 2 === 0 ? 'left' : 'right';
+    mapOuter.appendChild(makeFig(f.src, f.w, side, top));
   });
 
   mapOuter.appendChild(mapCanvas);
