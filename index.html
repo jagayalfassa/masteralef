@@ -6182,9 +6182,13 @@ function renderHome(){
     { src:'img/hist-17-israel.png',             w:160 },
     { src:'img/hist-18-israel-hoy.png',         w:160 },
   ];
-  // Paso uniforme = reparte las 25 figuras entre Bereshit y el final del
-  // camino de series (totalH), para que la última caiga justo ahí.
-  const TL_END  = totalH - 40;
+  // Paso uniforme = reparte las 25 figuras entre Bereshit y la última
+  // moneda azul (la última lección del camino), para que hist-18 quede a su altura.
+  let _lastCoinY = totalH - 40;
+  for(let _i = sequence.length - 1; _i >= 0; _i--){
+    if(sequence[_i].type === 'lesson'){ _lastCoinY = positions[_i].y; break; }
+  }
+  const TL_END  = _lastCoinY;
   const TL_STEP = Math.round((TL_END - topBereshit) / (TL_FIGS.length - 1));
   TL_FIGS.forEach((f, i) => {
     const top  = topBereshit + i * TL_STEP;
@@ -10538,7 +10542,7 @@ const LETRA_INTRO_MAP = {
   "ך": { fon: "J",       ejemplo: "<b-mark>J</b-mark>arro (final)" },
   "ל": { fon: "L",       ejemplo: "<b-mark>L</b-mark>una" },
   "מ": { fon: "M",       ejemplo: "<b-mark>M</b-mark>esa" },
-  "ם": { fon: "M",       ejemplo: "<b-mark>M</b-mark>esa (final)" },
+  "ם": { fon: "M",       ejemplo: "Álbu<b-mark>M</b-mark> (final)" },
   "נ": { fon: "N",       ejemplo: "<b-mark>N</b-mark>ube" },
   "ן": { fon: "N",       ejemplo: "<b-mark>N</b-mark>ube (final)" },
   "ס": { fon: "S",       ejemplo: "<b-mark>S</b-mark>ol" },
