@@ -6177,6 +6177,43 @@ function renderHome(){
   const topNebo=posSerieE.y + 120;
   mapOuter.appendChild(makeFig('img/moises-monte-nebo.png', 140, 'left', topNebo));
 
+  // ── Línea de tiempo histórica (post-Torá) ────────────────────
+  // Decorativa: continúa el camino hacia abajo con el orden de la historia.
+  // Espaciado fijo, alternando lados como las figuras de arriba.
+  const HIST_FIGS = [
+    'img/hist-01-entrada-tierra.png',
+    'img/hist-02-jerico.png',
+    'img/hist-03-jueces.png',
+    'img/hist-04-saul.png',
+    'img/hist-05-david.png',
+    'img/hist-06-arca-jerusalem.png',
+    'img/hist-07-templo-salomon.png',
+    'img/hist-08-reino-dividido.png',
+    'img/hist-09-exilio.png',
+    'img/hist-10-destruccion-templo1.png',
+    'img/hist-11-januca.png',
+    'img/hist-12-destruccion-templo2.png',
+    'img/hist-13-yavne.png',
+    'img/hist-14-diaspora.png',
+    'img/hist-15-espana.png',
+    'img/hist-16-shoa.png',
+    'img/hist-17-israel.png',
+    'img/hist-18-israel-hoy.png',
+  ];
+  // Repartir las figuras DENTRO del camino existente (sin extender el lienzo):
+  // desde justo debajo de Monte Nebo hasta el final del camino de series (totalH).
+  const HIST_START = topNebo + 150;           // arranca debajo de Nebo
+  const HIST_END   = totalH - 40;             // termina donde termina el camino
+  const HIST_SPAN  = Math.max(0, HIST_END - HIST_START);
+  const HIST_STEP  = HIST_FIGS.length > 1 ? HIST_SPAN / (HIST_FIGS.length - 1) : 0;
+  // Tamaño de figura acotado al paso para que no se solapen cuando el camino es corto
+  const HIST_W     = Math.max(90, Math.min(140, Math.round(HIST_STEP * 0.9)));
+  HIST_FIGS.forEach((figSrc, i) => {
+    const top  = Math.round(HIST_START + i * HIST_STEP);
+    const side = i % 2 === 0 ? 'right' : 'left'; // Nebo quedó a la izq → arrancamos der
+    mapOuter.appendChild(makeFig(figSrc, HIST_W, side, top));
+  });
+
   mapOuter.appendChild(mapCanvas);
   baseC.appendChild(mapOuter);
 
@@ -17793,7 +17830,7 @@ function isOnboardingDone(){
 
 // ── Las 3 letras del onboarding ───────────────────────────────
 const OB_ROUNDS = [
-  { letter:'א', name:'Alef',  fon:'alef',  sound:'A', options:['א','בּ','מ'], correct:0 },
+  { letter:'שׁ', name:'Shin',  fon:'shin',  sound:'Sh', options:['שׁ','בּ','מ'], correct:0 },
   { letter:'בּ', name:'Bet',   fon:'bet',   sound:'B', options:['ל','בּ','שׁ'], correct:1 },
   { letter:'מ', name:'Mem',   fon:'mem',   sound:'M', options:['נ','ר','מ'],  correct:2 },
 ];
