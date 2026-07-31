@@ -6207,7 +6207,7 @@ function renderHome(){
   const HIST_SPAN  = Math.max(0, HIST_END - HIST_START);
   const HIST_STEP  = HIST_FIGS.length > 1 ? HIST_SPAN / (HIST_FIGS.length - 1) : 0;
   // Tamaño de figura acotado al paso para que no se solapen cuando el camino es corto
-  const HIST_W     = Math.max(90, Math.min(140, Math.round(HIST_STEP * 0.9)));
+  const HIST_W     = Math.max(190, Math.min(140, Math.round(HIST_STEP * 0.9)));
   HIST_FIGS.forEach((figSrc, i) => {
     const top  = Math.round(HIST_START + i * HIST_STEP);
     const side = i % 2 === 0 ? 'right' : 'left'; // Nebo quedó a la izq → arrancamos der
