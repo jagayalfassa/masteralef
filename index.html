@@ -11826,12 +11826,22 @@ function srReveal(){
   const idx  = _srQueue[_srIdx];
   const word = ALL_DATA[_srKey]?.words?.[idx];
   if(!word) return;
-  // Reproducir audio si existe
-  if(word.audio) playAudio(word.audio);
+  // Revelar SIEMPRE primero (el audio es secundario y no debe bloquear la UI)
   document.getElementById('sr-fon').style.display    = 'block';
   document.getElementById('sr-sign').style.display   = 'block';
   document.getElementById('sr-hint').style.display   = 'none';
   document.getElementById('sr-buttons').style.display = 'flex';
+  // Audio opcional: MP3 si existe, con fallback a TTS; nunca rompe el reveal
+  try {
+    if(word.audio){
+      stopAudio();
+      const a = new Audio(word.audio);
+      state.currentAudio = a;
+      a.play().catch(() => { _speakHebrew(word.heb, word.fon); });
+    } else {
+      _speakHebrew(word.heb, word.fon);
+    }
+  } catch(e){ /* audio no disponible — no afecta la lectura */ }
 }
 
 function srAnswer(knew){
@@ -12699,6 +12709,18 @@ function stopAudio(){
   const btn=document.getElementById("audio-btn"), status=document.getElementById("audio-status");
   if(btn) btn.className="audio-btn";
   if(status && document.getElementById("mode-listen") && !document.getElementById("mode-listen").classList.contains("hidden")) status.innerText="Toca para escuchar y elige la palabra";
+}
+
+// Reproducir un MP3 de palabra de forma segura (nunca lanza excepción).
+// Helper global usado por lectura rápida y por "tocar palabra para escuchar".
+function playAudio(url){
+  if(!url) return;
+  try {
+    stopAudio();
+    const a = new Audio(url);
+    state.currentAudio = a;
+    a.play().catch(() => {});
+  } catch(e){ /* audio no disponible */ }
 }
 // ╔═══════════════════════════════════════════════════════════╗
 // ║  MODO PRÁCTICA RÁPIDA — 5 min sin interrupciones         ║
