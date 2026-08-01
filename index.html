@@ -4696,7 +4696,10 @@ function cleanHebrew(text){
       out += chars[i];
     }
   }
-  return out;
+  // Normalizar a NFC: reordena las marcas (nikud/puntos) a orden canónico.
+  // Dos palabras visualmente idénticas con distinto orden de bytes pasan a ser
+  // el MISMO string → la deduplicación de opciones las detecta en todos los juegos.
+  return out.normalize('NFC');
 }
 
 // Versión completa que preserva nikud pero elimina cantilación
@@ -12412,8 +12415,16 @@ function renderListenMode(word){
     }
   }
   const opts=shuffle([word.heb,...cleanDistractors.slice(0,3)],Date.now());
+  // Red de seguridad final: nunca renderizar dos opciones visualmente idénticas.
+  const _seenOpt = new Set();
+  const _opts = opts.filter(o => {
+    const k = cleanHebrew(o);
+    if(_seenOpt.has(k)) return false;
+    _seenOpt.add(k);
+    return true;
+  });
   let attempts=0;
-  opts.forEach(opt=>{
+  _opts.forEach(opt=>{
     const btn=document.createElement("button"); btn.className="btn-option hebrew-option"; btn.innerText=cleanHebrew(opt);
     btn.onclick=()=>{
       if(opt===word.heb){
