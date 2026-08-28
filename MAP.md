@@ -41,17 +41,17 @@ sed -n '2048p' index.html | python3 -c "import sys,re,json; ..."
 | Líneas | Contenido | Notas |
 |---|---|---|
 | 1–27 | `<head>`, meta, manifest | |
-| 28–159 | `<style id="tw-minimal">` | utilidades tipo Tailwind |
-| 160–169 | CDNs (confetti, supabase-js) | |
-| 170–765 | `<style>` principal | ~600 líneas de CSS |
-| 774–1983 | `<body>` — HTML de todas las views | ver índice de views |
-| **1984–18361** | `<script>` — **todo el JS** | ver índice de secciones |
-| 18365 | `<script src="./js/teacher.js">` | módulo aparte (1.287 líneas) |
+| 28–160 | `<style id="tw-minimal">` | utilidades tipo Tailwind |
+| 162–166 | CDNs (canvas-confetti, supabase-js) | |
+| 171–828 | `<style>` principal | ~650 líneas de CSS |
+| 837–2057 | `<body>` — HTML de todas las views | ver índice de views |
+| **2058–19761** | `<script>` — **todo el JS** | ver índice de secciones |
+| 19765 | `<script src="./js/teacher.js" defer>` | módulo aparte (86 KB) |
 
 **Ancla de extracción JS** (para scripts de patch en Python):
 
 ```python
-m = re.search(r'<script>\n// ── Error handling', content)   # línea 1984
+m = re.search(r'<script>\n// ── Error handling', content)   # línea 2058
 start = content.index('\n', m.start()) + 1
 end   = content.find('</script>', start)   # find, NUNCA rindex
 ```
