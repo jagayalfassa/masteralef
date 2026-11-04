@@ -61,6 +61,7 @@ async function loadTeacherDashboard(){
     const instLabel = _authProfile?._institution?.name;
     if(nameEl) nameEl.textContent = _tdClassData?.name || (instLabel ? instLabel : 'Mi clase');
     tdRenderClassSwitcher();
+    _tdEnsurePushSlot();
 
     await tdLoadStudentsForActiveClass();
 
@@ -854,6 +855,21 @@ function _tdPaintUnreadBadges(){
     el.textContent = n ? '💬 ' + n : '';
     el.style.display = n ? 'inline-block' : 'none';
   });
+}
+
+// Slot de activación de notificaciones en el header del panel
+function _tdEnsurePushSlot(){
+  const nameEl = document.getElementById('td-class-name');
+  if(!nameEl || !nameEl.parentNode) return;
+  let slot = document.getElementById('td-push-slot');
+  if(!slot){
+    slot = document.createElement('div');
+    slot.id = 'td-push-slot';
+    slot.setAttribute('data-push-slot', 'teacher');
+    slot.style.cssText = 'margin-top:10px;display:none;';
+    nameEl.parentNode.appendChild(slot);
+  }
+  if(typeof _refreshPushUI === 'function') _refreshPushUI();
 }
 
 // ╔═══════════════════════════════════════════════════════════════╗

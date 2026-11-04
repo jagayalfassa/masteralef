@@ -3,7 +3,7 @@
 // ║  Para actualizar: cambiar CACHE_VERSION abajo                ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v13';
 const CACHE_STATIC  = `alefmaster-static-${CACHE_VERSION}`;
 const CACHE_DYNAMIC = `alefmaster-dynamic-${CACHE_VERSION}`;
 
@@ -118,9 +118,9 @@ self.addEventListener('push', event => {
       body:  data.body,
       icon:  data.icon || './icons/icon-192.png',
       badge: './icons/icon-192.png',
-      tag:   'alefmaster-reminder',
+      tag:   data.tag || 'alefmaster-reminder',   // un aviso por mensaje
       renotify: true,
-      data: { url: './' },
+      data: { url: data.url || './' },
     })
   );
 });
@@ -134,6 +134,7 @@ self.addEventListener('notificationclick', event => {
         // Si la app ya está abierta → hacer foco
         for(const client of list){
           if(client.url.includes('alefmaster') || client.url.includes('masteralef')){
+            client.postMessage({ type: 'push-open', url: url });
             return client.focus();
           }
         }

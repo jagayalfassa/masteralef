@@ -974,7 +974,7 @@ to   { transform: translateY(0);    opacity: 1; }
     <button id="notif-menu-btn" style="width:100%;padding:14px 16px;border:none;background:none;
       text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);cursor:pointer;
       display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--sand-200);">
-      🔔 Recordatorios
+      🔔 Notificaciones
     </button>
     <button id="teacher-panel-btn" style="display:none;width:100%;padding:14px 16px;border:none;background:none;
       text-align:left;font-size:14px;font-weight:700;color:var(--navy-800);cursor:pointer;
@@ -11975,7 +11975,7 @@ function _runCelebration(){
   setTimeout(() => {
     if(!_authUser){ _showAuthPrompt(); }
     else if(('Notification' in window) && Notification.permission === 'default' &&
-            localStorage.getItem('heb_push_asked') !== '1'){ _maybeAskPushPermission(); }
+            _pushAskDue()){ _maybeAskPushPermission(); }
     else { _maybeOfferInstall(); }
   }, 2600);
   const key=state.activeSeries;
@@ -15666,8 +15666,8 @@ async function subscribeUserToPush(){
  */
 async function subscribeAndSave(){
   const sub = await subscribeUserToPush();
-  if(sub && sub.endpoint && typeof savePushSubscription === 'function'){
-    await savePushSubscription(sub);
+  if(sub && sub.endpoint && typeof _registerPushSub === 'function'){
+    await _registerPushSub(sub);
   }
   return sub;
 }
@@ -15695,6 +15695,189 @@ async function savePushSubscription(sub){
   } catch(e){ dbg('[Push] savePushSubscription:', e.message); }
 }
 
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  PUSH v2 — estado, activación, varios dispositivos         ║
+// ║  register_push_subscription (RPC) + send-push (edge)       ║
+// ╚═══════════════════════════════════════════════════════════╝
+const PUSH_REASK_MS = 7 * 86400000; // volver a ofrecer como máximo 1 vez por semana
+
+function _isIOSDevice(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+// 'on' | 'off' | 'denied' | 'needs_install' | 'unsupported'
+async function getPushStatus(){
+  const iosBrowser = _isIOSDevice() && !(typeof _isStandalone === 'function' && _isStandalone());
+  if(iosBrowser) return 'needs_install';
+  if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return 'unsupported';
+  if(Notification.permission === 'denied') return 'denied';
+  if(Notification.permission !== 'granted') return 'off';
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return sub ? 'on' : 'off';
+  } catch(e){ return 'off'; }
+}
+
+function _pushAskDue(){
+  const v = localStorage.getItem('heb_push_asked');
+  if(!v || v === '1') return true;                 // '1' = formato viejo → re-ofrecer una vez
+  return (Date.now() - (parseInt(v, 10) || 0)) > PUSH_REASK_MS;
+}
+
+async function _registerPushSub(sub){
+  if(!_sb || !_authUser || !sub) return false;
+  try {
+    const j = sub.toJSON ? sub.toJSON() : sub;
+    if(!j.endpoint || !j.keys) return false;
+    const { data, error } = await _sb.rpc('register_push_subscription', {
+      p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth,
+    });
+    if(error || !data || data.ok !== true){ dbg('[Push] register error:', error?.message || data?.reason); return false; }
+    return true;
+  } catch(e){ dbg('[Push] _registerPushSub:', e.message); return false; }
+}
+
+// Activación explícita (tap del usuario): pide permiso, suscribe y registra
+async function enablePush(origin){
+  const st = await getPushStatus();
+  if(st === 'on'){ showToast('🔔 Las notificaciones ya están activadas en este dispositivo', 'green'); return true; }
+  if(st === 'needs_install'){ if(typeof showInstallGuide === 'function') showInstallGuide(); return false; }
+  if(st === 'unsupported'){ showToast('Este navegador no permite notificaciones', 'warn'); return false; }
+  if(st === 'denied'){ _showPushDeniedHelp(); return false; }
+  if(!_authUser){ showToast('Ingresá con tu cuenta primero', 'warn'); return false; }
+  try { localStorage.setItem('heb_push_asked', String(Date.now())); } catch(e){}
+  const sub = await subscribeUserToPush();
+  if(!sub || !sub.endpoint){ _refreshPushUI(); return false; }
+  const ok = await _registerPushSub(sub);
+  if(ok){
+    showToast('🔔 ¡Listo! Te van a llegar los mensajes aunque la app esté cerrada', 'green');
+    trackEvent('push_enabled', { origin: origin || 'unknown' });
+  } else {
+    showToast('No se pudo activar — probá de nuevo en un rato', 'warn');
+  }
+  _refreshPushUI();
+  return ok;
+}
+
+// Al iniciar sesión: si el permiso ya está dado, asegurar suscripción registrada a ESTA cuenta
+async function _syncPushSubscription(){
+  try {
+    if(!_authUser || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+    if(Notification.permission !== 'granted' || !VAPID_PUBLIC_KEY) return;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      try {
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+      } catch(e){ dbg('[Push] auto-subscribe falló:', e.message); return; }
+    }
+    await _registerPushSub(sub);
+    _refreshPushUI();
+  } catch(e){ dbg('[Push] _syncPushSubscription:', e.message); }
+}
+
+// Al cerrar sesión: este dispositivo deja de recibir los avisos de la cuenta
+async function _unregisterPushForLogout(){
+  try {
+    if(!_sb || !_authUser || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub) await _sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+  } catch(e){ dbg('[Push] unregister:', e.message); }
+}
+
+function _showPushDeniedHelp(){
+  const old = document.getElementById('push-denied-sheet');
+  if(old) old.remove();
+  const ios = _isIOSDevice();
+  const steps = ios
+    ? '1. Abrí <strong>Ajustes</strong> del iPhone<br>2. Entrá a <strong>Notificaciones</strong><br>3. Buscá <strong>AlefMaster</strong> y activá <strong>Permitir notificaciones</strong>'
+    : '1. Mantené apretado el ícono de <strong>AlefMaster</strong> → <strong>Información de la app</strong><br>2. Entrá a <strong>Notificaciones</strong> y activalas<br><span style="color:var(--sand-500);">Si la usás en el navegador: tocá el candado 🔒 de la barra → Permisos → Notificaciones → Permitir</span>';
+  const ov = document.createElement('div');
+  ov.id = 'push-denied-sheet';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9700;background:rgba(13,31,53,0.55);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;';
+  ov.innerHTML =
+    '<div style="background:white;border-radius:24px 24px 0 0;padding:22px 20px 26px;width:100%;max-width:480px;box-sizing:border-box;animation:slideUp 0.25s ease;">' +
+      '<div style="font-size:16px;font-weight:800;color:var(--navy-800);margin-bottom:6px;">🔕 Las notificaciones están bloqueadas</div>' +
+      '<div style="font-size:13px;color:var(--navy-700);line-height:1.6;margin-bottom:14px;">La app no puede volver a pedirlas. Activalas así:<br><br>' + steps + '<br><br>Después volvé a abrir AlefMaster.</div>' +
+      '<button data-push-close style="width:100%;padding:13px;border:none;border-radius:14px;background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">Entendido</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if(e.target === ov || e.target.closest('[data-push-close]')) ov.remove(); });
+}
+
+// Fila de llamada a la acción. role: 'student' | 'teacher'
+function _pushCtaHtml(st, role){
+  if(st === 'on' || st === 'unsupported') return '';
+  const why = role === 'teacher'
+    ? 'Enterate al instante cuando un alumno te escribe.'
+    : 'Enterate cuando tu moré te responde, aunque la app esté cerrada.';
+  const cfg = {
+    off:           { t: '🔔 Activá las notificaciones', b: 'Activar' },
+    needs_install: { t: '📲 Para recibir avisos en iPhone, instalá la app en tu pantalla de inicio', b: 'Cómo' },
+    denied:        { t: '🔕 Notificaciones bloqueadas en este dispositivo', b: 'Ver cómo' },
+  }[st];
+  if(!cfg) return '';
+  return '<div style="display:flex;align-items:center;gap:10px;background:#FFFBEB;border:1.5px solid #FDE68A;' +
+      'border-radius:12px;padding:9px 12px;">' +
+      '<div style="flex:1;min-width:0;font-size:12px;color:var(--navy-800);line-height:1.35;"><strong>' + cfg.t + '</strong>' +
+        (st === 'off' ? '<br><span style="color:var(--sand-500);">' + why + '</span>' : '') + '</div>' +
+      '<button data-push-cta="' + role + '" style="flex:0 0 auto;padding:8px 12px;border:none;border-radius:10px;' +
+        'background:var(--navy-800);color:white;font-size:12px;font-weight:700;cursor:pointer;">' + cfg.b + '</button>' +
+    '</div>';
+}
+
+// Repinta todos los lugares marcados con data-push-slot
+async function _refreshPushUI(){
+  const slots = document.querySelectorAll('[data-push-slot]');
+  if(!slots.length) return;
+  const st = await getPushStatus();
+  slots.forEach(el => {
+    const html = _pushCtaHtml(st, el.getAttribute('data-push-slot'));
+    el.innerHTML = html;
+    el.style.display = html ? '' : 'none';
+  });
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-push-cta]');
+  if(b){ enablePush(b.getAttribute('data-push-cta')); }
+});
+
+// ── Abrir destino al tocar una notificación (?open=chat | inbox) ──
+function _handleOpenTarget(target){
+  if(!target) return;
+  if(target === 'chat'){
+    if(_authUser) showMessageTeacherSheet('');
+  } else if(target === 'inbox'){
+    if(_authProfile?.role === 'teacher' && typeof openTeacherPanel === 'function') openTeacherPanel();
+  }
+  if(typeof trackEvent === 'function') trackEvent('push_opened', { target: target });
+}
+
+function _consumeOpenParam(){
+  try {
+    const params = new URLSearchParams(location.search);
+    const target = params.get('open');
+    if(!target) return;
+    params.delete('open');
+    const q = params.toString();
+    history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash);
+    // Esperar a que la home termine de pintarse antes de abrir la hoja
+    setTimeout(() => _handleOpenTarget(target), 900);
+  } catch(e){ dbg('[Push] open param:', e.message); }
+}
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data && e.data.type === 'push-open'){
+      try { _handleOpenTarget(new URL(e.data.url, location.href).searchParams.get('open')); } catch(err){}
+    }
+  });
+}
+
 // ── Permiso de notificaciones con contexto (Rashi) ────────────
 // Se ofrece tras completar una lección, nunca al abrir la app.
 function _maybeAskPushPermission(){
@@ -15702,7 +15885,7 @@ function _maybeAskPushPermission(){
     if(!('PushManager' in window) || !('Notification' in window)) return;
     if(Notification.permission !== 'default') return;   // ya decidió
     if(!_authUser) return;                               // sin cuenta no hay dónde guardar
-    if(localStorage.getItem('heb_push_asked') === '1') return;
+    if(!_pushAskDue()) return;
     if(document.getElementById('push-ask-sheet')) return;
 
     const ov = document.createElement('div');
@@ -15727,12 +15910,12 @@ function _maybeAskPushPermission(){
     document.body.appendChild(ov);
     const close = () => { ov.style.animation = 'fadeOut 0.18s ease'; setTimeout(() => ov.remove(), 170); };
     document.getElementById('push-ask-no').onclick = () => {
-      localStorage.setItem('heb_push_asked', '1');
+      localStorage.setItem('heb_push_asked', String(Date.now()));
       trackEvent('push_ask_declined', {});
       close();
     };
     document.getElementById('push-ask-yes').onclick = async () => {
-      localStorage.setItem('heb_push_asked', '1');
+      localStorage.setItem('heb_push_asked', String(Date.now()));
       close();
       const sub = await subscribeAndSave();
       if(sub && sub.endpoint) showToast('🔔 ¡Listo! Te va a llegar todo lo de tu profe', 'green');
@@ -16264,6 +16447,7 @@ async function findInstitution(query){
 // ── Logout ────────────────────────────────────────────────────
 async function authLogout(){
   if(!_sb) return;
+  await _unregisterPushForLogout();
   await _sb.auth.signOut();
   _authUser         = null;
   _authProfile      = null;
@@ -16593,6 +16777,7 @@ async function initAuth(){
         _authProfileCache = _authProfile;
         _updateAuthHeader();
         showBackendNotifications().catch(() => {});
+        _syncPushSubscription();
       } else if(event === 'PASSWORD_RECOVERY'){
         // Usuario llegó desde el link del mail de recuperación
         if(session?.user) _authUser = session.user;
@@ -16920,6 +17105,7 @@ function showMessageTeacherSheet(prefill, ctx){
         'border-bottom:1px solid var(--sand-200);">' +
         '<div style="text-align:center;font-size:12px;color:var(--sand-500);padding:12px 0;">Cargando mensajes…</div>' +
       '</div>' +
+      '<div data-push-slot="student" style="display:none;margin-bottom:8px;"></div>' +
       '<div style="font-size:11.5px;color:var(--navy-700);background:var(--sand-100);border-radius:10px;' +
         'padding:7px 10px;margin-bottom:8px;">📍 Tu moré va a ver dónde estás: <strong>' + esc(ctxText) + '</strong>' +
         (msgCtx.heb ? '<span style="font-family:\'Noto Serif Hebrew\',serif;font-size:14px;direction:rtl;unicode-bidi:isolate;">' + esc(msgCtx.heb) + '</span>' : '') +
@@ -16938,6 +17124,7 @@ function showMessageTeacherSheet(prefill, ctx){
   const close = () => { ov.style.animation = 'fadeOut 0.18s ease'; setTimeout(() => ov.remove(), 170); };
   ov.addEventListener('click', e => { if(e.target === ov) close(); });
   document.getElementById('msg-teacher-cancel').onclick = close;
+  _refreshPushUI();
 
   // Cargar historial; los mensajes del moré que se ven acá quedan leídos
   let thread = [];
@@ -17028,17 +17215,8 @@ function _showTeacherMessage(notif, queue){
  * Se llama después de subscribeUserToPush() cuando hay backend.
  */
 async function savePushSubscription(subscription){
-  if(!_sb || !_authUser || !subscription) return;
-  try {
-    await _sb.from('push_subscriptions').upsert({
-      user_id:      _authUser.id,
-      endpoint:     subscription.endpoint,
-      p256dh:       btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')))),
-      auth:         btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')))),
-      updated_at:   new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-    dbg('[Notif] Push subscription guardada en Supabase');
-  } catch(e){ dbg('[Notif] savePushSubscription error:', e.message); }
+  // Delegado al RPC (varios dispositivos por usuario, endpoint único)
+  return _registerPushSub(subscription);
 }
 
 // ── Unirse a clase por código ─────────────────────────────────
@@ -18910,6 +19088,8 @@ _perf.start('app-init');
 // Iniciar Supabase (no bloquea — la app funciona igual sin él)
 initAuth().then(() => {
   _updateAuthHeader();
+  _syncPushSubscription();   // permiso ya dado → dispositivo registrado a esta cuenta
+  _consumeOpenParam();       // ?open=chat | inbox (al tocar una notificación)
 }).catch(() => {});
 
 // Flujo de bienvenida: welcome → onboarding → home
@@ -18966,18 +19146,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('notif-menu-btn')        ?.addEventListener('click', () => {
     const menu = document.getElementById('header-menu');
     if(menu) menu.style.display = 'none';
-    if(!('Notification' in window)){
-      showToast('Tu navegador no soporta notificaciones', 'warn'); return;
-    }
-    if(Notification.permission === 'granted'){
-      showToast('🔔 Recordatorios ya activos', 'green');
-      checkAndNotify(); // enviar una notificación de prueba
-    } else if(Notification.permission === 'denied'){
-      showToast('Notificaciones bloqueadas — habilitá en ajustes del navegador', 'warn');
-    } else {
-      localStorage.removeItem(NOTIF_PERM_KEY); // forzar que muestre el modal
-      showNotifPrompt();
-    }
+    enablePush('menu');
   });
   $('help-close-btn')        ?.addEventListener('click', toggleHelp);
   $('flash-header-btn')?.addEventListener('click', () => {
