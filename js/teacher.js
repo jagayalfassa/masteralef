@@ -259,7 +259,7 @@ async function tdLoadInbox(){
   try {
     const { data, error } = await _sb
       .from('notifications')
-      .select('id, title, body, created_at, read')
+      .select('id, title, body, created_at, read, sender_id, context')
       .eq('user_id', _authUser.id)
       .eq('type', 'student')
       .eq('read', false)
@@ -274,7 +274,7 @@ async function tdLoadInbox(){
 function tdRenderInbox(){
   const box = document.getElementById('td-inbox');
   if(!box) return;
-  if(!_tdInbox.length){ box.innerHTML = ''; return; }
+  if(!_tdInbox.length){ box.innerHTML = ''; _tdPaintUnreadBadges(); return; }
   box.innerHTML =
     '<div style="font-size:12px;font-weight:800;color:var(--navy-800);margin:4px 0 8px;">' +
       '💬 Consultas de alumnos (' + _tdInbox.length + ')</div>' +
@@ -282,11 +282,15 @@ function tdRenderInbox(){
       const when = new Date(n.created_at).toLocaleDateString('es-AR', { day:'numeric', month:'short' });
       // Buscar al alumno por nombre en el título "💬 {nombre} tiene una consulta"
       const nm = (n.title || '').replace('💬 ', '').replace(' tiene una consulta', '');
-      const st = (_tdStudents || []).find(function(s){ return (s.name || '') === nm; });
+      const st = (_tdStudents || []).find(function(s){ return n.sender_id ? s.id === n.sender_id : (s.name || '') === nm; });
+      const ctxHtml = (n.context && typeof activityLabel === 'function')
+        ? '<div style="font-size:11px;color:#1E3A8A;margin-bottom:4px;">📍 ' + esc(activityLabel(n.context)) + (n.context.heb ? ' · ' + _tdHebSpan(n.context.heb, 14) : '') + '</div>'
+        : '';
       return '<div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px;' +
           'padding:12px;margin-bottom:8px;">' +
           '<div style="font-size:12.5px;font-weight:700;color:var(--navy-800);margin-bottom:2px;">' +
             esc(nm) + ' <span style="font-weight:600;color:var(--sand-500);font-size:11px;">· ' + when + '</span></div>' +
+          ctxHtml +
           '<div style="font-size:13px;color:var(--navy-700);line-height:1.5;margin-bottom:10px;">' +
             esc(n.body) + '</div>' +
           '<div style="display:flex;gap:8px;">' +
@@ -313,6 +317,7 @@ function tdRenderInbox(){
   box.querySelectorAll('[data-inbox-done]').forEach(function(b){
     b.addEventListener('click', function(){ tdMarkInboxRead(this.dataset.inboxDone); });
   });
+  _tdPaintUnreadBadges();
 }
 
 async function tdMarkInboxRead(notifId){
@@ -409,7 +414,8 @@ function tdRenderStudentList(){
           'display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">' + cfg.icon + '</div>' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-weight:700;color:var(--navy-800);font-size:14px;' +
-            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(name) + '</div>' +
+            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(name) +
+            ' <span data-unread-for="' + s.id + '" style="display:none;font-size:10px;font-weight:800;color:white;background:#DC2626;border-radius:99px;padding:1px 7px;vertical-align:middle;"></span></div>' +
           '<div style="font-size:11px;color:var(--sand-500);margin-top:2px;">Última sesión: ' + lastDate + '</div>' +
           '<div style="margin-top:6px;background:var(--sand-200);height:5px;border-radius:99px;overflow:hidden;">' +
             '<div style="height:100%;width:' + pct + '%;background:' + (pct >= 70 ? 'var(--success)' : pct >= 30 ? 'var(--gold-500)' : 'var(--sand-400)') + ';border-radius:99px;transition:width .4s;"></div>' +
@@ -590,41 +596,10 @@ function tdOpenStudent(studentId){
       🕐 Última actividad: <strong>${lastDate}</strong>
     </div>
 
-    ${errors.length ? `
-    <!-- Errores frecuentes -->
-    <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:12px;padding:12px 14px;">
-      <div style="font-size:12px;font-weight:700;color:#991B1B;margin-bottom:8px;">⚠️ Palabras con dificultad</div>
-      ${errors.slice(0,5).map(e => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;
-                    border-bottom:1px solid #FECACA;font-size:13px;">
-          <span style="font-weight:600;color:var(--navy-800);">${e.fon}</span>
-          <span style="font-size:11px;color:#991B1B;">${e.wrong} errores / ${e.correct} correctas</span>
-        </div>`).join('')}
-    </div>` : `
-    <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:12px;padding:12px 14px;
-                font-size:13px;color:#065F46;">
-      ✅ Sin errores frecuentes — ¡va muy bien!
-    </div>`}
+    ${tdRenderWhereBlocks(student)}
 
-    <!-- Acción: enviar mensaje -->
-    <div style="background:white;border:1.5px solid var(--sand-300);border-radius:12px;padding:14px;">
-      <div style="font-size:12px;font-weight:700;color:var(--navy-700);margin-bottom:8px;">📩 Enviar mensaje a ${esc(name)}</div>
-      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">
-        ${TD_MSG_TEMPLATES.map((t, i) => `
-          <button onclick="tdApplyMsgTemplate('${studentId}', ${i})"
-            style="flex:0 0 auto;padding:6px 10px;border-radius:999px;border:1.5px solid var(--sand-300);
-                   background:var(--sand-100);color:var(--navy-700);font-size:11px;font-weight:700;
-                   cursor:pointer;white-space:nowrap;">${t.label}</button>`).join('')}
-      </div>
-      <textarea id="td-msg-student-${studentId}" placeholder="Escribe un mensaje de aliento..."
-        style="width:100%;padding:10px;border:1.5px solid var(--sand-300);border-radius:10px;
-               font-size:13px;min-height:72px;resize:none;font-family:inherit;color:var(--navy-800);outline:none;box-sizing:border-box;"></textarea>
-      <button id="td-send-msg-btn" data-student-id="${studentId}" data-student-name="${esc(name)}"
-        style="margin-top:8px;width:100%;padding:10px;border-radius:10px;border:none;
-               background:var(--navy-800);color:white;font-size:13px;font-weight:700;cursor:pointer;">
-        Enviar mensaje
-      </button>
-    </div>
+    <!-- Chat con el alumno -->
+    ${tdRenderChatBox(studentId, name)}
 
     <!-- Gestión del alumno -->
     <div style="display:flex;gap:8px;margin-top:10px;">
@@ -660,8 +635,226 @@ function tdOpenStudent(studentId){
       tdSendToStudent(sid, sname, ta ? ta.value : '');
     });
   }
+  tdLoadThread(studentId);
 }
 
+
+// ╔═══════════════════════════════════════════════════════════════╗
+// ║  CHAT DOCENTE ↔ ALUMNO + "DÓNDE ESTÁ / DÓNDE SE TRANCA"       ║
+// ║  notifications.sender_id / read_at / context (migración       ║
+// ║  2026-11-04_notifications_chat_thread.sql)                    ║
+// ╚═══════════════════════════════════════════════════════════════╝
+
+function _tdAgo(iso){
+  if(!iso) return '';
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if(min < 1)  return 'recién';
+  if(min < 60) return 'hace ' + min + ' min';
+  const h = Math.round(min / 60);
+  if(h < 24)   return 'hace ' + h + ' h';
+  const d = Math.round(h / 24);
+  return 'hace ' + d + (d === 1 ? ' día' : ' días');
+}
+
+function _tdHebSpan(heb, size){
+  if(!heb) return '';
+  return '<span style="font-family:\'Noto Serif Hebrew\',serif;font-size:' + (size || 18) + 'px;' +
+    'direction:rtl;unicode-bidi:isolate;color:var(--navy-900);">' + esc(heb) + '</span>';
+}
+
+// ── Bloques "Dónde está ahora" + "Dónde se tranca" ────────────
+function tdRenderWhereBlocks(student){
+  const ex  = student.prog?.extra_data || {};
+  const now = ex.now;
+  const label = typeof activityLabel === 'function' ? activityLabel : (c => c && c.kind || '');
+
+  let nowHtml;
+  if(now && now.kind){
+    nowHtml =
+      '<div style="font-size:13px;color:var(--navy-800);font-weight:700;line-height:1.4;">' + esc(label(now)) + '</div>' +
+      (now.heb ? '<div style="margin-top:6px;display:flex;align-items:center;gap:10px;">' + _tdHebSpan(now.heb, 24) +
+        '<span style="font-size:12px;color:var(--sand-500);">' + esc(now.fon || '') + '</span></div>' : '') +
+      '<div style="font-size:11px;color:var(--sand-500);margin-top:6px;">Visto ' + _tdAgo(now.at || student.prog?.updated_at) +
+        ' · se actualiza al empezar/terminar lecciones y al salir de la app</div>';
+  } else {
+    nowHtml = '<div style="font-size:12.5px;color:var(--sand-500);">Todavía sin datos. Aparece la próxima vez que ' +
+      'practique con la app actualizada.</div>';
+  }
+
+  // Errores recientes agrupados por palabra
+  const groups = {};
+  (Array.isArray(ex.recent_errors) ? ex.recent_errors : []).forEach(e => {
+    if(!e || !e.h) return;
+    const g = groups[e.h] || (groups[e.h] = { h: e.h, f: e.f, n: 0, modes: {}, answers: [], last: '', where: '' });
+    g.n++;
+    if(e.m) g.modes[e.m] = true;
+    if(e.a && g.answers.indexOf(e.a) < 0) g.answers.push(e.a);
+    if(!g.last || e.t > g.last){
+      g.last = e.t;
+      g.where = e.s ? ('Serie ' + e.s + (e.l ? ' · L' + e.l : '')) : (e.p ? 'Parashá' : '');
+    }
+  });
+  let hard = Object.values(groups).sort((a, b) => (b.n - a.n) || (b.last > a.last ? 1 : -1)).slice(0, 6);
+  const fromRecent = hard.length > 0;
+
+  // Fallback: palabras con más errores acumulados (word_states)
+  if(!hard.length && ex.word_states && typeof ALL_DATA !== 'undefined'){
+    hard = Object.entries(ex.word_states)
+      .filter(([, ws]) => ws && ws.incorrect >= 2 && ws.incorrect >= ws.correct / 2)
+      .sort((a, b) => b[1].incorrect - a[1].incorrect)
+      .slice(0, 6)
+      .map(([k, ws]) => {
+        const i = k.lastIndexOf('_');
+        const sKey = k.slice(0, i), w = ALL_DATA[sKey]?.words?.[+k.slice(i + 1)];
+        return w ? { h: w.heb, f: w.fon, n: ws.incorrect, ok: ws.correct, modes: {}, answers: [], where: 'Serie ' + sKey } : null;
+      }).filter(Boolean);
+  }
+
+  const modeName = m => (typeof EXERCISE_LABELS !== 'undefined' && EXERCISE_LABELS[m]) || m;
+  const hardHtml = hard.length ? hard.map(g =>
+    '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #FECACA;">' +
+      '<div style="min-width:64px;text-align:center;">' + _tdHebSpan(g.h, 20) + '</div>' +
+      '<div style="flex:1;min-width:0;font-size:12px;color:var(--navy-700);line-height:1.4;">' +
+        '<strong>' + esc(g.f || '') + '</strong> · ' + g.n + (g.n === 1 ? ' error' : ' errores') +
+        (g.ok != null ? ' / ' + g.ok + ' bien' : '') +
+        (g.where ? ' · ' + esc(g.where) : '') +
+        (Object.keys(g.modes).length ? '<br><span style="color:var(--sand-500);">En: ' + Object.keys(g.modes).map(modeName).map(esc).join(', ') + '</span>' : '') +
+        (g.answers.length ? '<br><span style="color:#991B1B;">Escribió: ' + g.answers.slice(0, 3).map(a => '«' + esc(a) + '»').join(', ') + '</span>' : '') +
+      '</div>' +
+    '</div>').join('')
+    : '<div style="font-size:12.5px;color:#065F46;">✅ Sin trabas registradas.</div>';
+
+  return '' +
+    '<div style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;padding:12px 14px;">' +
+      '<div style="font-size:12px;font-weight:800;color:#1E3A8A;margin-bottom:6px;">📍 Dónde está ahora</div>' +
+      nowHtml +
+    '</div>' +
+    '<div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:12px;padding:12px 14px;">' +
+      '<div style="font-size:12px;font-weight:800;color:#991B1B;margin-bottom:2px;">🧱 Dónde se tranca</div>' +
+      '<div style="font-size:10.5px;color:var(--sand-500);margin-bottom:4px;">' +
+        (fromRecent ? 'Últimos ' + (ex.recent_errors || []).length + ' errores, agrupados por palabra' : 'Palabras con más errores acumulados') +
+      '</div>' +
+      hardHtml +
+    '</div>';
+}
+
+// ── Hilo de mensajes con un alumno ────────────────────────────
+const _tdThreads = {}; // studentId → mensajes
+
+function tdRenderChatBox(studentId, name){
+  return '' +
+    '<div style="background:white;border:1.5px solid var(--sand-300);border-radius:12px;padding:14px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '<div style="font-size:12px;font-weight:700;color:var(--navy-700);">💬 Conversación con ' + esc(name) + '</div>' +
+        '<button data-td-thread-refresh="' + studentId + '" style="border:none;background:none;color:var(--sand-500);' +
+          'font-size:12px;font-weight:700;cursor:pointer;padding:2px 4px;">↻ Actualizar</button>' +
+      '</div>' +
+      '<div id="td-thread-' + studentId + '" style="max-height:340px;overflow-y:auto;-webkit-overflow-scrolling:touch;' +
+        'background:var(--sand-100);border-radius:10px;padding:6px 10px;margin-bottom:10px;">' +
+        '<div style="text-align:center;font-size:12px;color:var(--sand-500);padding:12px 0;">Cargando…</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">' +
+        TD_MSG_TEMPLATES.map((t, i) =>
+          '<button onclick="tdApplyMsgTemplate(\'' + studentId + '\', ' + i + ')" ' +
+            'style="flex:0 0 auto;padding:6px 10px;border-radius:999px;border:1.5px solid var(--sand-300);' +
+            'background:var(--sand-100);color:var(--navy-700);font-size:11px;font-weight:700;' +
+            'cursor:pointer;white-space:nowrap;">' + t.label + '</button>').join('') +
+      '</div>' +
+      '<textarea id="td-msg-student-' + studentId + '" placeholder="Escribí un mensaje…" ' +
+        'style="width:100%;padding:10px;border:1.5px solid var(--sand-300);border-radius:10px;' +
+        'font-size:13px;min-height:64px;resize:none;font-family:inherit;color:var(--navy-800);outline:none;box-sizing:border-box;"></textarea>' +
+      '<button id="td-send-msg-btn" data-student-id="' + studentId + '" data-student-name="' + esc(name) + '" ' +
+        'style="margin-top:8px;width:100%;padding:10px;border-radius:10px;border:none;' +
+        'background:var(--navy-800);color:white;font-size:13px;font-weight:700;cursor:pointer;">Enviar mensaje</button>' +
+    '</div>';
+}
+
+function _tdThreadHtml(list){
+  const me = _authUser?.id;
+  if(!list.length){
+    return '<div style="text-align:center;font-size:12px;color:var(--sand-500);padding:12px 0;">Todavía no hay mensajes.</div>';
+  }
+  let lastDay = '';
+  return list.map(m => {
+    const mine = m.sender_id === me;
+    const d = new Date(m.created_at);
+    const day = d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+    const hm  = d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+    let sep = '';
+    if(day !== lastDay){
+      lastDay = day;
+      sep = '<div style="text-align:center;font-size:10.5px;font-weight:700;color:var(--sand-500);margin:10px 0 4px;">' + esc(day) + '</div>';
+    }
+    let status = '';
+    if(mine){
+      status = m.read
+        ? ' · <span style="color:#22D3EE;">✓✓ Leído' + (m.read_at ? ' ' + new Date(m.read_at).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') + '</span>'
+        : ' · ✓ Enviado';
+    }
+    const ctx = (!mine && m.context && typeof activityLabel === 'function')
+      ? '<div style="font-size:10.5px;color:#1E3A8A;background:#EFF6FF;border-radius:6px;padding:3px 6px;margin-bottom:4px;">📍 ' +
+          esc(activityLabel(m.context)) + (m.context.heb ? ' · ' + _tdHebSpan(m.context.heb, 14) : '') + '</div>'
+      : '';
+    return sep +
+      '<div style="display:flex;justify-content:' + (mine ? 'flex-end' : 'flex-start') + ';margin:5px 0;">' +
+        '<div style="max-width:84%;padding:8px 11px;border-radius:13px;' +
+          (mine ? 'border-bottom-right-radius:4px;background:var(--navy-800);color:white;'
+                : 'border-bottom-left-radius:4px;background:white;color:var(--navy-800);border:1px solid var(--sand-200);') + '">' +
+          ctx +
+          '<div style="font-size:13.5px;line-height:1.4;white-space:pre-wrap;word-break:break-word;">' + esc(m.body || '') + '</div>' +
+          '<div style="font-size:10px;opacity:0.7;margin-top:3px;text-align:right;">' + hm + status + '</div>' +
+        '</div>' +
+      '</div>';
+  }).join('');
+}
+
+async function tdLoadThread(studentId){
+  if(!_sb || !_authUser || !studentId) return;
+  const box = document.getElementById('td-thread-' + studentId);
+  const me = _authUser.id;
+  try {
+    const { data, error } = await _sb
+      .from('notifications')
+      .select('id, user_id, sender_id, type, body, read, read_at, created_at, context')
+      .or('and(user_id.eq.' + studentId + ',sender_id.eq.' + me + '),and(user_id.eq.' + me + ',sender_id.eq.' + studentId + ')')
+      .order('created_at', { ascending: true })
+      .limit(200);
+    if(error){
+      dbg('[Teacher] thread error:', error.message);
+      if(box) box.innerHTML = '<div style="text-align:center;font-size:12px;color:#991B1B;padding:12px 0;">No se pudo cargar la conversación.</div>';
+      return;
+    }
+    _tdThreads[studentId] = data || [];
+    if(box){
+      box.innerHTML = _tdThreadHtml(_tdThreads[studentId]);
+      box.scrollTop = box.scrollHeight;
+    }
+    // Consultas del alumno que el docente acaba de ver → leídas
+    const unread = (data || []).filter(m => m.user_id === me && !m.read).map(m => m.id);
+    if(unread.length){
+      await _sb.from('notifications').update({ read: true }).in('id', unread);
+      _tdInbox = (_tdInbox || []).filter(n => unread.indexOf(n.id) < 0);
+      tdRenderInbox();
+    }
+  } catch(e){ dbg('[Teacher] tdLoadThread:', e.message); }
+}
+
+// Delegación: refrescar hilo
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-td-thread-refresh]');
+  if(b) tdLoadThread(b.getAttribute('data-td-thread-refresh'));
+});
+
+// Badges de consultas sin leer en la lista de alumnos
+function _tdPaintUnreadBadges(){
+  const counts = {};
+  (_tdInbox || []).forEach(n => { if(n.sender_id) counts[n.sender_id] = (counts[n.sender_id] || 0) + 1; });
+  document.querySelectorAll('[data-unread-for]').forEach(el => {
+    const n = counts[el.getAttribute('data-unread-for')] || 0;
+    el.textContent = n ? '💬 ' + n : '';
+    el.style.display = n ? 'inline-block' : 'none';
+  });
+}
 
 // ╔═══════════════════════════════════════════════════════════════╗
 // ║  REPORTE SEMANAL DE CLASE                                     ║
@@ -1449,6 +1642,7 @@ async function tdSendToStudent(studentId, studentName, body){
   try {
     const { error } = await _sb.from('notifications').insert({
       user_id:    studentId,
+      sender_id:  _authUser.id,
       title:      '📢 Mensaje de tu profesor',
       body:       body.trim(),
       type:       'teacher',
@@ -1460,6 +1654,7 @@ async function tdSendToStudent(studentId, studentName, body){
     const textarea = document.getElementById(`td-msg-student-${studentId}`);
     if(textarea) textarea.value = '';
     trackEvent('teacher_message_sent', { target: 'individual' });
+    tdLoadThread(studentId);
   } catch(e){ showToast('Error: ' + e.message, 'warn'); }
 }
 
@@ -1494,7 +1689,7 @@ async function sendTeacherMessage(target){
     }
 
     const rows = studentIds.map(id => ({
-      user_id: id, title, body, type: 'teacher', read: false,
+      user_id: id, sender_id: _authUser.id, title, body, type: 'teacher', read: false,
       created_at: new Date().toISOString(),
     }));
     const { error } = await _sb.from('notifications').insert(rows);

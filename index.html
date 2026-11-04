@@ -1601,6 +1601,7 @@ to   { transform: translateY(0);    opacity: 1; }
     <div id="error-panel" class="hidden" style="margin-top:10px;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:14px;padding:12px 16px;">
       <p id="error-msg" style="font-size:13px;font-weight:700;color:#991B1B;text-align:center;margin-bottom:6px;"></p>
       <button id="error-show-intro-btn" style="width:100%;font-size:11px;font-weight:700;color:#DC2626;text-decoration:underline;text-align:center;background:none;border:none;cursor:pointer;">Ver letra por letra →</button>
+      <button data-ask-teacher="error" style="width:100%;margin-top:6px;font-size:11px;font-weight:700;color:var(--navy-700);text-align:center;background:none;border:none;cursor:pointer;">🙋 Preguntarle a mi moré</button>
     </div>
 
     <!-- Meaning reveal -->
@@ -2321,6 +2322,8 @@ function onCorrectAnswer(){
 
 function onWrongAnswer(){
   hideTranslitFading(); // ocultar pista de fonética al responder
+  if(typeof recordRecentError === 'function') recordRecentError(); // panel docente: dónde se tranca
+  if(typeof _maybeShowAskNudge === 'function') setTimeout(_maybeShowAskNudge, 900);
   state.inGameStreak=0; _updateStreakHUD(0); // cortar racha
   // Deduct 2 shekels (min 0)
   state.shekels=Math.max(0,state.shekels-2);
@@ -2396,6 +2399,7 @@ function onLessonComplete(){
     _markIntroSeen(state.activeSeries);
   trackEvent('lesson_complete', { series: state.activeSeries, lesson: state.activeLesson, errors: state.lessonErrors });
   updateLastActivity();
+  if(_authUser && typeof syncProgressToSupabase === 'function') syncProgressToSupabase(true).catch(() => {});
   if(typeof updateMissionProgress === 'function') updateMissionProgress('lesson_complete');
   // Coach después de lección completa (timing diferente a home)
   if(typeof showCoach === 'function') setTimeout(() => showCoach('lesson_end'), 800);
@@ -8313,6 +8317,7 @@ function renderParashaRead(parashaId, aliyah){
 
   // Setear aliyá activa para que el karaoke sepa qué audio cargar
   parashaState.currentAliyah = aliyah || null;
+  if(_authUser && typeof syncProgressToSupabase === 'function') setTimeout(() => syncProgressToSupabase().catch(() => {}), 800);
 
   const meta    = PARASHA_CATALOG.find(p => p.id === parashaId);
   const titleEl = document.getElementById('read-title');
@@ -11778,6 +11783,9 @@ function startMission(){
   document.getElementById("game-percentage").innerText=p+"%";
   updateGameUI(); nextChallenge();
   if(RASHI_GUIDES_MODE){ setTimeout(() => rashiGuide('game-help'), 600); }
+  // Panel docente: última lección + sync al empezar
+  if(typeof _rememberLessonCtx === 'function') _rememberLessonCtx();
+  if(_authUser && typeof syncProgressToSupabase === 'function') setTimeout(() => syncProgressToSupabase(true).catch(() => {}), 1500);
 }
 function updateGameUI(){
   updateHudShekels();
@@ -13409,7 +13417,9 @@ function toggleHelp(){
   letList.forEach(l=>{ html += `<div class="help-item"><span class="text-xl">${l.h}</span><span class="text-slate-600 mx-1">-</span><span class="text-cyan-400 font-bold">${l.p}</span></div>`; });
   html += `</div><p class="text-slate-500 text-small font-black uppercase mb-4 text-center tracking-widest">Vocales</p><div class="grid grid-cols-2 gap-3">`;
   FULL_VOWELS.forEach(v=>{ html += `<div class="help-item"><span class="text-2xl" style="color:#fbbf24;">${v.h}</span><span class="text-slate-600 mx-1">-</span><span class="text-cyan-400 font-bold">${v.p}</span></div>`; });
-  html += "</div>"; container.innerHTML=html;
+  html += "</div>";
+  if(_authUser) html += '<button data-ask-teacher="help" style="margin-top:18px;width:100%;padding:12px;border-radius:12px;border:none;background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">🙋 Preguntarle a mi moré</button>';
+  container.innerHTML=html;
   document.getElementById("help-drawer").classList.toggle("open");
 }
 function exitGame(){
@@ -14925,6 +14935,7 @@ function renderTefilaRead(tefilaId, sectionNum){
   const data = tefilaState.data;
   if(!data) return;
   tefilaState.currentSection = sectionNum;
+  if(_authUser && typeof syncProgressToSupabase === 'function') setTimeout(() => syncProgressToSupabase().catch(() => {}), 800);
 
   const meta    = TEFILA_CATALOG.find(function(t){ return t.id === tefilaId; });
   const titleEl = document.getElementById('tefila-read-title');
@@ -16304,6 +16315,8 @@ async function syncProgressToSupabase(force){
       inventory:  typeof getInventory === 'function' ? getInventory() : {},
       milestones: { firstAliyah: typeof getFirstAliyahMilestone === 'function' ? getFirstAliyahMilestone() : null },
       word_states: (()=>{ try{ return JSON.parse(localStorage.getItem('heb_word_states_v1')||'{}'); }catch(e){ return {}; } })(),
+      now:           typeof getActivityContext === 'function' ? getActivityContext() : null,
+      recent_errors: typeof getRecentErrors === 'function' ? getRecentErrors() : [],
     };
     const { error } = await _sb.from('user_progress').upsert({
       user_id:    _authUser.id,
@@ -16661,47 +16674,296 @@ async function showBackendNotifications(){
   }
 }
 
+// ╔═══════════════════════════════════════════════════════════╗
+// ║  CONTEXTO DE ACTIVIDAD — qué está haciendo el alumno       ║
+// ║  Se sincroniza en extra_data.now / extra_data.recent_errors║
+// ║  y viaja como context en las consultas al moré.            ║
+// ╚═══════════════════════════════════════════════════════════╝
+const RECENT_ERRORS_KEY = 'heb_recent_errors';
+const RECENT_ERRORS_MAX = 20;
+const LAST_LESSON_CTX_KEY = 'heb_last_lesson_ctx';
+const EXERCISE_LABELS = {
+  SELECT: 'Elegir fonética', LISTEN: 'Escuchar', WRITE: 'Escribir',
+  ARRANGE: 'Ordenar sílabas', COMPLETE: 'Completar', DETECT: 'Detectar'
+};
+
+function _activityVisibleView(){
+  const els = document.querySelectorAll('div[id^="view-"]');
+  for(let i = 0; i < els.length; i++){
+    const el = els[i];
+    if(!el.classList.contains('hidden') && el.style.display !== 'none') return el.id.replace('view-', '');
+  }
+  return null;
+}
+
+function _lessonCtxNow(){
+  if(!state.activeSeries || state.activeSeries === '__parasha__') return null;
+  const lessons = typeof getLessons === 'function' ? getLessons(state.activeSeries) : [];
+  const ctx = {
+    series:  state.activeSeries,
+    lesson:  (state.activeLesson | 0) + 1,
+    lessons: lessons.length || null,
+  };
+  const ch = state.currentChallenge;
+  const w  = typeof getCurrentWord === 'function' ? getCurrentWord() : null;
+  if(ch && w){ ctx.mode = ch.mode || null; ctx.heb = w.heb; ctx.fon = w.fon; }
+  return ctx;
+}
+
+function getActivityContext(){
+  const view = _activityVisibleView();
+  const ctx  = { view: view, at: new Date().toISOString() };
+  try {
+    if(['game', 'training', 'speed-read', 'celebration', 'pre-training'].includes(view) && state.activeSeries === '__parasha__'){
+      ctx.kind = 'parasha_practice';
+      ctx.parasha = parashaState.currentParasha || null;
+      ctx.aliyah  = parashaState.currentAliyah || null;
+      const w = typeof getCurrentWord === 'function' ? getCurrentWord() : null;
+      if(w){ ctx.heb = w.heb; ctx.fon = w.fon; ctx.mode = state.currentChallenge?.mode || null; }
+    } else if(['game', 'training', 'speed-read', 'celebration', 'pre-training'].includes(view) && state.activeSeries){
+      Object.assign(ctx, { kind: 'lesson' }, _lessonCtxNow());
+    } else if(view === 'parasha-read' || view === 'aliyah-select'){
+      ctx.kind = 'parasha';
+      ctx.parasha = parashaState.currentParasha || null;
+      ctx.aliyah  = parashaState.currentAliyah || null;
+    } else if(view === 'tefila-read'){
+      ctx.kind = 'tefila';
+      ctx.tefila  = tefilaState.currentTefila || null;
+      ctx.section = tefilaState.currentSection || null;
+    } else if(view === 'sidur' || view === 'lectura'){
+      ctx.kind = 'sidur';
+    } else {
+      ctx.kind = 'other';
+    }
+    if(ctx.kind !== 'lesson'){
+      try { const last = JSON.parse(localStorage.getItem(LAST_LESSON_CTX_KEY) || 'null'); if(last) ctx.last = last; } catch(e){}
+    }
+  } catch(e){ dbg('[Activity] context error:', e.message); }
+  return ctx;
+}
+
+// Etiqueta legible — la usa también el panel docente (teacher.js)
+function activityLabel(ctx){
+  if(!ctx) return '';
+  const parts = [];
+  const pName = id => { const p = (typeof PARASHA_CATALOG !== 'undefined') && PARASHA_CATALOG.find(x => x.id === id); return p ? (p.esp || p.id) : id; };
+  const tName = id => { const t = (typeof TEFILA_CATALOG !== 'undefined') && TEFILA_CATALOG.find(x => x.id === id); return t ? (t.esp || t.id) : id; };
+  if(ctx.kind === 'lesson'){
+    parts.push('Serie ' + ctx.series);
+    if(ctx.lesson) parts.push('Lección ' + ctx.lesson + (ctx.lessons ? ' de ' + ctx.lessons : ''));
+    if(ctx.mode) parts.push(EXERCISE_LABELS[ctx.mode] || ctx.mode);
+  } else if(ctx.kind === 'parasha_practice'){
+    parts.push('Práctica de Parashá ' + pName(ctx.parasha));
+    if(ctx.aliyah) parts.push('Aliá ' + ctx.aliyah);
+    if(ctx.mode) parts.push(EXERCISE_LABELS[ctx.mode] || ctx.mode);
+  } else if(ctx.kind === 'parasha'){
+    parts.push('Leyendo Parashá ' + pName(ctx.parasha));
+    if(ctx.aliyah) parts.push('Aliá ' + ctx.aliyah);
+  } else if(ctx.kind === 'tefila'){
+    parts.push('Leyendo ' + tName(ctx.tefila));
+  } else if(ctx.kind === 'sidur'){
+    parts.push('Explorador de Sidur');
+  } else if(ctx.last){
+    parts.push('Última lección: Serie ' + ctx.last.series + ' · Lección ' + ctx.last.lesson);
+  } else {
+    parts.push('Fuera de un ejercicio');
+  }
+  return parts.join(' · ');
+}
+
+function getRecentErrors(){
+  try { const l = JSON.parse(localStorage.getItem(RECENT_ERRORS_KEY) || '[]'); return Array.isArray(l) ? l : []; }
+  catch(e){ return []; }
+}
+
+// Se llama desde onWrongAnswer() — primer error de cada desafío
+function recordRecentError(){
+  try {
+    const ch = state.currentChallenge;
+    const w  = typeof getCurrentWord === 'function' ? getCurrentWord() : null;
+    if(!ch || !w) return;
+    let answer = null;
+    if(ch.mode === 'WRITE'){
+      const inp = document.getElementById('write-input');
+      if(inp) answer = (inp.value || '').trim().slice(0, 40) || null;
+    }
+    const isPar = state.activeSeries === '__parasha__';
+    const list = getRecentErrors();
+    list.push({
+      s: isPar ? null : state.activeSeries,
+      p: isPar ? (parashaState.currentParasha || null) : undefined,
+      l: isPar ? null : (state.activeLesson | 0) + 1,
+      m: ch.mode || null,
+      h: w.heb, f: w.fon, a: answer,
+      t: new Date().toISOString(),
+    });
+    localStorage.setItem(RECENT_ERRORS_KEY, JSON.stringify(list.slice(-RECENT_ERRORS_MAX)));
+  } catch(e){ dbg('[Activity] recordRecentError:', e.message); }
+}
+
+// Se llama desde startMission() — recuerda la última lección abierta
+function _rememberLessonCtx(){
+  try {
+    const c = _lessonCtxNow();
+    if(c) localStorage.setItem(LAST_LESSON_CTX_KEY, JSON.stringify({ series: c.series, lesson: c.lesson, at: new Date().toISOString() }));
+  } catch(e){}
+}
+
+// ── Nudge "¿Te trabaste?" — una vez por lección, desde el 3er error ──
+let _askNudgeLessonKey = null;
+function _maybeShowAskNudge(){
+  if(!_authUser || !state.activeSeries || state.activeSeries === '__parasha__') return;
+  if((state.lessonErrors || 0) < 3) return;
+  const k = state.activeSeries + '#' + state.activeLesson;
+  if(_askNudgeLessonKey === k) return;
+  _askNudgeLessonKey = k;
+  const old = document.getElementById('ask-teacher-nudge');
+  if(old) old.remove();
+  const pill = document.createElement('button');
+  pill.id = 'ask-teacher-nudge';
+  pill.setAttribute('data-ask-teacher', 'nudge');
+  pill.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9000;' +
+    'padding:10px 16px;border-radius:999px;border:none;background:var(--navy-800);color:white;' +
+    'font-size:13px;font-weight:700;box-shadow:0 6px 20px rgba(13,31,53,0.3);cursor:pointer;' +
+    'animation:slideUp 0.25s ease;white-space:nowrap;';
+  pill.textContent = '🙋 ¿Te trabaste? Preguntale a tu moré';
+  document.body.appendChild(pill);
+  setTimeout(() => { if(pill.parentNode) pill.remove(); }, 7000);
+}
+
+// Delegación única para todos los botones "preguntarle al moré"
+document.addEventListener('click', e => {
+  const btn = e.target.closest && e.target.closest('[data-ask-teacher]');
+  if(!btn) return;
+  const origin = btn.getAttribute('data-ask-teacher');
+  const nudge = document.getElementById('ask-teacher-nudge');
+  if(nudge) nudge.remove();
+  if(origin === 'help'){ const d = document.getElementById('help-drawer'); if(d) d.classList.remove('open'); }
+  if(typeof trackEvent === 'function') trackEvent('ask_teacher_open', { origin: origin });
+  showMessageTeacherSheet('', getActivityContext());
+});
+
+// ── Hilo de mensajes (lado alumno) ───────────────────────────
+function _fmtMsgTime(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hm = d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  return sameDay ? 'Hoy ' + hm : d.toLocaleDateString('es', { day: 'numeric', month: 'short' }) + ' ' + hm;
+}
+
+async function fetchMyTeacherThread(){
+  if(!_sb || !_authUser) return [];
+  const me = _authUser.id;
+  const { data, error } = await _sb
+    .from('notifications')
+    .select('id, user_id, sender_id, type, body, read, read_at, created_at, context')
+    .or('and(user_id.eq.' + me + ',type.eq.teacher),and(sender_id.eq.' + me + ',type.eq.student)')
+    .order('created_at', { ascending: true })
+    .limit(150);
+  if(error){ dbg('[Chat] thread error:', error.message); return []; }
+  // Una consulta del alumno se inserta una vez por docente → deduplicar
+  const seen = new Set();
+  return (data || []).filter(m => {
+    if(m.type !== 'student') return true;
+    const k = m.created_at + '|' + m.body;
+    if(seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+}
+
+function _renderStudentThreadHtml(list){
+  if(!list.length){
+    return '<div style="text-align:center;font-size:12px;color:var(--sand-500);padding:12px 0;">' +
+      'Todavía no hay mensajes. ¡Escribile tu primera duda!</div>';
+  }
+  return list.map(m => {
+    const mine = m.type === 'student';
+    const ctx  = mine && m.context ? '<div style="font-size:10.5px;opacity:0.75;margin-bottom:3px;">📍 ' + esc(activityLabel(m.context)) + '</div>' : '';
+    return '<div style="display:flex;justify-content:' + (mine ? 'flex-end' : 'flex-start') + ';margin:6px 0;">' +
+      '<div style="max-width:82%;padding:8px 12px;border-radius:14px;' +
+        (mine ? 'border-bottom-right-radius:4px;background:var(--navy-800);color:white;'
+              : 'border-bottom-left-radius:4px;background:var(--sand-100);color:var(--navy-800);border:1px solid var(--sand-200);') + '">' +
+        ctx +
+        '<div style="font-size:14px;line-height:1.4;white-space:pre-wrap;word-break:break-word;">' + esc(m.body || '') + '</div>' +
+        '<div style="font-size:10px;opacity:0.65;margin-top:3px;text-align:right;">' + _fmtMsgTime(m.created_at) + '</div>' +
+      '</div></div>';
+  }).join('');
+}
+
 // ── Alumno → moré: sheet para escribir una consulta ───────────
-function showMessageTeacherSheet(prefill){
+function showMessageTeacherSheet(prefill, ctx){
   if(!_authUser){ showToast('Ingresá con tu cuenta primero', 'warn'); showView('auth'); return; }
   const old = document.getElementById('msg-teacher-sheet');
   if(old) old.remove();
+  // Contexto del ejercicio: el que viene del botón, o el actual si se abre desde otro lado
+  const msgCtx = ctx || getActivityContext();
+  const ctxText = activityLabel(msgCtx) + (msgCtx.heb ? ' · ' : '');
   const ov = document.createElement('div');
   ov.id = 'msg-teacher-sheet';
   ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(13,31,53,0.55);' +
     'display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;';
   ov.innerHTML =
-    '<div style="background:white;border-radius:24px 24px 0 0;padding:22px 20px 26px;width:100%;' +
-      'max-width:480px;box-sizing:border-box;animation:slideUp 0.25s ease;">' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
-        '<img src="img/rashi-thinking.png" alt="Rashi" style="width:52px;height:auto;object-fit:contain;" ' +
+    '<div style="background:white;border-radius:24px 24px 0 0;padding:20px 20px 24px;width:100%;' +
+      'max-width:480px;box-sizing:border-box;animation:slideUp 0.25s ease;max-height:92vh;display:flex;flex-direction:column;">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+        '<img src="img/rashi-thinking.png" alt="Rashi" style="width:48px;height:auto;object-fit:contain;" ' +
           'onerror="this.style.display=\'none\'">' +
         '<div>' +
           '<div style="font-size:15px;font-weight:800;color:var(--navy-800);">Escribile a tu moré</div>' +
           '<div style="font-size:12px;color:var(--sand-500);">Contale tu duda y te va a responder 🙂</div>' +
         '</div>' +
       '</div>' +
-      '<textarea id="msg-teacher-body" rows="4" placeholder="Escribí tu pregunta acá…" ' +
+      '<div id="msg-teacher-thread" style="flex:1;min-height:80px;max-height:42vh;overflow-y:auto;' +
+        '-webkit-overflow-scrolling:touch;padding:4px 2px;margin-bottom:10px;border-top:1px solid var(--sand-200);' +
+        'border-bottom:1px solid var(--sand-200);">' +
+        '<div style="text-align:center;font-size:12px;color:var(--sand-500);padding:12px 0;">Cargando mensajes…</div>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:var(--navy-700);background:var(--sand-100);border-radius:10px;' +
+        'padding:7px 10px;margin-bottom:8px;">📍 Tu moré va a ver dónde estás: <strong>' + esc(ctxText) + '</strong>' +
+        (msgCtx.heb ? '<span style="font-family:\'Noto Serif Hebrew\',serif;font-size:14px;direction:rtl;unicode-bidi:isolate;">' + esc(msgCtx.heb) + '</span>' : '') +
+      '</div>' +
+      '<textarea id="msg-teacher-body" rows="3" placeholder="Escribí tu pregunta acá…" ' +
         'style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid var(--sand-300);' +
         'border-radius:14px;font-size:15px;color:var(--navy-800);outline:none;resize:none;' +
-        'font-family:inherit;">' + (prefill ? String(prefill).replace(/</g,'&lt;') : '') + '</textarea>' +
-      '<button id="msg-teacher-send" style="margin-top:12px;width:100%;padding:14px;border:none;' +
+        'font-family:inherit;">' + (prefill ? esc(String(prefill)) : '') + '</textarea>' +
+      '<button id="msg-teacher-send" style="margin-top:10px;width:100%;padding:13px;border:none;' +
         'border-radius:14px;background:linear-gradient(135deg,#1B3A5C,#2A5280);color:white;' +
         'font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 0 #0D1F35;">Enviar consulta</button>' +
-      '<button id="msg-teacher-cancel" style="margin-top:10px;width:100%;padding:10px;border:none;' +
-        'background:none;color:var(--sand-500);font-size:13px;font-weight:600;cursor:pointer;">Cancelar</button>' +
+      '<button id="msg-teacher-cancel" style="margin-top:8px;width:100%;padding:8px;border:none;' +
+        'background:none;color:var(--sand-500);font-size:13px;font-weight:600;cursor:pointer;">Cerrar</button>' +
     '</div>';
   document.body.appendChild(ov);
   const close = () => { ov.style.animation = 'fadeOut 0.18s ease'; setTimeout(() => ov.remove(), 170); };
   ov.addEventListener('click', e => { if(e.target === ov) close(); });
   document.getElementById('msg-teacher-cancel').onclick = close;
+
+  // Cargar historial; los mensajes del moré que se ven acá quedan leídos
+  let thread = [];
+  const threadEl = document.getElementById('msg-teacher-thread');
+  const paint = () => {
+    if(!threadEl) return;
+    threadEl.innerHTML = _renderStudentThreadHtml(thread);
+    threadEl.scrollTop = threadEl.scrollHeight;
+  };
+  fetchMyTeacherThread().then(list => {
+    thread = list;
+    paint();
+    list.filter(m => m.type === 'teacher' && !m.read).forEach(m => {
+      if(typeof _shownNotifIds !== 'undefined') _shownNotifIds.add(m.id);
+      markNotificationRead(m.id);
+    });
+  }).catch(() => { thread = []; paint(); });
+
   document.getElementById('msg-teacher-send').onclick = async () => {
-    const body = document.getElementById('msg-teacher-body').value.trim();
+    const ta = document.getElementById('msg-teacher-body');
+    const body = ta.value.trim();
     if(!body){ showToast('Escribí tu pregunta primero', 'warn'); return; }
     const btn = document.getElementById('msg-teacher-send');
     btn.disabled = true; btn.textContent = 'Enviando…';
     try {
-      const { data: res, error } = await _sb.rpc('student_message_teacher', { p_body: body });
+      const { data: res, error } = await _sb.rpc('student_message_teacher', { p_body: body, p_context: msgCtx });
       if(error || !res || res.ok !== true){
         const r = res?.reason;
         if(r === 'no_class'){ showToast('Todavía no estás en ninguna clase — unite con el código de tu moré', 'warn'); }
@@ -16709,15 +16971,20 @@ function showMessageTeacherSheet(prefill){
         btn.disabled = false; btn.textContent = 'Enviar consulta';
         return;
       }
-      trackEvent('student_message_sent', { teachers: res.teachers });
-      close();
+      trackEvent('student_message_sent', { teachers: res.teachers, kind: msgCtx.kind });
+      thread.push({ type: 'student', body: body, created_at: new Date().toISOString(), context: msgCtx });
+      paint();
+      ta.value = '';
+      btn.disabled = false; btn.textContent = 'Enviar consulta';
       showToast('✓ ¡Enviado! Tu moré te va a responder', 'green');
+      // Que el moré vea también el estado actualizado del alumno
+      if(typeof syncProgressToSupabase === 'function') syncProgressToSupabase(true).catch(() => {});
     } catch(e){
       showToast('Error: ' + e.message, 'warn');
       btn.disabled = false; btn.textContent = 'Enviar consulta';
     }
   };
-  setTimeout(() => { const t = document.getElementById('msg-teacher-body'); if(t) t.focus(); }, 300);
+  setTimeout(() => { const t = document.getElementById('msg-teacher-body'); if(t && !('ontouchstart' in window)) t.focus(); }, 300);
 }
 
 /** Popup especial para mensajes del profesor */
