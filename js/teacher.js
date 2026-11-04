@@ -169,7 +169,7 @@ async function tdLoadStudentsForActiveClass(){
   if(ids.length){
     const { data: progs, error: progsErr } = await _sb
       .from('user_progress')
-      .select('user_id, progress, shekels, extra_data, updated_at, bm_date, created_at')
+      .select('user_id, progress, shekels, extra_data, updated_at, bm_date')
       .in('user_id', ids);
     if(progsErr){
       dbg('[Teacher] loadDashboard progress error:', progsErr.message);

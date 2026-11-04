@@ -16579,6 +16579,7 @@ async function initAuth(){
         await _loadProfile(_authUser.id);
         _authProfileCache = _authProfile;
         _updateAuthHeader();
+        showBackendNotifications().catch(() => {});
       } else if(event === 'PASSWORD_RECOVERY'){
         // Usuario llegó desde el link del mail de recuperación
         if(session?.user) _authUser = session.user;
@@ -16608,6 +16609,7 @@ async function fetchNotifications(){
       .select('*')
       .eq('user_id', _authUser.id)
       .eq('read', false)
+      .neq('type', 'student') // consultas de alumnos → solo bandeja del panel docente
       .order('created_at', { ascending: false })
       .limit(10);
     if(error){ dbg('[Notif] fetch error:', error.message); return []; }
@@ -16631,27 +16633,31 @@ async function markNotificationRead(notifId){
  * Muestra las notificaciones del backend como toasts y popups.
  * Llamar al abrir la app si el usuario está logueado.
  */
-async function showBackendNotifications(){
-  const notifs = await fetchNotifications();
-  if(!notifs.length) return;
+const _shownNotifIds = new Set(); // evita duplicar popups entre initAuth / SIGNED_IN / visibilitychange
+let _lastNotifPollAt = 0;
 
-  // Mostrar las primeras 3, con delay entre ellas
-  notifs.slice(0, 3).forEach((notif, i) => {
+async function showBackendNotifications(){
+  _lastNotifPollAt = Date.now();
+  const notifs = (await fetchNotifications()).filter(n => !_shownNotifIds.has(n.id));
+  if(!notifs.length) return;
+  notifs.forEach(n => _shownNotifIds.add(n.id));
+
+  // Mensajes del docente → popup (se marcan leídos recién al cerrarlo)
+  const teacherMsgs = notifs.filter(n => n.type === 'teacher').reverse(); // más viejo primero
+  const others      = notifs.filter(n => n.type !== 'teacher');
+
+  // Resto → toast, las primeras 3 con delay entre ellas
+  others.slice(0, 3).forEach((notif, i) => {
     setTimeout(() => {
-      // Toast diferenciado por tipo
-      const color = notif.type === 'teacher' ? 'cyan'
-                  : notif.type === 'streak'  ? 'warn'
-                  : 'green';
+      const color = notif.type === 'streak' ? 'warn' : 'green';
       showToast(`${notif.title}: ${notif.body}`, color);
       trackEvent('notification_shown', { type: notif.type, id: notif.id });
       markNotificationRead(notif.id);
     }, i * 2500);
   });
 
-  // Si hay mensajes de profesor → mostrar badge especial
-  const teacherMsgs = notifs.filter(n => n.type === 'teacher');
   if(teacherMsgs.length){
-    setTimeout(() => _showTeacherMessage(teacherMsgs[0]), 500);
+    setTimeout(() => _showTeacherMessage(teacherMsgs[0], teacherMsgs.slice(1)), 500);
   }
 }
 
@@ -16715,29 +16721,38 @@ function showMessageTeacherSheet(prefill){
 }
 
 /** Popup especial para mensajes del profesor */
-function _showTeacherMessage(notif){
+function _showTeacherMessage(notif, queue){
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9200;background:rgba(13,31,53,0.75);display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease;';
-  overlay.innerHTML = `
-    <div style="background:white;border-radius:20px;width:100%;max-width:360px;padding:24px;box-shadow:0 8px 32px rgba(13,31,53,0.25);">
-      <div style="text-align:center;margin-bottom:16px;">
-        <div style="font-size:2rem;margin-bottom:6px;">📢</div>
-        <div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Mensaje de tu profesor</div>
-        <h3 style="font-family:'Fraunces',serif;font-size:1.1rem;font-weight:900;color:var(--navy-800);margin-bottom:8px;">${notif.title}</h3>
-        <p style="font-size:14px;color:var(--navy-700);line-height:1.5;">${notif.body}</p>
-      </div>
-      <button onclick="this.closest('div[style]').remove(); trackEvent('teacher_notif_dismissed', {});"
-        style="width:100%;padding:12px;border-radius:12px;border:none;background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">
-        Entendido ✓
-      </button>
-      <button onclick="this.closest('div[style]').remove(); showMessageTeacherSheet('');"
-        style="width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1.5px solid var(--sand-300);
-               background:white;color:var(--navy-700);font-size:14px;font-weight:700;cursor:pointer;">
-        💬 Responder a mi moré
-      </button>
-    </div>`;
+  overlay.innerHTML =
+    '<div style="background:white;border-radius:20px;width:100%;max-width:360px;padding:24px;box-shadow:0 8px 32px rgba(13,31,53,0.25);">' +
+      '<div style="text-align:center;margin-bottom:16px;">' +
+        '<div style="font-size:2rem;margin-bottom:6px;">📢</div>' +
+        '<div style="font-size:11px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Mensaje de tu profesor</div>' +
+        '<h3 style="font-family:\'Fraunces\',serif;font-size:1.1rem;font-weight:900;color:var(--navy-800);margin-bottom:8px;">' + esc(notif.title || '') + '</h3>' +
+        '<p style="font-size:14px;color:var(--navy-700);line-height:1.5;white-space:pre-wrap;">' + esc(notif.body || '') + '</p>' +
+      '</div>' +
+      '<button data-tmsg="ok" style="width:100%;padding:12px;border-radius:12px;border:none;background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">Entendido ✓</button>' +
+      '<button data-tmsg="reply" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1.5px solid var(--sand-300);background:white;color:var(--navy-700);font-size:14px;font-weight:700;cursor:pointer;">💬 Responder a mi moré</button>' +
+    '</div>';
   document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+  trackEvent('notification_shown', { type: notif.type, id: notif.id });
+
+  let closed = false;
+  const close = (reply) => {
+    if(closed) return;
+    closed = true;
+    overlay.remove();
+    markNotificationRead(notif.id); // leído recién cuando la alumna lo cerró
+    trackEvent('teacher_notif_dismissed', { reply: !!reply });
+    if(reply){ showMessageTeacherSheet(''); return; }
+    if(queue && queue.length) setTimeout(() => _showTeacherMessage(queue[0], queue.slice(1)), 300);
+  };
+  overlay.addEventListener('click', e => {
+    if(e.target === overlay) return close(false);
+    const btn = e.target.closest('[data-tmsg]');
+    if(btn) close(btn.dataset.tmsg === 'reply');
+  });
 }
 
 /**
@@ -18971,6 +18986,11 @@ document.addEventListener('DOMContentLoaded', () => {
       // Sync a Supabase al pasar a background (con debounce interno de 60s)
       if(document.hidden && _authUser && typeof syncProgressToSupabase === 'function'){
         syncProgressToSupabase().catch(() => {});
+      }
+      // Al volver a la app: mensajes nuevos del docente (máx 1 consulta/min)
+      if(!document.hidden && _authUser && typeof showBackendNotifications === 'function' &&
+         Date.now() - _lastNotifPollAt > 60000){
+        showBackendNotifications().catch(() => {});
       }
       if(typeof setMascotState !== 'function') return;
       if(document.hidden){
