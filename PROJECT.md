@@ -64,6 +64,7 @@ https://codeload.github.com/jagayalfassa/masteralef/tar.gz/refs/heads/main
 | `SELF_RECORD` | 7073 |
 | `RASHI_GUIDES_MODE` | 19271 |
 | `LESSON_INTERSTITIAL_MODE` | 19674 |
+| `VOICE_MODE` | 17761 (audios en `audios/voz/`, generados con `tools/gen_voz.py`) |
 
 Toda feature nueva se agrega con este patrón.
 

@@ -6589,6 +6589,8 @@ function renderPathHome(){
         border:1.5px solid var(--sand-300);border-radius:12px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">🎯 Desafíos <span id="challenges-btn-label">0</span></button>
       <button id="coin-display" data-action="open-shop" style="flex:1;background:var(--sand-100);color:var(--navy-700);
         border:1.5px solid var(--sand-300);border-radius:12px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">💰 Tienda</button>
+      ${(typeof _voiceAvailable === 'function' && _voiceAvailable()) ? `<button id="voice-toggle-btn" data-action="toggle-voice" aria-pressed="${isVoiceOn()}" style="flex:1;background:var(--sand-100);color:var(--navy-700);
+        border:1.5px solid var(--sand-300);border-radius:12px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">${isVoiceOn() ? '🔊' : '🔇'} Voz</button>` : ''}
     </div>
   `;
   const rankingPanel = document.createElement('div');
@@ -6743,6 +6745,13 @@ function renderPathHome(){
     if(btn.dataset.action==='toggle-ranking') toggleRankingPanel();
     else if(btn.dataset.action==='toggle-challenges') toggleChallengesPanel();
     else if(btn.dataset.action==='open-shop') showShopView();
+    else if(btn.dataset.action==='toggle-voice'){
+      const on = !isVoiceOn();
+      setVoiceOn(on);
+      btn.innerHTML = (on ? '🔊' : '🔇') + ' Voz';
+      btn.setAttribute('aria-pressed', String(on));
+      showToast(on ? 'Voz activada' : 'Voz desactivada', 'cyan');
+    }
   });
   path.addEventListener('click', e=>{
     const btn = e.target.closest('[data-action]');
@@ -8844,8 +8853,10 @@ function showTutorialIfNeeded(mode, force){
     </div>`;
 
   document.body.appendChild(overlay);
+  playVoice(t.title + ' ' + t.body);
 
   overlay.querySelector('#tut-ok').addEventListener('click', () => {
+    stopVoice();
     markTutorialSeen(mode);
     overlay.style.animation = 'fadeOut .2s ease forwards';
     setTimeout(() => overlay.remove(), 200);
@@ -8856,6 +8867,7 @@ function showTutorialIfNeeded(mode, force){
     // Ahora se comporta igual que el botón principal: solo el modo actual.
     markTutorialSeen(mode);
     trackEvent('tutorial_skip_mode', {mode});
+    stopVoice();
     overlay.style.animation = 'fadeOut .2s ease forwards';
     setTimeout(() => overlay.remove(), 200);
   });
@@ -12772,6 +12784,7 @@ function checkWrite(){
 }
 
 function stopAudio(){
+  if(typeof stopVoice === 'function') stopVoice();
   if(state.currentAudio){ state.currentAudio.pause(); state.currentAudio.currentTime=0; state.currentAudio=null; }
   state.isAudioPlaying=false;
   const btn=document.getElementById("audio-btn"), status=document.getElementById("audio-status");
@@ -17737,6 +17750,81 @@ function getUserContext(){
   } catch(e){ return null; }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// ── VOZ — audios pregrabados (ElevenLabs) para coach, Rashi y tutoriales ──
+// Gate: VOICE_MODE = false desactiva toda la feature sin tocar nada más.
+// Audios: audios/voz/<hash>.mp3 · índice: audios/voz/manifest.json
+// Se generan offline con tools/gen_voz.py. El hash es FNV-1a 32 bits del
+// texto EXACTO: si se edita un texto y no se regenera, ese texto no suena.
+// Pref: heb_voice_on ('0' = apagada; ausente = encendida).
+// ══════════════════════════════════════════════════════════════════════
+const VOICE_MODE = true;
+const VOICE_DIR = 'audios/voz/';
+const VOICE_PREF_KEY = 'heb_voice_on';
+let _voiceManifest = null;          // Set de hashes disponibles
+let _voiceManifestPromise = null;
+let _voiceAudio = null;
+
+function _voiceHash(text){
+  let h = 0x811c9dc5;
+  for(let i = 0; i < text.length; i++){
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return ('0000000' + (h >>> 0).toString(16)).slice(-8);
+}
+
+// Seguro aunque se llame antes de que VOICE_MODE esté inicializada
+function _voiceAvailable(){
+  try { return VOICE_MODE === true; } catch(e){ return false; }
+}
+
+function isVoiceOn(){
+  try { return localStorage.getItem(VOICE_PREF_KEY) !== '0'; } catch(e){ return true; }
+}
+
+function setVoiceOn(on){
+  try { localStorage.setItem(VOICE_PREF_KEY, on ? '1' : '0'); } catch(e){}
+  if(!on) stopVoice();
+  if(typeof trackEvent === 'function') trackEvent('voice_toggle', { on: !!on });
+}
+
+function _loadVoiceManifest(){
+  if(_voiceManifest) return Promise.resolve(_voiceManifest);
+  if(!_voiceManifestPromise){
+    _voiceManifestPromise = fetch(VOICE_DIR + 'manifest.json')
+      .then(r => r.ok ? r.json() : { files: [] })
+      .then(j => { _voiceManifest = new Set((j && j.files) || []); return _voiceManifest; })
+      .catch(() => { _voiceManifestPromise = null; return new Set(); });
+  }
+  return _voiceManifestPromise;
+}
+
+function stopVoice(){
+  if(_voiceAudio){ try { _voiceAudio.pause(); } catch(e){} _voiceAudio = null; }
+}
+
+function playVoice(text){
+  try {
+    if(!_voiceAvailable() || !text || !isVoiceOn()) return;
+    const key = _voiceHash(String(text).trim());
+    _loadVoiceManifest().then(set => {
+      if(!set.has(key) || !isVoiceOn()) return;
+      // Nunca pisar el audio de una palabra hebrea
+      const cur = (typeof state !== 'undefined') ? state.currentAudio : null;
+      if(cur && !cur.paused && !cur.ended) return;
+      stopVoice();
+      const a = new Audio(VOICE_DIR + key + '.mp3');
+      _voiceAudio = a;
+      a.onended = () => { if(_voiceAudio === a) _voiceAudio = null; };
+      a.play().catch(() => { if(_voiceAudio === a) _voiceAudio = null; });
+    });
+  } catch(e){}
+}
+
+// Precarga del índice (liviano) para que la primera voz no llegue tarde
+if(VOICE_MODE) setTimeout(() => { _loadVoiceManifest(); }, 3000);
+
 // ── Mensajes con variación — evita repetición ─────────────────
 const COACH_MSGS = {
   // mensajes base
@@ -17943,6 +18031,7 @@ function updateMissionProgress(eventName){
       b.style.cssText = 'position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:800;width:calc(100% - 32px);max-width:400px;background:white;border:1.5px solid var(--gold-500);border-radius:16px;padding:12px 14px;box-shadow:0 4px 24px rgba(13,31,53,0.12);animation:fadeSlideUp .28s cubic-bezier(.34,1.56,.64,1) forwards;display:flex;align-items:center;gap:12px;';
       b.innerHTML = `<span style="font-size:1.5rem;flex-shrink:0;">🏆</span><span style="flex:1;min-width:0;font-size:13px;color:var(--navy-800);font-weight:600;overflow:hidden;">${celebMsg}</span><button onclick="this.closest('[id]').remove()" style="background:none;border:none;color:var(--sand-400);font-size:16px;cursor:pointer;padding:0 2px;flex-shrink:0;">✕</button>`;
       document.body.appendChild(b);
+      playVoice(celebMsg);
       setTimeout(()=>{ if(b.parentNode){ b.style.transition='opacity .25s';b.style.opacity='0';setTimeout(()=>b.remove(),260); }},5000);
     }, 1500);
   }
@@ -18051,6 +18140,7 @@ function showCoach(trigger){
                padding:0 2px;flex-shrink:0;line-height:1;touch-action:manipulation;">✕</button>`;
 
     document.body.appendChild(banner);
+    playVoice(msgText);
     trackEvent('coach_shown', { type: decision.type, trigger: trigger||'auto', mood: ctx.mood });
 
     // Auto-dismiss suave a los 6 segundos
@@ -18073,7 +18163,7 @@ function runCoachCheck(){
   const _da = _la ? Math.floor((Date.now() - _la) / 86400000) : 0;
   if(_da >= 3 && typeof _pickMsg === 'function'){
     const msg = _pickMsg('welcome_back');
-    if(msg) setTimeout(() => showToast(msg, 'cyan'), 1800);
+    if(msg) setTimeout(() => { showToast(msg, 'cyan'); playVoice(msg); }, 1800);
     return;
   }
   if(!sessionStorage.getItem('coach_home_shown')){
@@ -19867,6 +19957,7 @@ function _rashiGuideRender(id, guide, target){
   document.body.appendChild(visual);
   document.body.appendChild(catcher);
   document.body.appendChild(figure);
+  playVoice(guide.text);
 
   let proxy = null;
   if(guide.completeOnTargetTap){
@@ -19951,6 +20042,7 @@ function _rashiGuideClose(id, completed){
   const active = _rashiGuideActive;
   if(!active || active.id !== id) return;
   active.cleanup();
+  stopVoice();
   const { visual, catcher, figure, proxy } = active.els;
   figure.classList.add('is-closing');
   [visual, catcher, proxy].forEach(el => { if(el) el.style.animation = 'fadeOut .2s ease both'; });
