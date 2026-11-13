@@ -4735,15 +4735,19 @@ function cleanHebrew(text){
     return true;
   }).join('');
 
-  // Luego filtrar dagesh selectivo (solo en פ כ ו)
+  // Luego filtrar dagesh selectivo: se conserva solo donde cambia el sonido
+  // (ב/ב B-V, כ/ך K-J, פ P-F) y en ו (shuruk וּ). Se mira la ÚLTIMA CONSONANTE,
+  // no el carácter anterior: en פִּי la vocal va antes que el dagesh.
   const DAGESH = '\u05BC';
-  const KEEP   = ['\u05E4','\u05DB','\u05D5']; // פ כ ו
+  const KEEP   = ['\u05D1','\u05DB','\u05DA','\u05E4','\u05D5']; // ב כ ך פ ו
   const chars  = [...result];
   let out = '';
+  let lastCon = '';
   for(let i = 0; i < chars.length; i++){
+    const cp = chars[i].codePointAt(0);
+    if(cp >= 0x05D0 && cp <= 0x05EA) lastCon = chars[i];
     if(chars[i] === DAGESH){
-      const prev = out.slice(-1);
-      if(KEEP.includes(prev)) out += chars[i];
+      if(KEEP.includes(lastCon)) out += chars[i];
     } else {
       out += chars[i];
     }
@@ -6589,6 +6593,8 @@ function renderPathHome(){
         border:1.5px solid var(--sand-300);border-radius:12px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">🎯 Desafíos <span id="challenges-btn-label">0</span></button>
       <button id="coin-display" data-action="open-shop" style="flex:1;background:var(--sand-100);color:var(--navy-700);
         border:1.5px solid var(--sand-300);border-radius:12px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">💰 Tienda</button>
+      ${(typeof _voiceAvailable === 'function' && _voiceAvailable()) ? `<button id="voice-toggle-btn" data-action="toggle-voice" aria-pressed="${isVoiceOn()}" style="flex:1;background:var(--sand-100);color:var(--navy-700);
+        border:1.5px solid var(--sand-300);border-radius:12px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">${isVoiceOn() ? '🔊' : '🔇'} Voz</button>` : ''}
     </div>
   `;
   const rankingPanel = document.createElement('div');
@@ -6743,6 +6749,13 @@ function renderPathHome(){
     if(btn.dataset.action==='toggle-ranking') toggleRankingPanel();
     else if(btn.dataset.action==='toggle-challenges') toggleChallengesPanel();
     else if(btn.dataset.action==='open-shop') showShopView();
+    else if(btn.dataset.action==='toggle-voice'){
+      const on = !isVoiceOn();
+      setVoiceOn(on);
+      btn.innerHTML = (on ? '🔊' : '🔇') + ' Voz';
+      btn.setAttribute('aria-pressed', String(on));
+      showToast(on ? 'Voz activada' : 'Voz desactivada', 'cyan');
+    }
   });
   path.addEventListener('click', e=>{
     const btn = e.target.closest('[data-action]');
@@ -8844,8 +8857,10 @@ function showTutorialIfNeeded(mode, force){
     </div>`;
 
   document.body.appendChild(overlay);
+  playVoice(t.title + ' ' + t.body);
 
   overlay.querySelector('#tut-ok').addEventListener('click', () => {
+    stopVoice();
     markTutorialSeen(mode);
     overlay.style.animation = 'fadeOut .2s ease forwards';
     setTimeout(() => overlay.remove(), 200);
@@ -8856,6 +8871,7 @@ function showTutorialIfNeeded(mode, force){
     // Ahora se comporta igual que el botón principal: solo el modo actual.
     markTutorialSeen(mode);
     trackEvent('tutorial_skip_mode', {mode});
+    stopVoice();
     overlay.style.animation = 'fadeOut .2s ease forwards';
     setTimeout(() => overlay.remove(), 200);
   });
@@ -11111,6 +11127,10 @@ function renderColoredSyllable(s){
   const isMod=c=>(c.codePointAt(0)>=0x05B0&&c.codePointAt(0)<=0x05C7)||c==='\u05C1'||c==='\u05C2';
   // compound vowels that include a vav consonant — handle separately
   const COMPOUND=['\u05D5\u05B9','\u05D5\u05BC']; // וֹ וּ
+  // Dagesh y puntos de shin/sin van DENTRO del span de su consonante:
+  // en un span aparte iOS no los dibuja.
+  const IN_LETTER=['\u05BC','\u05C1','\u05C2'];
+  const absorbed=new Set();
   let html='', i=0;
   while(i<chars.length){
     // check for 2-char compound vowel
@@ -11123,7 +11143,15 @@ function renderColoredSyllable(s){
     if(isCon(c)){
       // yod after a consonant acts as vowel (mater lectionis) — amber
       const isVowelYod = c==='\u05D9' && i>0;
-      html+=`<span style="color:${isVowelYod?'#fbbf24':'#22d3ee'};">${c}</span>`;
+      let glyph=c;
+      if(!isVowelYod){
+        for(let j=i+1;j<chars.length&&isMod(chars[j]);j++){
+          if(IN_LETTER.includes(chars[j])){ glyph+=chars[j]; absorbed.add(j); }
+        }
+      }
+      html+=`<span style="color:${isVowelYod?'#fbbf24':'#22d3ee'};">${glyph}</span>`;
+    } else if(absorbed.has(i)){
+      // ya dibujada dentro de su consonante
     } else if(isMod(c)){
       if(c==='\u05B9') // holam
         html+=`<span style="color:#fbbf24;position:relative;left:-8px;top:-5px;">${c}</span>`;
@@ -12772,6 +12800,7 @@ function checkWrite(){
 }
 
 function stopAudio(){
+  if(typeof stopVoice === 'function') stopVoice();
   if(state.currentAudio){ state.currentAudio.pause(); state.currentAudio.currentTime=0; state.currentAudio=null; }
   state.isAudioPlaying=false;
   const btn=document.getElementById("audio-btn"), status=document.getElementById("audio-status");
@@ -17737,6 +17766,93 @@ function getUserContext(){
   } catch(e){ return null; }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// ── VOZ — audios pregrabados (ElevenLabs) para coach, Rashi y tutoriales ──
+// Gate: VOICE_MODE = false desactiva toda la feature sin tocar nada más.
+// Audios: audios/voz/<hash>.mp3 · índice: audios/voz/manifest.json
+// Se generan offline con tools/gen_voz.py. El hash es FNV-1a 32 bits del
+// texto EXACTO: si se edita un texto y no se regenera, ese texto no suena.
+// Pref: heb_voice_on ('0' = apagada; ausente = encendida).
+// ══════════════════════════════════════════════════════════════════════
+const VOICE_MODE = true;
+const VOICE_DIR = 'audios/voz/';
+const VOICE_PREF_KEY = 'heb_voice_on';
+let _voiceManifest = null;          // Set de hashes disponibles
+let _voiceManifestPromise = null;
+let _voiceAudio = null;
+
+function _voiceHash(text){
+  let h = 0x811c9dc5;
+  for(let i = 0; i < text.length; i++){
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return ('0000000' + (h >>> 0).toString(16)).slice(-8);
+}
+
+// Seguro aunque se llame antes de que VOICE_MODE esté inicializada
+function _voiceAvailable(){
+  try { return VOICE_MODE === true; } catch(e){ return false; }
+}
+
+function isVoiceOn(){
+  try { return localStorage.getItem(VOICE_PREF_KEY) !== '0'; } catch(e){ return true; }
+}
+
+function setVoiceOn(on){
+  try { localStorage.setItem(VOICE_PREF_KEY, on ? '1' : '0'); } catch(e){}
+  if(!on) stopVoice();
+  if(typeof trackEvent === 'function') trackEvent('voice_toggle', { on: !!on });
+}
+
+function _loadVoiceManifest(){
+  if(_voiceManifest) return Promise.resolve(_voiceManifest);
+  if(!_voiceManifestPromise){
+    _voiceManifestPromise = fetch(VOICE_DIR + 'manifest.json')
+      .then(r => r.ok ? r.json() : { files: [] })
+      .then(j => { _voiceManifest = new Set((j && j.files) || []); return _voiceManifest; })
+      .catch(() => { _voiceManifestPromise = null; return new Set(); });
+  }
+  return _voiceManifestPromise;
+}
+
+function stopVoice(){
+  if(_voiceAudio){ try { _voiceAudio.pause(); } catch(e){} _voiceAudio = null; }
+}
+
+// Voz del coach: las felicitaciones van solo escritas (repetidas cansan);
+// los mensajes de apoyo hablan como máximo 1 vez cada 5 minutos.
+const COACH_VOICE_SILENT = ['reward','streak','level_up','confident'];
+const COACH_VOICE_COOLDOWN_MS = 5 * 60 * 1000;
+let _coachVoiceLastAt = 0;
+function _coachVoiceAllowed(type){
+  if(COACH_VOICE_SILENT.includes(type)) return false;
+  if(Date.now() - _coachVoiceLastAt < COACH_VOICE_COOLDOWN_MS) return false;
+  _coachVoiceLastAt = Date.now();
+  return true;
+}
+
+function playVoice(text){
+  try {
+    if(!_voiceAvailable() || !text || !isVoiceOn()) return;
+    const key = _voiceHash(String(text).trim());
+    _loadVoiceManifest().then(set => {
+      if(!set.has(key) || !isVoiceOn()) return;
+      // Nunca pisar el audio de una palabra hebrea
+      const cur = (typeof state !== 'undefined') ? state.currentAudio : null;
+      if(cur && !cur.paused && !cur.ended) return;
+      stopVoice();
+      const a = new Audio(VOICE_DIR + key + '.mp3');
+      _voiceAudio = a;
+      a.onended = () => { if(_voiceAudio === a) _voiceAudio = null; };
+      a.play().catch(() => { if(_voiceAudio === a) _voiceAudio = null; });
+    });
+  } catch(e){}
+}
+
+// Precarga del índice (liviano) para que la primera voz no llegue tarde
+if(VOICE_MODE) setTimeout(() => { _loadVoiceManifest(); }, 3000);
+
 // ── Mensajes con variación — evita repetición ─────────────────
 const COACH_MSGS = {
   // mensajes base
@@ -17943,6 +18059,7 @@ function updateMissionProgress(eventName){
       b.style.cssText = 'position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:800;width:calc(100% - 32px);max-width:400px;background:white;border:1.5px solid var(--gold-500);border-radius:16px;padding:12px 14px;box-shadow:0 4px 24px rgba(13,31,53,0.12);animation:fadeSlideUp .28s cubic-bezier(.34,1.56,.64,1) forwards;display:flex;align-items:center;gap:12px;';
       b.innerHTML = `<span style="font-size:1.5rem;flex-shrink:0;">🏆</span><span style="flex:1;min-width:0;font-size:13px;color:var(--navy-800);font-weight:600;overflow:hidden;">${celebMsg}</span><button onclick="this.closest('[id]').remove()" style="background:none;border:none;color:var(--sand-400);font-size:16px;cursor:pointer;padding:0 2px;flex-shrink:0;">✕</button>`;
       document.body.appendChild(b);
+      playVoice(celebMsg);
       setTimeout(()=>{ if(b.parentNode){ b.style.transition='opacity .25s';b.style.opacity='0';setTimeout(()=>b.remove(),260); }},5000);
     }, 1500);
   }
@@ -18051,6 +18168,7 @@ function showCoach(trigger){
                padding:0 2px;flex-shrink:0;line-height:1;touch-action:manipulation;">✕</button>`;
 
     document.body.appendChild(banner);
+    if(_coachVoiceAllowed(decision.type)) playVoice(msgText);
     trackEvent('coach_shown', { type: decision.type, trigger: trigger||'auto', mood: ctx.mood });
 
     // Auto-dismiss suave a los 6 segundos
@@ -18073,7 +18191,7 @@ function runCoachCheck(){
   const _da = _la ? Math.floor((Date.now() - _la) / 86400000) : 0;
   if(_da >= 3 && typeof _pickMsg === 'function'){
     const msg = _pickMsg('welcome_back');
-    if(msg) setTimeout(() => showToast(msg, 'cyan'), 1800);
+    if(msg) setTimeout(() => { showToast(msg, 'cyan'); playVoice(msg); }, 1800);
     return;
   }
   if(!sessionStorage.getItem('coach_home_shown')){
@@ -19867,6 +19985,7 @@ function _rashiGuideRender(id, guide, target){
   document.body.appendChild(visual);
   document.body.appendChild(catcher);
   document.body.appendChild(figure);
+  playVoice(guide.text);
 
   let proxy = null;
   if(guide.completeOnTargetTap){
@@ -19951,6 +20070,7 @@ function _rashiGuideClose(id, completed){
   const active = _rashiGuideActive;
   if(!active || active.id !== id) return;
   active.cleanup();
+  stopVoice();
   const { visual, catcher, figure, proxy } = active.els;
   figure.classList.add('is-closing');
   [visual, catcher, proxy].forEach(el => { if(el) el.style.animation = 'fadeOut .2s ease both'; });
