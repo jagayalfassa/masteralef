@@ -4735,15 +4735,19 @@ function cleanHebrew(text){
     return true;
   }).join('');
 
-  // Luego filtrar dagesh selectivo (solo en פ כ ו)
+  // Luego filtrar dagesh selectivo: se conserva solo donde cambia el sonido
+  // (ב/ב B-V, כ/ך K-J, פ P-F) y en ו (shuruk וּ). Se mira la ÚLTIMA CONSONANTE,
+  // no el carácter anterior: en פִּי la vocal va antes que el dagesh.
   const DAGESH = '\u05BC';
-  const KEEP   = ['\u05E4','\u05DB','\u05D5']; // פ כ ו
+  const KEEP   = ['\u05D1','\u05DB','\u05DA','\u05E4','\u05D5']; // ב כ ך פ ו
   const chars  = [...result];
   let out = '';
+  let lastCon = '';
   for(let i = 0; i < chars.length; i++){
+    const cp = chars[i].codePointAt(0);
+    if(cp >= 0x05D0 && cp <= 0x05EA) lastCon = chars[i];
     if(chars[i] === DAGESH){
-      const prev = out.slice(-1);
-      if(KEEP.includes(prev)) out += chars[i];
+      if(KEEP.includes(lastCon)) out += chars[i];
     } else {
       out += chars[i];
     }
@@ -11123,6 +11127,10 @@ function renderColoredSyllable(s){
   const isMod=c=>(c.codePointAt(0)>=0x05B0&&c.codePointAt(0)<=0x05C7)||c==='\u05C1'||c==='\u05C2';
   // compound vowels that include a vav consonant — handle separately
   const COMPOUND=['\u05D5\u05B9','\u05D5\u05BC']; // וֹ וּ
+  // Dagesh y puntos de shin/sin van DENTRO del span de su consonante:
+  // en un span aparte iOS no los dibuja.
+  const IN_LETTER=['\u05BC','\u05C1','\u05C2'];
+  const absorbed=new Set();
   let html='', i=0;
   while(i<chars.length){
     // check for 2-char compound vowel
@@ -11135,7 +11143,15 @@ function renderColoredSyllable(s){
     if(isCon(c)){
       // yod after a consonant acts as vowel (mater lectionis) — amber
       const isVowelYod = c==='\u05D9' && i>0;
-      html+=`<span style="color:${isVowelYod?'#fbbf24':'#22d3ee'};">${c}</span>`;
+      let glyph=c;
+      if(!isVowelYod){
+        for(let j=i+1;j<chars.length&&isMod(chars[j]);j++){
+          if(IN_LETTER.includes(chars[j])){ glyph+=chars[j]; absorbed.add(j); }
+        }
+      }
+      html+=`<span style="color:${isVowelYod?'#fbbf24':'#22d3ee'};">${glyph}</span>`;
+    } else if(absorbed.has(i)){
+      // ya dibujada dentro de su consonante
     } else if(isMod(c)){
       if(c==='\u05B9') // holam
         html+=`<span style="color:#fbbf24;position:relative;left:-8px;top:-5px;">${c}</span>`;
@@ -17804,6 +17820,18 @@ function stopVoice(){
   if(_voiceAudio){ try { _voiceAudio.pause(); } catch(e){} _voiceAudio = null; }
 }
 
+// Voz del coach: las felicitaciones van solo escritas (repetidas cansan);
+// los mensajes de apoyo hablan como máximo 1 vez cada 5 minutos.
+const COACH_VOICE_SILENT = ['reward','streak','level_up','confident'];
+const COACH_VOICE_COOLDOWN_MS = 5 * 60 * 1000;
+let _coachVoiceLastAt = 0;
+function _coachVoiceAllowed(type){
+  if(COACH_VOICE_SILENT.includes(type)) return false;
+  if(Date.now() - _coachVoiceLastAt < COACH_VOICE_COOLDOWN_MS) return false;
+  _coachVoiceLastAt = Date.now();
+  return true;
+}
+
 function playVoice(text){
   try {
     if(!_voiceAvailable() || !text || !isVoiceOn()) return;
@@ -18140,7 +18168,7 @@ function showCoach(trigger){
                padding:0 2px;flex-shrink:0;line-height:1;touch-action:manipulation;">✕</button>`;
 
     document.body.appendChild(banner);
-    playVoice(msgText);
+    if(_coachVoiceAllowed(decision.type)) playVoice(msgText);
     trackEvent('coach_shown', { type: decision.type, trigger: trigger||'auto', mood: ctx.mood });
 
     // Auto-dismiss suave a los 6 segundos
