@@ -8,7 +8,7 @@ USO (desde la raíz del repo, donde está index.html):
   export ELEVEN_API_KEY=xxxxx
   python3 tools/gen_voz.py --dry-run     # lista los textos, no llama a la API
   python3 tools/gen_voz.py               # genera solo los que faltan
-  python3 tools/gen_voz.py --force       # regenera todo
+  python3 tools/gen_voz.py --force       # regenera todo (gasta créditos)
 
 Qué hace:
   1. Extrae del index.html: COACH_MSGS (menos diff_up/diff_down, que van por toast),
@@ -28,6 +28,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -39,14 +40,17 @@ from pathlib import Path
 INDEX = Path('index.html')
 OUT_DIR = Path('audios/voz')
 DEFAULT_VOICE_ID = '6Jq3XJ9putvRGLuqYYRX'   # clon Professional de Jagay
-MODEL_ID = 'eleven_multilingual_v2'
+# Configuración elegida por Jagay (nov 2026): eleven_v4 + indicación de tono
+# cálido. multilingual_v2 sonaba "a anuncio" y con volumen muy desparejo.
+MODEL_ID = 'eleven_v4'
+TONE_TAG = '[warmly, calm and friendly, like a kind teacher explaining to a child] '
 OUTPUT_FORMAT = 'mp3_44100_64'   # ~8 KB/s, sobra para voz
-VOICE_SETTINGS = {
-    'stability': 0.5,
-    'similarity_boost': 0.85,
-    'style': 0.15,
-    'use_speaker_boost': True,
-}
+# Post-proceso (requiere ffmpeg): mismo volumen percibido en toda la app.
+LUFS_SHORT = -16    # frases de coach (≤ 4 s)
+LUFS_LONG = -20     # tutoriales y guías de Rashi (> 4 s): se perciben más fuertes
+LONG_SECS = 4.0
+# Correcciones solo para lo que se manda a TTS (no cambian el hash)
+TTS_FIXES = {'Tomáte': 'Tomate'}
 COACH_SKIP = {'diff_up', 'diff_down'}
 RASHI_SKIP = {'demo'}
 
@@ -143,14 +147,37 @@ def tts_clean(text):
     t = t.replace('\x00', '')
     t = t.replace(' — ', ', ').replace('—', ', ')
     t = re.sub(r'\s+', ' ', t).strip()
+    for a, b in TTS_FIXES.items():
+        t = t.replace(a, b)
+    if t and t[-1] not in '.!?':
+        t += '.'
     return t
+
+
+def normalize(path):
+    """highpass + denoise suave + ganancia a LUFS objetivo + limiter. Sin ffmpeg, no hace nada."""
+    if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
+        print('  (sin ffmpeg: queda sin normalizar)')
+        return
+    dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                                '-of', 'csv=p=0', str(path)], capture_output=True, text=True).stdout)
+    target = LUFS_LONG if dur > LONG_SECS else LUFS_SHORT
+    pre = path.with_suffix('.tmp.wav')
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(path), '-af',
+                    'highpass=f=70,afftdn=nf=-30:nr=10', '-ac', '1', '-ar', '44100', str(pre)], check=True)
+    out = subprocess.run(['ffmpeg', '-hide_banner', '-i', str(pre), '-af', 'ebur128', '-f', 'null', '-'],
+                         capture_output=True, text=True).stderr
+    lufs = float(re.findall(r'^\s+I:\s+(-?[\d.]+) LUFS', out, re.M)[-1])
+    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(pre), '-af',
+                    'volume=' + str(target - lufs) + 'dB,alimiter=limit=0.89:level=false',
+                    '-b:a', '64k', str(path)], check=True)
+    pre.unlink()
 
 
 def synth(text, voice_id, api_key):
     url = ('https://api.elevenlabs.io/v1/text-to-speech/' + voice_id +
            '?output_format=' + OUTPUT_FORMAT)
-    body = json.dumps({'text': text, 'model_id': MODEL_ID,
-                       'voice_settings': VOICE_SETTINGS}).encode('utf-8')
+    body = json.dumps({'text': TONE_TAG + text, 'model_id': MODEL_ID}).encode('utf-8')
     req = urllib.request.Request(url, data=body, method='POST', headers={
         'xi-api-key': api_key,
         'Content-Type': 'application/json',
@@ -200,6 +227,7 @@ def main():
             continue
         print('→', origin, '|', tts_clean(text))
         f.write_bytes(synth(tts_clean(text), voice_id, api_key))
+        normalize(f)
         made += 1
         time.sleep(0.4)
 
