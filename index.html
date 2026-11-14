@@ -18038,10 +18038,12 @@ function _getActiveMission(){
 function updateMissionProgress(eventName){
   const mission = _getActiveMission();
   if(mission.event !== eventName) return;
-  _missionState.progress = Math.min(mission.goal, _missionState.progress + 1);
+  const prevProgress = _missionState.progress;
+  if(prevProgress >= mission.goal) return; // ya cumplida hoy: no se vuelve a celebrar ni a pagar
+  _missionState.progress = Math.min(mission.goal, prevProgress + 1);
   localStorage.setItem('heb_mission_state', JSON.stringify(_missionState));
 
-  if(_missionState.progress >= mission.goal && _missionState.progress - 1 < mission.goal){
+  if(_missionState.progress >= mission.goal){
     // Asegurarse de celebrar solo una vez (primera vez que alcanza el goal)
     showToast('🎯 ¡Misión del día completada! +50₪', 'green');
     if(typeof setMascotState === 'function') setTimeout(()=>setMascotState('success',2500), 200);
@@ -18056,7 +18058,7 @@ function updateMissionProgress(eventName){
       if(existing) existing.remove();
       const b = document.createElement('div');
       b.id = 'coach-banner';
-      b.style.cssText = 'position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:800;width:calc(100% - 32px);max-width:400px;background:white;border:1.5px solid var(--gold-500);border-radius:16px;padding:12px 14px;box-shadow:0 4px 24px rgba(13,31,53,0.12);animation:fadeSlideUp .28s cubic-bezier(.34,1.56,.64,1) forwards;display:flex;align-items:center;gap:12px;';
+      b.style.cssText = 'position:fixed;bottom:76px;left:0;right:0;margin:0 auto;z-index:800;width:calc(100% - 32px);max-width:400px;background:white;border:1.5px solid var(--gold-500);border-radius:16px;padding:12px 14px;box-shadow:0 4px 24px rgba(13,31,53,0.12);animation:fadeSlideUp .28s cubic-bezier(.34,1.56,.64,1) forwards;display:flex;align-items:center;gap:12px;';
       b.innerHTML = `<span style="font-size:1.5rem;flex-shrink:0;">🏆</span><span style="flex:1;min-width:0;font-size:13px;color:var(--navy-800);font-weight:600;overflow:hidden;">${celebMsg}</span><button onclick="this.closest('[id]').remove()" style="background:none;border:none;color:var(--sand-400);font-size:16px;cursor:pointer;padding:0 2px;flex-shrink:0;">✕</button>`;
       document.body.appendChild(b);
       playVoice(celebMsg);
@@ -18150,7 +18152,7 @@ function showCoach(trigger){
     const banner = document.createElement('div');
     banner.id = 'coach-banner';
     banner.style.cssText = [
-      'position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(16px)',
+      'position:fixed;bottom:76px;left:0;right:0;margin:0 auto',
       'z-index:800;width:calc(100% - 32px);max-width:400px',
       `background:white;border:1.5px solid ${borderColor}`,
       'border-radius:16px;padding:12px 14px',
@@ -18177,7 +18179,7 @@ function showCoach(trigger){
       if(!el) return;
       el.style.transition = 'opacity .25s, transform .25s';
       el.style.opacity    = '0';
-      el.style.transform  = 'translateX(-50%) translateY(8px)';
+      el.style.transform  = 'translateY(8px)';
       setTimeout(() => el.remove(), 260);
     }, 6000);
 
