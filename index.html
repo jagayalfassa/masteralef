@@ -5900,19 +5900,6 @@ function renderHome(){
           </div>
         </div>`;
       baseC.appendChild(bmDash);
-
-      // Acceso "Escribir a mi moré" (solo alumnos con clase)
-      if(_authProfile?.role !== 'teacher'){
-        const askWrap = document.createElement('div');
-        askWrap.style.cssText = 'padding:0 14px 10px;';
-        askWrap.innerHTML =
-          '<button onclick="showMessageTeacherSheet(\'\')" ' +
-            'style="width:100%;background:white;color:var(--navy-700);border:1.5px solid var(--sand-300);' +
-            'border-radius:14px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;' +
-            'display:flex;align-items:center;justify-content:center;gap:6px;">' +
-            '💬 Escribir a mi moré</button>';
-        baseC.appendChild(askWrap);
-      }
     }
   }
 
@@ -5929,6 +5916,19 @@ function renderHome(){
       </button>`;
     bmSetupCard.querySelector('#bm-setup-btn').addEventListener('click', showBMSettingsModal);
     baseC.appendChild(bmSetupCard);
+  }
+
+  // ── Acceso "Escribir a mi moré" — único en el home, alumnos logueados ──
+  if(_authUser && _authProfile?.role !== 'teacher'){
+    const askWrap = document.createElement('div');
+    askWrap.style.cssText = 'padding:0 14px 10px;';
+    askWrap.innerHTML =
+      '<button data-ask-teacher="home" ' +
+        'style="width:100%;background:white;color:var(--navy-700);border:1.5px solid var(--sand-300);' +
+        'border-radius:14px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;' +
+        'display:flex;align-items:center;justify-content:center;gap:6px;">' +
+        '💬 Escribir a mi moré</button>';
+    baseC.appendChild(askWrap);
   }
 
   // ── DESAFÍOS — misiones + semana en el mismo panel
@@ -13499,7 +13499,6 @@ function toggleHelp(){
   html += `</div><p class="text-slate-500 text-small font-black uppercase mb-4 text-center tracking-widest">Vocales</p><div class="grid grid-cols-2 gap-3">`;
   FULL_VOWELS.forEach(v=>{ html += `<div class="help-item"><span class="text-2xl" style="color:#fbbf24;">${v.h}</span><span class="text-slate-600 mx-1">-</span><span class="text-cyan-400 font-bold">${v.p}</span></div>`; });
   html += "</div>";
-  if(_authUser) html += '<button data-ask-teacher="help" style="margin-top:18px;width:100%;padding:12px;border-radius:12px;border:none;background:var(--navy-800);color:white;font-size:14px;font-weight:700;cursor:pointer;">🙋 Preguntarle a mi moré</button>';
   container.innerHTML=html;
   document.getElementById("help-drawer").classList.toggle("open");
 }
