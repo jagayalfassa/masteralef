@@ -6922,6 +6922,44 @@ async function loadKaraokeTimestamps() {
   return _karaokeTimestamps;
 }
 
+// Tiempos por palabra por archivo de audio: karaoke/words/<nombre>.json
+// Formato: { coverage, verses:[{ref, w:[[ini,fin],...]}] } — una entrada por span visible.
+const _karaokeWordFiles = {};
+async function _loadKaraokeWordFile(audioUrl) {
+  const name = String(audioUrl).split('/').pop().replace(/\.[^.]+$/, '');
+  if (name in _karaokeWordFiles) return _karaokeWordFiles[name];
+  let data = null;
+  try {
+    const r = await fetch('karaoke/words/' + name + '.json');
+    if (r.ok) data = await r.json();
+  } catch(e) { /* sin archivo — se usa el modo timer */ }
+  _karaokeWordFiles[name] = data;
+  return data;
+}
+
+// Asigna los tiempos a los spans del lector, versículo por versículo.
+// Devuelve un array [{start,end}] paralelo a _buildKaraokeWordList(), o null si no encaja.
+async function _mapKaraokeWordTimes(audioUrl) {
+  const data = await _loadKaraokeWordFile(audioUrl);
+  const versesEl = document.getElementById('read-verses');
+  if (!data || !data.verses || !versesEl) return null;
+  const cards = [...versesEl.querySelectorAll('[id^="verse-card-"]')];
+  if (cards.length !== data.verses.length) return null;
+  const out = [];
+  cards.forEach(function(card, vi) {
+    const spans = [...card.querySelectorAll('span[data-word]')];
+    const w = data.verses[vi].w || [];
+    spans.forEach(function(sp, i) {
+      // Si la cantidad de palabras difiere, reparte proporcionalmente
+      const t = w.length === spans.length ? w[i] : w[Math.min(w.length - 1, Math.floor(i * w.length / spans.length))];
+      if (!t) return;
+      sp._kt = t[0];
+      out.push({ start: t[0], end: t[1] });
+    });
+  });
+  return out.length === _buildKaraokeWordList().length ? out : null;
+}
+
 function getKaraokeTimestampKey(parashaId, aliyah, trienalYear) {
   const year = trienalYear || 1;
   return `${parashaId}_y${year}_a${aliyah}`;
@@ -6935,16 +6973,18 @@ async function startKaraokeAudio() {
   const aliyah      = parashaState.currentAliyah;
   const trienalYear = parashaState.trienalYear || 1;
 
-  const tsData = await loadKaraokeTimestamps();
-  const key    = getKaraokeTimestampKey(parashaId, aliyah, trienalYear);
-  const entry  = tsData && tsData[key];
-
-  if (!entry || !entry.words || !entry.words.length) {
-    startKaraoke(); return;
-  }
-
   const audioUrl = getAliyahAudio(parashaId, aliyah, trienalYear);
   if (!audioUrl) { startKaraoke(); return; }
+
+  // 1º: tiempos por palabra generados con Scribe (karaoke/words/<audio>.json)
+  let tsWordsByFile = await _mapKaraokeWordTimes(audioUrl);
+  let entry = null;
+  if (!tsWordsByFile) {
+    // 2º: batch viejo (compatibilidad)
+    const tsData = await loadKaraokeTimestamps();
+    entry = tsData && tsData[getKaraokeTimestampKey(parashaId, aliyah, trienalYear)];
+    if (!entry || !entry.words || !entry.words.length) { startKaraoke(); return; }
+  }
 
   karaokeState.running      = true;
   karaokeState.paused       = false;
@@ -6958,7 +6998,7 @@ async function startKaraokeAudio() {
   const audio = new Audio(audioUrl);
   karaokeState.audio = audio;
 
-  const tsWords = entry.words;
+  const tsWords = tsWordsByFile || entry.words;
   let lastHighlightedIdx = -1;
 
   audio.addEventListener('timeupdate', function() {
@@ -8527,6 +8567,12 @@ function renderParashaRead(parashaId, aliyah){
           const info = getTorahWordInfo(word);
           const msg  = info.es ? `${word} = ${info.es}` : `${word} (${info.fon || '?'})`;
           showToast(msg, 'green');
+          // Con audio real sincronizado: tocar una palabra salta el audio ahí
+          if(karaokeState.running && karaokeState.hasRealAudio && karaokeState.audio && typeof span._kt === 'number'){
+            karaokeState.audio.currentTime = span._kt;
+            if(karaokeState.paused) resumeKaraoke();
+            return;
+          }
           if(karaokeState.running && !karaokeState.paused) pauseKaraoke();
         });
 
