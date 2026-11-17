@@ -2334,6 +2334,7 @@ function onWrongAnswer(){
   updateHudShekels();
   // ── Error feedback diferenciado ──
   _showErrorTip();
+  if(typeof coachOnAnswer === 'function') coachOnAnswer(false);
   // Registrar en Word State System o Parasha Progress
   if(state.currentChallenge){
     if(state._parashaMode && state.currentChallenge._parashaWord){
@@ -13428,7 +13429,12 @@ function handleSuccess(){
   const streakEl=document.getElementById('hud-streak');
   if(streakEl && state.streak_bonus>1) streakEl.textContent='🔥×'+state.streak_bonus;
   else if(streakEl) streakEl.textContent='';
-  setTimeout(nextChallenge,1200);
+  if(typeof coachOnAnswer === 'function') coachOnAnswer(true);
+  const _chDone = state.currentChallenge;
+  setTimeout(() => {
+    if(typeof _afterCoachVoice === 'function') _afterCoachVoice(nextChallenge, _chDone);
+    else nextChallenge();
+  }, 1200);
 }
 
 
@@ -18089,17 +18095,28 @@ function renderMissionBadge(){
 }
 
 // ── showCoach() — flujo unificado ─────────────────────────────
-function showCoach(trigger){
+function showCoach(trigger, forced){
   // No interrumpir durante estados críticos
   const blockStates = ['loading','error'];
   if(typeof _mascotState !== 'undefined' && blockStates.includes(_mascotState)) return;
 
+  // Modo ejercicio: solo con el juego en pantalla y sin otro aviso encima
+  if(forced){
+    const g = document.getElementById('view-game');
+    if(!g || g.classList.contains('hidden')) return;
+    if(document.getElementById('error-tip-inline') || document.getElementById('ask-teacher-nudge')) return;
+  }
+
   const ctx      = getUserContext();
-  const decision = getCoachDecision(ctx);
+  const decision = forced || getCoachDecision(ctx);
   if(!decision) return;
 
-  // Cooldown: mínimo 2 minutos, salvo errores consecutivos (urgente)
-  const cooldown  = ctx.consecErrors >= 3 ? 30000 : 120000;
+  // hint/engage/slowing hablan del ejercicio en curso: fuera de él no tienen sentido
+  if(!forced && COACH_IN_EXERCISE_ONLY.includes(decision.type)) return;
+
+  // Cooldown: mínimo 2 minutos, salvo errores consecutivos (urgente).
+  // En el ejercicio: 1 minuto (además del tope de 1 mensaje por lección).
+  const cooldown  = forced ? 60000 : (ctx.consecErrors >= 3 ? 30000 : 120000);
   if(Date.now() - _coachMemory.shownAt < cooldown) return;
 
   // Coherencia: no celebrar si el usuario está frustrado
@@ -18119,11 +18136,16 @@ function showCoach(trigger){
     lastPerformance: ctx.performance,
   };
   _saveCoachMemory();
+  if(forced) _cx.used = true;
 
   // Timing humano — delay aleatorio para evitar sensación robótica
   const humanDelay = 300 + Math.random() * 400;
 
   setTimeout(() => {
+    if(forced){
+      const g = document.getElementById('view-game');
+      if(!g || g.classList.contains('hidden')) return;
+    }
     // Mascota reacciona con micro-delay emocional
     if(decision.mascot && typeof setMascotState === 'function')
       setTimeout(() => setMascotState(decision.mascot, 3000), 350);
@@ -18184,6 +18206,82 @@ function showCoach(trigger){
     }, 6000);
 
   }, humanDelay);
+}
+
+// ── Coach durante el ejercicio ────────────────────────────────
+// Señales de la lección EN CURSO (no del historial). Los contadores se
+// reinician solos cuando cambia state.pool: cada inicio de lección
+// (startMission, repaso, parashá) asigna un array nuevo.
+// Máximo un mensaje por lección.
+const COACH_IN_EXERCISE_ONLY = ['hint','engage','slowing'];
+const CX_RUSH_MS     = 2500;  // error más rápido que esto = está adivinando
+const CX_SLOW_MIN_MS = 6000;  // acierto lento: más de 6 s...
+const CX_SLOW_FACTOR = 1.8;   // ...y 1,8× la mediana de la lección
+let _cx = { pool:null, rushed:0, consec:0, times:[], used:false, pending:false };
+
+function _cxSync(){
+  if(_cx.pool !== state.pool)
+    _cx = { pool:state.pool, rushed:0, consec:0, times:[], used:false, pending:false };
+}
+
+function _cxFire(type, mascot, delay){
+  _cx.pending = true;
+  setTimeout(() => {
+    try { showCoach('exercise', { type: type, mascot: mascot }); } catch(e){}
+    _cx.pending = false;
+  }, delay);
+}
+
+// Se llama desde onWrongAnswer() (primer error de cada desafío) y handleSuccess()
+function coachOnAnswer(ok){
+  try {
+    if(!state.currentChallenge) return;
+    _cxSync();
+    const ms = state.challenge_start ? Date.now() - state.challenge_start : 0;
+    if(ok){
+      _cx.consec = 0;
+      const prev = _cx.times.slice();
+      if(state.challenge_first_try && ms > 0) _cx.times.push(ms);
+      if(_cx.used || _cx.pending) return;
+      // Queda 1 ejercicio
+      if(state.pool && state.pool.length === 1 && (state.totalTasks || 0) >= 5)
+        return _cxFire('engage', 'excited', 0);
+      // Acierto claramente más lento que su ritmo en esta lección
+      if(state.challenge_first_try && prev.length >= 3){
+        const s   = prev.sort((a,b) => a - b);
+        const med = s[Math.floor(s.length / 2)];
+        if(ms > CX_SLOW_MIN_MS && ms > med * CX_SLOW_FACTOR)
+          return _cxFire('slowing', 'idle', 0);
+      }
+    } else {
+      _cx.consec++;
+      const rushed = ms > 0 && ms < CX_RUSH_MS;
+      if(rushed) _cx.rushed++;
+      if(_cx.used || _cx.pending) return;
+      // 1300 ms: después del tip de error (600 ms) y de la cara de error de Rashi (1 s)
+      if(_cx.consec >= 3)            return _cxFire('help', 'thinking', 1300);
+      if(rushed && _cx.rushed >= 2)  return _cxFire('hint', 'thinking', 1300);
+    }
+  } catch(e){}
+}
+
+// nextChallenge → stopAudio → stopVoice corta la voz del coach.
+// Si el coach está hablando, espera a que termine (máx 4 s).
+// Sin voz del coach activa, llama fn() en el acto (comportamiento original).
+function _afterCoachVoice(fn, ch){
+  const a = _voiceAudio;
+  const recent = Date.now() - _coachVoiceLastAt < 5000;
+  if(!a || a.paused || a.ended || !recent) return fn();
+  let done = false;
+  const go = () => {
+    if(done) return;
+    done = true;
+    if(state.currentChallenge !== ch) return; // salió del juego mientras esperaba
+    fn();
+  };
+  a.addEventListener('ended', go, { once:true });
+  a.addEventListener('pause', go, { once:true });
+  setTimeout(go, 4000);
 }
 
 // Alias para compatibilidad con código anterior
