@@ -31,7 +31,10 @@ def audio_map():
 
 
 def verses_for(parasha, e):
-    d = json.load(open(os.path.join(ROOT, 'data/torah', parasha + '.json'), encoding='utf-8'))
+    fp = os.path.join(ROOT, 'data/torah', parasha + '.json')
+    if not os.path.exists(fp):  # p.ej. acharei_mot → achareimot.json
+        fp = os.path.join(ROOT, 'data/torah', parasha.replace('_', '') + '.json')
+    d = json.load(open(fp, encoding='utf-8'))
     dic, out, seen = d['dictionary'], [], set()
     lo, hi = (e['ch_s'], e['v_s']), (e['ch_e'], e['v_e'])
     for al in d['aliyot']:
