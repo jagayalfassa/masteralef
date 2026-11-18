@@ -11,6 +11,7 @@ Por parashá (mismo formato que antes + campos nuevos):
   t   lista [fecha, [aliyá, rango]...] de los Shabatot en que va sola (trienal de ese día).
   ty  {"1"|"2"|"3": [[aliyá, rango]...]} trienal por AÑO DEL CICLO (no por posición en la lista).
   td  {fecha: año del ciclo} para todos sus Shabatot (también los combinados).
+  cb  {fecha: {with, pair, y, n, f, t}} Shabatot en que se lee combinada (lectura de ese día).
 calendar.json: [{d, hd, p:[ids], y, n}] un registro por Shabat con lectura de parashá.
 """
 import collections, glob, json, os, re, sys
@@ -48,6 +49,7 @@ for f in sorted(glob.glob(os.path.join(SRC, 'hc_*.json'))):
     items += json.load(open(f))['items']
 
 full = collections.defaultdict(list); tri = collections.defaultdict(lambda: collections.defaultdict(list))
+combined = collections.defaultdict(dict)
 wk = collections.defaultdict(list); dated = collections.defaultdict(list); td = collections.defaultdict(dict)
 cal = []
 for it in items:
@@ -63,6 +65,10 @@ for it in items:
     date, y = it['date'][:10], it.get('triYear')
     cal.append({'d': date, 'hd': it.get('hdate', ''), 'p': ps, 'y': y, 'n': en})
     for p in ps: td[p][date] = y
+    if len(ps) == 2:  # Shabat combinado: guardar la lectura de ese día en ambas parashot
+        entry = {'with': None, 'pair': ps, 'y': y, 'n': en,
+                 'f': aliyot(it['fullkriyah']), 't': aliyot(it['triennial'])}
+        for p in ps: combined[p][date] = dict(entry, **{'with': [q for q in ps if q != p][0]})
     if len(ps) == 1:
         p = ps[0]
         full[p].append(tuple(map(tuple, aliyot(it['fullkriyah']))))
@@ -92,6 +98,7 @@ for p, d in kr.items():
         hf = haft[:1]
         d['t'] = [blk + [list(h) for h in hf] for blk in sorted(dated[p])]
     if td.get(p): d['td'] = dict(sorted(td[p].items()))
+    if combined.get(p): d['cb'] = dict(sorted(combined[p].items()))
 
 json.dump(kr, open(KR_PATH, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
 cal.sort(key=lambda c: c['d'])

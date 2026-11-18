@@ -3731,6 +3731,47 @@ async function loadKriyahData(){
 // Devuelve las aliyot según tipo de lectura para una parashá
 // Retorna [{aliyah, reading}] o null si no hay datos
 // triennialYear: 1, 2, o 3. Si null, auto-detecta por fecha.
+// ── SHABAT ELEGIDO: la lectura se define por una fecha concreta ──────
+// kriyah_data: td {fecha: año del ciclo}, cb {fecha: lectura combinada de ese día}.
+// Default: fecha de Bar Mitzvá si coincide con esta parashá; si no, el próximo Shabat.
+const SEL_SHABAT_KEY = 'heb_sel_shabat';
+function getShabatOptions(parashaId){
+  const kd = parashaState.kriyahData; const p = kd && kd[parashaId];
+  if(!p || !p.td) return [];
+  const lo = new Date(Date.now() - 400 * 864e5).toISOString().slice(0, 10);
+  return Object.keys(p.td).filter(d => d >= lo).sort()
+    .map(d => ({ d: d, y: p.td[d], cb: (p.cb && p.cb[d]) || null }));
+}
+function getSelectedShabat(parashaId){
+  const opts = getShabatOptions(parashaId);
+  if(!opts.length) return null;
+  let stored = null;
+  try { stored = (JSON.parse(localStorage.getItem(SEL_SHABAT_KEY) || '{}'))[parashaId]; } catch(e){}
+  let o = stored ? opts.find(x => x.d === stored) : null;
+  if(!o){ const bm = localStorage.getItem('heb_bm_date') || ''; if(bm) o = opts.find(x => x.d === bm); }
+  if(!o){ const today = new Date().toISOString().slice(0, 10); o = opts.find(x => x.d >= today) || opts[opts.length - 1]; }
+  return o;
+}
+function setSelectedShabat(parashaId, date){
+  try {
+    const m = JSON.parse(localStorage.getItem(SEL_SHABAT_KEY) || '{}');
+    m[parashaId] = date; localStorage.setItem(SEL_SHABAT_KEY, JSON.stringify(m));
+  } catch(e){}
+  if(parashaState.cache) parashaState.cache.aliyot = new Map();
+}
+// Si el Shabat elegido es combinado, sumar al lector los versículos de la otra parashá
+async function _ensureCombinedVerses(parashaId){
+  const sel = getSelectedShabat(parashaId);
+  if(!sel || !sel.cb || !parashaState.verseMap) return;
+  const other = sel.cb.with, tag = parashaId + '+' + other;
+  if(parashaState._mergedWith === tag) return;
+  const d2 = await loadParasha(other);
+  if(!d2) return;
+  buildVerseMap(d2).forEach((v, k) => { if(!parashaState.verseMap.has(k)) parashaState.verseMap.set(k, v); });
+  parashaState._mergedWith = tag;
+  parashaState.cache.refs = new Map(); parashaState.cache.aliyot = new Map();
+}
+
 function getKriyahAliyot(parashaId, readingType, bmDate, triennialYear){
   var kd = parashaState.kriyahData;
   if(!kd || !kd[parashaId]) return null;
@@ -3739,6 +3780,12 @@ function getKriyahAliyot(parashaId, readingType, bmDate, triennialYear){
   if(readingType === 'weekday'){
     if(!pData.w) return null;
     return pData.w.map(function(r, i){ return { aliyah: String(i+1), reading: r }; });
+  }
+
+  var _sel = (readingType === 'full' || readingType === 'triennial') ? getSelectedShabat(parashaId) : null;
+  if(_sel && _sel.cb){
+    var _cbAl = readingType === 'full' ? _sel.cb.f : _sel.cb.t;
+    if(_cbAl) return _cbAl.map(function(a){ return { aliyah: a[0], reading: a[1] }; });
   }
 
   if(readingType === 'full'){
@@ -3839,10 +3886,11 @@ function parseReadingRange(reading) {
 // Cache key includes readingType + triYear so switching modes never returns stale data.
 function buildAliyotFromKriyah(parashaId) {
   var rt      = getReadingType();
+  var _selSh  = getSelectedShabat(parashaId);
   var triYear = (rt === 'triennial')
-    ? (getTriennialYear() || detectTriennialYear(parashaId, localStorage.getItem('heb_bm_date') || ''))
+    ? (_selSh ? _selSh.y : detectTriennialYear(parashaId, localStorage.getItem('heb_bm_date') || ''))
     : 0;
-  var cacheKey = parashaId + '|' + rt + '|' + triYear;
+  var cacheKey = parashaId + '|' + rt + '|' + triYear + '|' + (_selSh ? _selSh.d : '');
   if (parashaState.cache.aliyot.has(cacheKey)) {
     return parashaState.cache.aliyot.get(cacheKey);
   }
@@ -4503,6 +4551,7 @@ async function startParashaSession(parashaId, aliyah = 1){
     parashaState.currentParasha = parashaId;
     parashaState.data = data;
     parashaState.verseMap = buildVerseMap(data);
+    parashaState._mergedWith = null;
     // Invalidate all derived caches when a new parasha loads
     parashaState.cache = { aliyot: new Map(), refs: new Map(), verses: new Map() };
     _loadVerseCache(); // restore any Sefaria-fetched verses from localStorage
@@ -4526,6 +4575,7 @@ async function startParashaSession(parashaId, aliyah = 1){
     await loadTorahDict();
   }
 
+  await _ensureCombinedVerses(parashaId);
   parashaState.currentAliyah = aliyah;
 
   // Palabras legibles (desde índice precalculado)
@@ -8136,9 +8186,8 @@ async function requestAliyahRecording(parashaId, aliyah, reading){
   if(!_authUser || !_sb){ showToast('Ingresá con tu cuenta para pedir la grabación', 'warn'); showView('auth'); return; }
   const meta = PARASHA_CATALOG.find(p => p.id === parashaId);
   const pName = meta ? (meta.esp || meta.id) : parashaId;
-  const year = getReadingType() === 'triennial'
-    ? (getTriennialYear() || detectTriennialYear(parashaId, localStorage.getItem('heb_bm_date') || ''))
-    : null;
+  const _sh = getSelectedShabat(parashaId);
+  const year = getReadingType() === 'triennial' ? (_sh ? _sh.y : null) : null;
   try {
     const { data, error } = await _sb.rpc('request_recording', {
       p_parasha: parashaId, p_aliyah: String(aliyah), p_reading: reading || '-', p_year: year || null
@@ -8277,9 +8326,9 @@ async function showAliyahSelect(parashaId){
 
   // ── READING TYPE SELECTOR ──────────────────────────────────────
   var currentRT = getReadingType();
-  var selectedTriYear = getTriennialYear(); // 0 = auto
-  var autoTriYear = detectTriennialYear(parashaId, localStorage.getItem('heb_bm_date') || '');
-  var effectiveTriYear = selectedTriYear || autoTriYear;
+  await _ensureCombinedVerses(parashaId);
+  var _shNow = getSelectedShabat(parashaId);
+  var effectiveTriYear = _shNow ? _shNow.y : detectTriennialYear(parashaId, localStorage.getItem('heb_bm_date') || '');
   var kriyahAliyot = getKriyahAliyot(parashaId, currentRT, localStorage.getItem('heb_bm_date') || '', currentRT === 'triennial' ? effectiveTriYear : null);
 
   var rtSelector = document.createElement('div');
@@ -8306,38 +8355,39 @@ async function showAliyahSelect(parashaId){
   });
   listEl.appendChild(rtSelector);
 
-  // ── TRIENNIAL YEAR SELECTOR (only when triennial is active) ──
-  if(currentRT === 'triennial'){
-    var triYearRow = document.createElement('div');
-    triYearRow.style.cssText = 'display:flex;gap:6px;margin-bottom:12px;align-items:center;';
-    var triLabel = document.createElement('span');
-    triLabel.style.cssText = 'font-size:10px;font-weight:700;color:var(--sand-500);white-space:nowrap;';
-    triLabel.textContent = 'Ciclo:';
-    triYearRow.appendChild(triLabel);
-
-    // Auto button
-    var autoBtn = document.createElement('button');
-    var isAuto = selectedTriYear === 0;
-    autoBtn.style.cssText = 'padding:6px 10px;border-radius:10px;font-size:10px;font-weight:700;cursor:pointer;' +
-      'border:1.5px solid ' + (isAuto ? '#7c3aed' : 'var(--sand-300)') + ';' +
-      'background:' + (isAuto ? 'rgba(124,58,237,0.1)' : 'white') + ';' +
-      'color:' + (isAuto ? '#7c3aed' : 'var(--navy-600)') + ';';
-    autoBtn.textContent = 'Auto (A\u00f1o ' + autoTriYear + ')';
-    autoBtn.addEventListener('click', function(){ setTriennialYear(0); showAliyahSelect(parashaId); });
-    triYearRow.appendChild(autoBtn);
-
-    [1,2,3].forEach(function(yr){
-      var isActive = selectedTriYear === yr;
-      var btn = document.createElement('button');
-      btn.style.cssText = 'padding:6px 10px;border-radius:10px;font-size:10px;font-weight:700;cursor:pointer;' +
-        'border:1.5px solid ' + (isActive ? '#7c3aed' : 'var(--sand-300)') + ';' +
-        'background:' + (isActive ? 'rgba(124,58,237,0.1)' : 'white') + ';' +
-        'color:' + (isActive ? '#7c3aed' : 'var(--navy-600)') + ';';
-      btn.textContent = 'A\u00f1o ' + yr;
-      btn.addEventListener('click', function(){ setTriennialYear(yr); showAliyahSelect(parashaId); });
-      triYearRow.appendChild(btn);
+  // ── SHABAT: qué lectura (fecha concreta). Reemplaza Auto / Año 1-2-3 ──
+  var shOpts = getShabatOptions(parashaId);
+  var shSel  = getSelectedShabat(parashaId);
+  if(currentRT !== 'weekday' && shOpts.length){
+    var bmD = localStorage.getItem('heb_bm_date') || '';
+    var today = new Date().toISOString().slice(0, 10);
+    var shRow = document.createElement('div');
+    shRow.style.cssText = 'margin-bottom:12px;';
+    var fmt = function(d){
+      try { return new Date(d + 'T12:00:00').toLocaleDateString('es', { weekday:'short', day:'numeric', month:'short', year:'numeric' }); }
+      catch(e){ return d; }
+    };
+    var optHtml = shOpts.map(function(o){
+      var pName = function(id){ var m = PARASHA_CATALOG.find(function(x){ return x.id === id; }); return m ? (m.esp || id) : id; };
+      var lbl = fmt(o.d) + (o.cb ? ' · ' + o.cb.pair.map(pName).join('-') : '') + ' · año ' + o.y +
+        (o.d === bmD ? ' · tu Bar/Bat Mitzvá' : '') + (o.d < today ? ' (pasado)' : '');
+      return '<option value="' + o.d + '"' + (shSel && o.d === shSel.d ? ' selected' : '') + '>' + esc(lbl) + '</option>';
+    }).join('');
+    shRow.innerHTML =
+      '<label style="display:block;font-size:10px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">📅 Shabat</label>' +
+      '<select id="aliyah-shabat-select" style="width:100%;padding:10px 12px;border-radius:12px;border:1.5px solid #7c3aed;background:white;color:var(--navy-800);font-size:13px;font-weight:700;">' + optHtml + '</select>';
+    listEl.appendChild(shRow);
+    shRow.querySelector('select').addEventListener('change', async function(e){
+      setSelectedShabat(parashaId, e.target.value);
+      await _ensureCombinedVerses(parashaId);
+      showAliyahSelect(parashaId);
     });
-    listEl.appendChild(triYearRow);
+    if(shSel && shSel.cb){
+      var cbNote = document.createElement('div');
+      cbNote.style.cssText = 'background:rgba(212,168,67,0.12);border:1.5px solid rgba(212,168,67,0.4);border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--navy-700);';
+      cbNote.textContent = '📖 Ese Shabat se leen dos parashot juntas. Las aliyot de abajo son las de la lectura combinada.';
+      listEl.appendChild(cbNote);
+    }
   }
 
   // ── Info del tipo de lectura activo ──
