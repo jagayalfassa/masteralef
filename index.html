@@ -880,6 +880,11 @@ to   { transform: translateY(0);    opacity: 1; }
       <button id="help-close-btn" style="font-size:13px;font-weight:700;background:#F5E6D3;padding:8px 16px;border-radius:10px;color:#1B3A5C;min-height:44px;">Cerrar</button>
     </div>
     <div id="help-content" class="overflow-y-auto flex-1 custom-scroll" style="gap:12px;display:flex;flex-direction:column;"></div>
+    <div style="border-top:1.5px solid #E8D5B7;margin-top:12px;padding-top:10px;font-size:11px;color:#8B7355;line-height:1.5;">
+      Calendario de lecturas de Torá (aliyot, ciclo trienal y parashot combinadas):
+      <a href="https://www.hebcal.com/" target="_blank" rel="noopener" style="color:#1B3A5C;font-weight:700;">Hebcal.com</a>,
+      licencia <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:#1B3A5C;">CC BY 4.0</a>.
+    </div>
   </div>
 
   <!-- Achievements Drawer -->
@@ -8375,7 +8380,9 @@ async function showAliyahSelect(parashaId){
     }).join('');
     shRow.innerHTML =
       '<label style="display:block;font-size:10px;font-weight:700;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">📅 Shabat</label>' +
-      '<select id="aliyah-shabat-select" style="width:100%;padding:10px 12px;border-radius:12px;border:1.5px solid #7c3aed;background:white;color:var(--navy-800);font-size:13px;font-weight:700;">' + optHtml + '</select>';
+      '<select id="aliyah-shabat-select" style="width:100%;padding:10px 12px;border-radius:12px;border:1.5px solid #7c3aed;background:white;color:var(--navy-800);font-size:13px;font-weight:700;">' + optHtml + '</select>' +
+      '<div style="font-size:10px;color:var(--sand-500);margin-top:4px;text-align:right;">Calendario de lecturas: ' +
+        '<a href="https://www.hebcal.com/" target="_blank" rel="noopener" style="color:#7c3aed;font-weight:700;">Hebcal.com</a></div>';
     listEl.appendChild(shRow);
     shRow.querySelector('select').addEventListener('change', async function(e){
       setSelectedShabat(parashaId, e.target.value);
