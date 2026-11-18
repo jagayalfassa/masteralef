@@ -46,14 +46,11 @@ lines = open(os.path.join(ROOT, 'index.html'), encoding='utf-8').read().split('\
 li = next(i for i, l in enumerate(lines) if l.startswith('const AUDIO_ALIYOT_MAP'))
 src = lines[li]; pre, post = src[:src.index('{')], src[src.rindex('}') + 1:]
 m = json.loads(src[src.index('{'):src.rindex('}') + 1])
-by = {}
-for r in good:
-    by.setdefault((r['parasha'], str(r['aliyah']), tuple(r['range'])), r['file'])
-# preferir .mp3 si hay dos versiones del mismo audio
-for r in good:
+by, best = {}, {}
+for r in good:  # por lugar (parashá, aliyá, rango) gana la grabación con mejor puntaje
     k = (r['parasha'], str(r['aliyah']), tuple(r['range']))
-    if r['file'].endswith('.mp3'):
-        by[k] = r['file']
+    if k not in best or r['score'] > best[k]:
+        by[k], best[k] = r['file'], r['score']
 
 stats = {'con audio': 0, 'sin audio': 0, 'nuevas': 0, 'rutas quitadas': 0}
 for p, pm in m.items():
