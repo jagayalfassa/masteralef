@@ -7051,26 +7051,29 @@ async function startKaraokeAudio() {
 // El mapa usa claves: shabat_AÑO_ALIYAH (ej: shabat_1_3) y weekday_ALIYAH
 // getAliyahAudio: devuelve la URL del mp3 más apropiada.
 // Prioridad: año 1 del trienal (= también weekday), luego otros años, luego weekday.
-function getAliyahAudio(parashaId, aliyah, trienalYear){
-  if(!parashaId || !aliyah || !AUDIO_ALIYOT_MAP) return null;
+// Audio de una aliyá = solo la grabación de ESOS versículos (rango exacto del lector).
+// Si no hay grabación del rango que se muestra, no hay audio (antes caía a otro año → otro texto).
+function _audioEntryForRange(parashaId, range){
+  if(!parashaId || !range || !AUDIO_ALIYOT_MAP) return null;
   const pMap = AUDIO_ALIYOT_MAP[parashaId];
   if(!pMap) return null;
-  // Si se especificó año trienal, buscar ese primero
-  if(trienalYear){
-    const key = `shabat_${trienalYear}_${aliyah}`;
-    if(pMap[key]?.audio) return pMap[key].audio;
-  }
-  // Fallback: año 1 (sirve para weekday también), luego weekday, luego cualquier año
-  const keys = [
-    `shabat_1_${aliyah}`,
-    `weekday_${aliyah}`,
-    `shabat_2_${aliyah}`,
-    `shabat_3_${aliyah}`,
-  ];
-  for(const k of keys){
-    if(pMap[k]?.audio) return pMap[k].audio;
+  for(const k in pMap){
+    const e = pMap[k];
+    if(e && e.audio && e.ch_s === range.chS && e.v_s === range.vS && e.ch_e === range.chE && e.v_e === range.vE){
+      return { key: k, entry: e };
+    }
   }
   return null;
+}
+function _aliyahAudioMatch(parashaId, aliyah){
+  if(!parashaId || !aliyah) return null;
+  let al = null;
+  try { al = buildAliyotFromKriyah(parashaId).find(a => String(a.aliyah) === String(aliyah)); } catch(e){}
+  return al ? _audioEntryForRange(parashaId, al.range) : null;
+}
+function getAliyahAudio(parashaId, aliyah /*, trienalYear (ya no se usa: manda el rango) */){
+  const m = _aliyahAudioMatch(parashaId, aliyah);
+  return m ? m.entry.audio : null;
 }
 
 // Obtener metadata completa (reading, versículos, fecha) de la aliyá.
@@ -7266,19 +7269,9 @@ const VERSE_TIMINGS = {
 // la clave (ej. "shabat_1_1") en vez de la URL — para que VERSE_TIMINGS se
 // busque con la clave exacta del audio que realmente se va a reproducir.
 // No modifica getAliyahAudio(); solo espeja su lógica de resolución.
-function _resolveAliyahAudioKey(parashaId, aliyah, trienalYear){
-  if(!parashaId || !aliyah || !AUDIO_ALIYOT_MAP) return null;
-  const pMap = AUDIO_ALIYOT_MAP[parashaId];
-  if(!pMap) return null;
-  if(trienalYear){
-    const key = `shabat_${trienalYear}_${aliyah}`;
-    if(pMap[key]?.audio) return key;
-  }
-  const keys = [`shabat_1_${aliyah}`, `weekday_${aliyah}`, `shabat_2_${aliyah}`, `shabat_3_${aliyah}`];
-  for(const k of keys){
-    if(pMap[k]?.audio) return k;
-  }
-  return null;
+function _resolveAliyahAudioKey(parashaId, aliyah /*, trienalYear */){
+  const m = _aliyahAudioMatch(parashaId, aliyah);
+  return m ? m.key : null;
 }
 
 // ── SELF RECORD: grabate y comparar (SELF_RECORD, PROMPT I2) ──────
@@ -8140,11 +8133,65 @@ function _renderMiAliyaModal(parashaId, aliyah, verses, refs, dict, meta, times)
 // ── ALIYAH SELECT ─────────────────────────────────────────────────
 // Muestra las aliyot de una parashá para elegir qué practicar
 
-function showAliyahActionSheet(parashaId, aliyah, verseCount, hasAudio){
+// ── PEDIDOS DE GRABACIÓN ──────────────────────────────────────────
+// Registro central (recording_requests, cola del jazán) + mensaje al moré.
+const REC_REQ_KEY = 'heb_rec_requests';
+function _recReqKey(parashaId, aliyah, reading){ return parashaId + '|' + aliyah + '|' + (reading || ''); }
+function isRecordingRequested(parashaId, aliyah, reading){
+  try { return !!(JSON.parse(localStorage.getItem(REC_REQ_KEY) || '{}')[_recReqKey(parashaId, aliyah, reading)]); }
+  catch(e){ return false; }
+}
+function _markRecordingRequested(parashaId, aliyah, reading){
+  try {
+    const m = JSON.parse(localStorage.getItem(REC_REQ_KEY) || '{}');
+    m[_recReqKey(parashaId, aliyah, reading)] = new Date().toISOString();
+    localStorage.setItem(REC_REQ_KEY, JSON.stringify(m));
+  } catch(e){}
+}
+async function requestAliyahRecording(parashaId, aliyah, reading){
+  if(!_authUser || !_sb){ showToast('Ingresá con tu cuenta para pedir la grabación', 'warn'); showView('auth'); return; }
+  const meta = PARASHA_CATALOG.find(p => p.id === parashaId);
+  const pName = meta ? (meta.esp || meta.id) : parashaId;
+  const year = getReadingType() === 'triennial'
+    ? (getTriennialYear() || detectTriennialYear(parashaId, localStorage.getItem('heb_bm_date') || ''))
+    : null;
+  try {
+    const { data, error } = await _sb.rpc('request_recording', {
+      p_parasha: parashaId, p_aliyah: String(aliyah), p_reading: reading || '-', p_year: year || null
+    });
+    if(error || !data || data.ok !== true){
+      dbg('[RecReq] error:', error?.message || data?.reason);
+      showToast('No se pudo registrar el pedido. Probá de nuevo.', 'warn');
+      return;
+    }
+  } catch(e){ dbg('[RecReq] ' + e.message); showToast('No se pudo registrar el pedido', 'warn'); return; }
+  _markRecordingRequested(parashaId, aliyah, reading);
+  trackEvent('recording_requested', { parasha: parashaId, aliyah: String(aliyah) });
+  showToast('🎙 Pedido registrado', 'green');
+  // Aviso al moré (si el alumno no está en una clase, el pedido igual quedó registrado)
+  const ctx = { kind: 'audio_request', view: 'aliyah-select', at: new Date().toISOString(),
+                parasha: parashaId, aliyah: String(aliyah), reading: reading || '', year: year || null };
+  const body = 'Quiero preparar ' + pName + ' aliyá ' + aliyah + (reading ? ' (' + reading + ')' : '') +
+               ' y todavía no tiene grabación. ¿La podés grabar?';
+  let hasClass = true;
+  try {
+    const { data: cm } = await _sb.from('class_members').select('class_id').eq('student_id', _authUser.id).limit(1);
+    hasClass = !!(cm && cm.length);
+  } catch(e){}
+  if(hasClass) showMessageTeacherSheet(body, ctx);
+  else showToast('🎙 Pedido registrado. Para avisarle a tu moré, unite a su clase con el código.', 'green');
+  if(document.getElementById('view-aliyah-select')?.style.display !== 'none' && typeof showAliyahSelect === 'function'){
+    showAliyahSelect(parashaId);
+  }
+}
+
+function showAliyahActionSheet(parashaId, aliyah, verseCount, hasAudio, reading){
   const existing = document.getElementById('aliyah-action-sheet');
   if(existing) existing.remove();
   const meta = PARASHA_CATALOG.find(p => p.id === parashaId);
   const wordsInAliyah = parashaState.index ? getAliyahWordPool(parashaId, aliyah).length : 0;
+  if(!reading){ try { reading = (buildAliyotFromKriyah(parashaId).find(a => String(a.aliyah) === String(aliyah)) || {}).reading || ''; } catch(e){ reading = ''; } }
+  const recRequested = !hasAudio && isRecordingRequested(parashaId, aliyah, reading);
 
   const sheet = document.createElement('div');
   sheet.id = 'aliyah-action-sheet';
@@ -8171,6 +8218,14 @@ function showAliyahActionSheet(parashaId, aliyah, verseCount, hasAudio){
           '</div>' +
         '</div>' +
       '</div>' +
+      // Sin grabación: pedirla (o ver que ya se pidió)
+      (!hasAudio ? (recRequested
+        ? '<div style="width:100%;padding:12px 16px;border-radius:14px;background:rgba(30,58,138,0.06);border:1.5px solid rgba(30,58,138,0.18);color:#1E3A8A;font-size:12.5px;font-weight:700;margin-bottom:10px;box-sizing:border-box;">✓ Ya pediste esta grabación. Te avisamos cuando esté.</div>'
+        : '<button id="as-request-btn" style="width:100%;padding:13px 16px;border-radius:14px;background:white;color:var(--navy-800);border:1.5px dashed var(--navy-700);cursor:pointer;display:flex;align-items:center;gap:12px;margin-bottom:10px;">' +
+            '<span style="font-size:1.3rem;">🙋</span>' +
+            '<span style="text-align:left;"><span style="display:block;font-size:14px;font-weight:900;">Pedir que la graben</span>' +
+            '<span style="display:block;font-size:11px;color:var(--sand-500);margin-top:2px;">Todavía no hay audio de esta aliyá</span></span>' +
+          '</button>') : '') +
       // Botón 1: Leer + karaoke
       '<button id="as-read-btn" style="width:100%;padding:16px 18px;border-radius:16px;background:var(--navy-800);color:white;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;margin-bottom:10px;box-shadow:0 4px 0 var(--navy-900);">' +
         '<div style="width:42px;height:42px;background:rgba(255,255,255,0.12);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;">' + (hasAudio ? '🎵' : '📖') + '</div>' +
@@ -8201,6 +8256,8 @@ function showAliyahActionSheet(parashaId, aliyah, verseCount, hasAudio){
   sheet.querySelector('#as-read-btn').addEventListener('click', function(){ sheet.remove(); renderParashaRead(parashaId, aliyah); });
   sheet.querySelector('#as-practice-btn').addEventListener('click', function(){ sheet.remove(); startParashaPractice(parashaId, aliyah); });
   sheet.querySelector('#as-timer-btn').addEventListener('click', function(){ sheet.remove(); startMiAliya(parashaId, aliyah); });
+  const reqBtn = sheet.querySelector('#as-request-btn');
+  if(reqBtn) reqBtn.addEventListener('click', function(){ sheet.remove(); requestAliyahRecording(parashaId, aliyah, reading); });
 }
 async function showAliyahSelect(parashaId){
   showView('aliyah-select');
@@ -8338,7 +8395,10 @@ async function showAliyahSelect(parashaId){
       '<div style="flex:1;min-width:0;">' +
         '<div style="display:flex;align-items:center;gap:6px;">' +
           '<span style="font-size:13px;font-weight:900;color:var(--navy-800);">Aliy\u00e1 ' + al.aliyah + '</span>' +
-          (hasAudio ? '<span style="font-size:10px;background:rgba(74,155,111,0.12);color:var(--success);border-radius:99px;padding:2px 7px;font-weight:700;">\ud83c\udfb5 Audio</span>' : '') +
+          (hasAudio ? '<span style="font-size:10px;background:rgba(74,155,111,0.12);color:var(--success);border-radius:99px;padding:2px 7px;font-weight:700;">\ud83c\udfb5 Grabada</span>'
+            : isRecordingRequested(parashaId, al.aliyah, al.reading)
+              ? '<span style="font-size:10px;background:rgba(30,58,138,0.08);color:#1E3A8A;border-radius:99px;padding:2px 7px;font-weight:700;">Pedido enviado \u2713</span>'
+              : '<span style="font-size:10px;background:var(--sand-200);color:var(--sand-500);border-radius:99px;padding:2px 7px;font-weight:700;">Sin grabaci\u00f3n</span>') +
         '</div>' +
         (al.reading ? '<div style="font-size:10px;color:#7c3aed;font-weight:600;margin-top:2px;">' + al.reading + '</div>' : '') +
         '<div style="font-size:11px;color:var(--sand-500);margin-top:2px;">' + verseCount + ' vers\u00edculo' + (verseCount!==1?'s':'') + ' \u00b7 ' + readableInAliyah + ' palabras legibles</div>' +
@@ -8352,7 +8412,7 @@ async function showAliyahSelect(parashaId){
     btn.addEventListener('mouseup',    () => { btn.style.transform=''; });
     btn.addEventListener('touchstart', () => { btn.style.transform='scale(0.98)'; btn.style.borderColor='var(--gold-400)'; }, {passive:true});
     btn.addEventListener('touchend',   () => { btn.style.transform=''; btn.style.borderColor='var(--sand-300)'; });
-    btn.addEventListener('click', () => showAliyahActionSheet(parashaId, al.aliyah, verseCount, hasAudio));
+    btn.addEventListener('click', () => showAliyahActionSheet(parashaId, al.aliyah, verseCount, hasAudio, al.reading));
     listEl.appendChild(btn);
   });
 
@@ -17021,6 +17081,10 @@ function activityLabel(ctx){
     parts.push('Práctica de Parashá ' + pName(ctx.parasha));
     if(ctx.aliyah) parts.push('Aliá ' + ctx.aliyah);
     if(ctx.mode) parts.push(EXERCISE_LABELS[ctx.mode] || ctx.mode);
+  } else if(ctx.kind === 'audio_request'){
+    parts.push('🎙 Pedido de grabación: ' + pName(ctx.parasha));
+    if(ctx.aliyah) parts.push('Aliá ' + ctx.aliyah);
+    if(ctx.reading) parts.push(ctx.reading);
   } else if(ctx.kind === 'parasha'){
     parts.push('Leyendo Parashá ' + pName(ctx.parasha));
     if(ctx.aliyah) parts.push('Aliá ' + ctx.aliyah);

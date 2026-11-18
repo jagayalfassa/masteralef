@@ -247,9 +247,56 @@ function tdSwitchTab(tab){
     btn.style.color           = active ? 'var(--navy-800)' : 'var(--sand-500)';
     btn.style.borderBottom    = active ? '2.5px solid var(--navy-800)' : '2.5px solid transparent';
   });
-  if(tab === 'students')  { tdRenderStudentList(); tdLoadInbox(); }
+  if(tab === 'students')  { tdRenderStudentList(); tdLoadInbox(); tdLoadRecQueue(); }
   else if(tab === 'week')   tdRenderWeeklyReport();
   else                      tdRenderClassSettings();
+}
+
+// ── Cola de pedidos de grabación (solo admin de grabaciones) ──
+// Agrupa pedidos por aliyá; oculta los que ya tienen audio del mismo rango.
+async function tdLoadRecQueue(){
+  if(!_sb || !_authUser) return;
+  try {
+    const { data: isAdmin } = await _sb.rpc('is_recording_admin');
+    if(isAdmin !== true) return;
+    const { data, error } = await _sb.rpc('recording_queue');
+    if(error){ dbg('[Teacher] rec queue error:', error.message); return; }
+    const pending = (data || []).filter(function(r){
+      const rg = typeof parseReadingRange === 'function' ? parseReadingRange(r.reading) : null;
+      return !(rg && typeof _audioEntryForRange === 'function' && _audioEntryForRange(r.parasha, rg));
+    });
+    tdRenderRecQueue(pending);
+  } catch(e){ dbg('[Teacher] tdLoadRecQueue:', e.message); }
+}
+
+function tdRenderRecQueue(rows){
+  const content = document.getElementById('td-content');
+  if(!content) return;
+  let box = document.getElementById('td-rec-queue');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'td-rec-queue';
+    content.parentNode.insertBefore(box, content);
+  }
+  if(!rows.length){ box.innerHTML = ''; return; }
+  const pName = function(id){ const p = (PARASHA_CATALOG || []).find(function(x){ return x.id === id; }); return p ? (p.esp || p.id) : id; };
+  box.innerHTML =
+    '<div style="font-size:12px;font-weight:800;color:var(--navy-800);margin:4px 0 8px;">' +
+      '🎙 Pedidos de grabación (' + rows.length + ')</div>' +
+    '<div style="background:white;border:1.5px solid var(--sand-300);border-radius:12px;padding:4px 12px;margin-bottom:12px;">' +
+    rows.map(function(r, i){
+      const when = new Date(r.last_at).toLocaleDateString('es-AR', { day:'numeric', month:'short' });
+      return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;' + (i ? 'border-top:1px solid var(--sand-200);' : '') + '">' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:13px;font-weight:800;color:var(--navy-800);">' + esc(pName(r.parasha)) + ' · Aliá ' + esc(String(r.aliyah)) +
+            (r.year ? ' <span style="font-weight:600;color:var(--sand-500);font-size:11px;">· año ' + r.year + '</span>' : '') + '</div>' +
+          '<div style="font-size:11px;color:#7c3aed;font-weight:600;">' + esc(r.reading || '') + ' · último pedido ' + when + '</div>' +
+        '</div>' +
+        '<div style="font-size:12px;font-weight:800;color:var(--navy-800);background:var(--sand-100);border-radius:99px;padding:3px 10px;white-space:nowrap;">' +
+          r.students + ' alumno' + (r.students == 1 ? '' : 's') + '</div>' +
+      '</div>';
+    }).join('') +
+    '</div>';
 }
 
 // ── Bandeja de consultas de alumnos (type='student') ──────────
