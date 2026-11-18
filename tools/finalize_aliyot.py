@@ -52,35 +52,33 @@ for r in good:  # por lugar (parashá, aliyá, rango) gana la grabación con mej
     if k not in best or r['score'] > best[k]:
         by[k], best[k] = r['file'], r['score']
 
-stats = {'con audio': 0, 'sin audio': 0, 'nuevas': 0, 'rutas quitadas': 0}
+stats = {'con audio': 0, 'sin audio': 0, 'rutas quitadas': 0}
+by_range = {}
+for (pp, al, rg), f in by.items():  # rango → mejor archivo (sin importar el n° de aliyá del nombre)
+    k = (pp, rg)
+    if k not in by_range or best[(pp, al, rg)] > best.get(('_', k), -1):
+        by_range[k] = f; best[('_', k)] = best[(pp, al, rg)]
 for p, pm in m.items():
-    book = next(iter(pm.values())).get('book', '')
-    t = kr.get(p, {}).get('t', [])
-    for y, blk in enumerate(t[:3], 1):
-        for al, rs in blk[1:]:
-            if not re.match(r'^(\d+|maf)$', str(al)):
-                continue
-            rg = parse_rng(rs)
-            if not rg:
-                continue
-            key = 'shabat_%d_%s' % (y, al)
-            e = pm.get(key)
-            if e is None and not by.get((p, str(al), rg)):
-                continue
-            if e is None:
-                e = pm[key] = {'type': 'shabat', 'year': y, 'aliyah': str(al)}; stats['nuevas'] += 1
-            a, b, c, d = rg
-            e.update({'reading': '%s %d:%d-%d:%d' % (book, a, b, c, d), 'date': blk[0], 'book': book,
-                      'ch_s': a, 'v_s': b, 'ch_e': c, 'v_e': d})
-            f = by.get((p, str(al), rg))
-            if f:
-                e['audio'] = 'audios/aliyot/' + f; stats['con audio'] += 1
-            else:
-                e.pop('audio', None); stats['sin audio'] += 1
-    # entradas no cubiertas arriba (weekday, etc.): quitar rutas a archivos que no existen
-    for k, e in pm.items():
-        if e.get('audio') and not os.path.exists(os.path.join(ROOT, e['audio'])):
-            e.pop('audio'); stats['rutas quitadas'] += 1
+    d = kr.get(p, {})
+    book = next(iter(pm.values())).get('book', '') if pm else ''
+    slots = {}
+    for y, al in d.get('ty', {}).items():          # trienal por año del ciclo (Hebcal)
+        for a, rs in al: slots['shabat_%s_%s' % (y, a)] = (int(y), a, rs, d.get('td') and next((dt for dt, yy in d['td'].items() if yy == int(y)), None))
+    for a, rs in d.get('f', []):                    # lectura completa
+        if re.match(r'^(\d+|maf)$', str(a)): slots['full_%s' % a] = (None, a, rs, None)
+    for i, rs in enumerate(d.get('w', []), 1):      # lunes y jueves
+        slots['weekday_%d' % i] = (None, str(i), rs, None)
+    # borrar entradas de shabat/full/weekday viejas y regenerarlas
+    for k in [k for k in pm if re.match(r'^(shabat|full|weekday)_', k)]: del pm[k]
+    for key, (y, a, rs, date) in slots.items():
+        rg = parse_rng(rs)
+        if not rg: continue
+        e = {'type': key.split('_')[0], 'year': y, 'aliyah': str(a), 'reading': '%s %d:%d-%d:%d' % ((book,) + rg),
+             'date': date or '', 'book': book, 'ch_s': rg[0], 'v_s': rg[1], 'ch_e': rg[2], 'v_e': rg[3]}
+        f = by_range.get((p, rg))
+        if f: e['audio'] = 'audios/aliyot/' + f; stats['con audio'] += 1
+        else: stats['sin audio'] += 1
+        pm[key] = e
 
 lines[li] = pre + json.dumps(m, ensure_ascii=False) + post
 open(os.path.join(ROOT, 'index.html'), 'w', encoding='utf-8').write('\n'.join(lines))
