@@ -18068,25 +18068,25 @@ if(VOICE_MODE) setTimeout(() => { _loadVoiceManifest(); }, 3000);
 // ── Mensajes con variación — evita repetición ─────────────────
 const COACH_MSGS = {
   // mensajes base
-  help:          ['Practiquemos más despacio 💪','Vamos paso a paso — sin apuro','Estoy con vos en esto 🤝','Cada error enseña algo'],
-  hint:          ['Tomáte tu tiempo 🤔','No hay apuro — pensalo bien','Mirá la guía de letras en el menú ↗'],
-  engage:        ['Una más y terminamos 💫','Ya casi llegás 🌟','No te vayas — quedan muy pocas','¡Aguantá un poco más!'],
+  help:          ['Estoy con vos en esto 🤝','Cada error enseña algo','No pasa nada — cada error es parte del proceso','Vamos juntos, sin presión'],
+  hint:          ['Mirá la guía de letras en el menú ↗','Si querés, escuchá el audio de nuevo 🔊'],
+  engage:        ['Una más y terminamos 💫','Ya casi llegás 🌟'],
   reward:        ['¡Excelente! ✨','¡Muy bien! Eso es 🔥','¡Seguís mejorando!','¡Impresionante precisión!'],
   streak:        ['🔥 Racha increíble','Imparable — seguí así','Nadie te para 🏆','Sos constante y eso vale todo'],
   level_up:      ['¡Subiste de nivel! 🎉','¡Sos cada vez más experto!','Nivel nuevo desbloqueado ⬆️'],
   // variantes por mood
-  frustrated:    ['Tranquilo, vamos de a uno 🤝','No pasa nada — cada error es parte del proceso','Respirá, lo estás haciendo bien 💙','Vamos juntos, sin presión'],
+  frustrated:    ['No pasa nada — cada error es parte del proceso','Vamos juntos, sin presión','Estoy con vos en esto 🤝','Cada error enseña algo'],
   confident:     ['¡Estás imparable! 🚀','Vamos por más — ¡podés!','¡Qué nivel! Seguí así 🔥','Estás en tu mejor momento'],
   // señales predictivas
-  fatigue:       ['¿Todo bien? Podés tomar un descanso 😌','Si sentís que tardás más, no hay problema — seguí a tu ritmo','Una pausa corta ayuda a recordar mejor'],
-  slowing:       ['Notás que tardás un poco más — es normal 👍','Tu cerebro está procesando — dale tiempo'],
+  fatigue:       ['Estoy con vos en esto 🤝'],
+  slowing:       ['Estoy con vos en esto 🤝'],
   // re-engagement después de ausencia
   welcome_back:  ['¡Qué bueno que volviste! Vamos a repasar 💪','¡Te extrañamos! Empecemos con un repaso rápido 🌟','¡Volviste! Tu progreso sigue guardado 📖','¡Hola de nuevo! Arranquemos suave 🤝'],
   // integración con misiones
   mission_push:  ['Estás muy cerca de terminar la misión 🎯','Te falta poco para completarla — ¡dale!'],
   mission_done:  ['🎯 ¡Misión del día completada! Excelente trabajo','¡Lo lograste! Misión cumplida 🏆'],
   // cambios de dificultad
-  diff_down:     ['Vamos a hacerlo un poco más simple por ahora 👌','Bajamos el ritmo para afianzar bien','Paso a paso — primero sólido, después rápido'],
+  diff_down:     ['Vamos a hacerlo un poco más simple por ahora 👌','Practiquemos para afianzar bien 💪'],
   diff_up:       ['¡Subimos el nivel! ¿Lo sentís? 💪','Estás listo para el siguiente desafío','Nivel nuevo — ¡vamos!'],
 };
 
@@ -18113,12 +18113,8 @@ function _pickMsg(type, avoidLast){
  */
 function getPredictiveSignals(ctx){
   if(!ctx) return null;
-  // Fatiga: el usuario está tardando más de lo normal
-  if(ctx.fatigueSignal)
-    return { type:'fatigue', mascot:'idle', priority: 10 };
-  // Desaceleración: velocidad bajando aunque no haya errores
-  if(ctx.slowingDown && ctx.errorRate < 0.3)
-    return { type:'slowing', mascot:'idle', priority: 8 };
+  // Fatiga / desaceleración: desactivado a propósito. Comentarle al alumno que "tarda más"
+  // lo pone nervioso (feedback de alumnos, nov 2026). El coach no opina sobre su velocidad.
   // Combinación peligrosa: errores + lentitud juntos (antes de que se frustre)
   if(ctx.errorRate > 0.35 && ctx.avgRecentMs > 5000 && ctx.totalLessons >= 2)
     return { type:'hint', mascot:'thinking', priority: 9 };
@@ -18316,6 +18312,7 @@ function showCoach(trigger, forced){
   const ctx      = getUserContext();
   const decision = forced || getCoachDecision(ctx);
   if(!decision) return;
+  if(typeof COACH_TYPES_OFF !== 'undefined' && COACH_TYPES_OFF.includes(decision.type)) return;
 
   // hint/engage/slowing hablan del ejercicio en curso: fuera de él no tienen sentido
   if(!forced && COACH_IN_EXERCISE_ONLY.includes(decision.type)) return;
@@ -18430,7 +18427,9 @@ function _cxSync(){
     _cx = { pool:state.pool, rushed:0, consec:0, times:[], used:false, pending:false };
 }
 
+const COACH_TYPES_OFF = ['slowing', 'fatigue']; // nunca comentar velocidad ni cansancio
 function _cxFire(type, mascot, delay){
+  if(COACH_TYPES_OFF.includes(type)) return;
   _cx.pending = true;
   setTimeout(() => {
     try { showCoach('exercise', { type: type, mascot: mascot }); } catch(e){}
@@ -18456,8 +18455,8 @@ function coachOnAnswer(ok){
       if(state.challenge_first_try && prev.length >= 3){
         const s   = prev.sort((a,b) => a - b);
         const med = s[Math.floor(s.length / 2)];
-        if(ms > CX_SLOW_MIN_MS && ms > med * CX_SLOW_FACTOR)
-          return _cxFire('slowing', 'idle', 0);
+        // (desactivado: no se comenta la velocidad del alumno)
+        void med;
       }
     } else {
       _cx.consec++;
