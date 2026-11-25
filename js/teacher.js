@@ -220,19 +220,37 @@ function tdActivityStatus(student){
 }
 
 // ── Calcular % de progreso ────────────────────────────────────
+// Avance parcial por palabra de las series base: dominada 1, en repaso 2/3, aprendiendo 1/3.
+// (Antes contaba solo 'mastered' → el primer día de trabajo siempre daba 0%.)
+const TD_WORD_WEIGHT = { mastered: 1, review: 2/3, learning: 1/3 };
 function tdCalcProgress(student){
   const wordStates = student.prog?.extra_data?.word_states;
   if(!wordStates || !Object.keys(wordStates).length) return 0;
-  let total = 0, mastered = 0;
+  let total = 0, score = 0;
   Object.entries(ALL_DATA).forEach(([seriesKey, serie]) => {
     if(serie.type !== 'BASE') return;
     (serie.words || []).forEach((w, wordIdx) => {
       total++;
       const ws = wordStates[seriesKey + '_' + wordIdx];
-      if(ws && ws.status === 'mastered') mastered++;
+      if(ws) score += TD_WORD_WEIGHT[ws.status] || 0;
     });
   });
-  return total > 0 ? Math.round(mastered / total * 100) : 0;
+  const pct = total > 0 ? Math.round(score / total * 100) : 0;
+  return (pct === 0 && score > 0) ? 1 : pct; // algo de trabajo nunca se muestra como 0%
+}
+
+// Resumen legible del trabajo: palabras practicadas y lecciones hechas
+function tdWorkSummary(student){
+  const ws = student.prog?.extra_data?.word_states || {};
+  const words = Object.values(ws).filter(w => w && w.status && w.status !== 'new').length;
+  const mastered = Object.values(ws).filter(w => w && w.status === 'mastered').length;
+  const lessons = Object.keys(student.prog?.progress || {}).length;
+  if(!words && !lessons) return '';
+  const parts = [];
+  if(words) parts.push(words + ' palabra' + (words === 1 ? '' : 's') + ' practicada' + (words === 1 ? '' : 's') +
+                       (mastered ? ' (' + mastered + ' dominada' + (mastered === 1 ? '' : 's') + ')' : ''));
+  if(lessons) parts.push(lessons + ' lecci' + (lessons === 1 ? 'ón' : 'ones'));
+  return parts.join(' · ');
 }
 
 // ── Tabs ──────────────────────────────────────────────────────
@@ -465,6 +483,7 @@ function tdRenderStudentList(){
             'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(name) +
             ' <span data-unread-for="' + s.id + '" style="display:none;font-size:10px;font-weight:800;color:white;background:#DC2626;border-radius:99px;padding:1px 7px;vertical-align:middle;"></span></div>' +
           '<div style="font-size:11px;color:var(--sand-500);margin-top:2px;">Última sesión: ' + lastDate + '</div>' +
+          (tdWorkSummary(s) ? '<div style="font-size:11px;color:var(--navy-700);font-weight:600;margin-top:2px;">' + esc(tdWorkSummary(s)) + '</div>' : '') +
           '<div style="margin-top:6px;background:var(--sand-200);height:5px;border-radius:99px;overflow:hidden;">' +
             '<div style="height:100%;width:' + pct + '%;background:' + (pct >= 70 ? 'var(--success)' : pct >= 30 ? 'var(--gold-500)' : 'var(--sand-400)') + ';border-radius:99px;transition:width .4s;"></div>' +
           '</div>' +
@@ -638,6 +657,7 @@ function tdOpenStudent(studentId){
           <div style="font-size:10px;color:var(--sand-500);text-transform:uppercase;font-weight:700;margin-top:2px;">${x.l}</div>
         </div>`).join('')}
     </div>
+    ${tdWorkSummary(student) ? `<div style="text-align:center;font-size:12px;color:var(--navy-700);font-weight:600;margin-top:8px;">${esc(tdWorkSummary(student))}</div>` : ''}
 
     <!-- Última sesión -->
     <div style="background:var(--sand-100);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--navy-700);">
