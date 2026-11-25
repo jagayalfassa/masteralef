@@ -3,7 +3,7 @@
 // ║  Para actualizar: cambiar CACHE_VERSION abajo                ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-const CACHE_VERSION = 'v17';
+const CACHE_VERSION = 'v18';
 const CACHE_STATIC  = `alefmaster-static-${CACHE_VERSION}`;
 const CACHE_DYNAMIC = `alefmaster-dynamic-${CACHE_VERSION}`;
 
@@ -79,6 +79,13 @@ self.addEventListener('fetch', event => {
   // CDN externos (Tailwind, confetti) → Cache First
   if(url.hostname.includes('cdn.') || url.hostname.includes('jsdelivr')){
     event.respondWith(cacheFirst(request, CACHE_STATIC));
+    return;
+  }
+
+  // JS propio de la app (p.ej. js/teacher.js) → Network First: los cambios llegan sin depender
+  // de subir CACHE_VERSION; sin conexión, sale de la caché.
+  if(url.origin === self.location.origin && url.pathname.endsWith('.js') && !url.pathname.endsWith('/sw.js')){
+    event.respondWith(networkFirst(request));
     return;
   }
 
