@@ -1648,65 +1648,45 @@ to   { transform: translateY(0);    opacity: 1; }
   <button id="sr-skip-btn" onclick="srSkip()" style="margin-top:16px;padding:12px 24px;border-radius:12px;font-size:13px;font-weight:600;color:var(--sand-400);background:transparent;border:none;cursor:pointer;">Saltar →</button>
 </div>
 
-<div id="view-celebration" class="hidden w-full max-w-sm mx-auto flex flex-col items-center text-center px-4 overflow-y-auto custom-scroll" style="display:none;min-height:calc(100vh - 60px);padding-top:32px;padding-bottom:40px;">
+<div id="view-celebration" class="hidden w-full max-w-sm mx-auto flex flex-col items-center text-center px-4" style="display:none;min-height:calc(100vh - 60px);padding-top:24px;">
 
-  <!-- Rashi celebrando -->
-  <div style="text-align:center;margin-bottom:4px;animation:fadeSlideUp .3s ease both;">
-    <img src="img/rashi-idle.png" alt="Rashi" class="rashi-mascot" style="height:90px;width:auto;object-fit:contain;filter:drop-shadow(0 4px 16px rgba(13,31,53,0.15));">
+  <!-- Contenido: solo lo esencial (resultado + progreso). Los botones quedan fijos abajo. -->
+  <div style="flex:1;width:100%;display:flex;flex-direction:column;align-items:center;padding-bottom:16px;">
+    <img src="img/rashi-idle.png" alt="Rashi" class="rashi-mascot" style="height:72px;width:auto;object-fit:contain;margin-bottom:4px;filter:drop-shadow(0 4px 16px rgba(13,31,53,0.15));">
+    <div id="cel-stars" style="font-size:2.4rem;letter-spacing:0.1em;margin-bottom:6px;"></div>
+    <h2 id="cel-title" style="font-family:'Fraunces',serif;font-size:1.6rem;font-weight:900;color:var(--navy-900);line-height:1.15;margin-bottom:4px;"></h2>
+    <p id="cel-subtitle" style="font-size:14px;color:var(--sand-500);margin-bottom:12px;"></p>
+    <span id="cel-shekels" style="display:inline-block;font-size:1.3rem;font-weight:900;color:#C4963C;font-family:'Fraunces',serif;background:#FFF7E6;border:1.5px solid var(--gold-400);border-radius:99px;padding:4px 16px;margin-bottom:16px;"></span>
+
+    <div style="width:100%;max-width:300px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span id="cel-progress-label" style="font-size:11px;font-weight:600;color:var(--sand-500);text-transform:uppercase;letter-spacing:0.06em;"></span>
+        <span id="cel-progress-pct" style="font-size:12px;font-weight:900;color:var(--navy-700);font-family:'Fraunces',serif;"></span>
+      </div>
+      <div style="height:10px;background:var(--sand-300);border-radius:99px;overflow:hidden;">
+        <div id="cel-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold-500),var(--gold-400));border-radius:99px;transition:width .8s ease .5s;"></div>
+      </div>
+    </div>
+
+    <div id="cel-extras" style="width:100%;max-width:300px;"></div>
+
+    <!-- Palabras de la lección: plegadas (se abren solo si el alumno quiere) -->
+    <button id="cel-words-toggle" type="button" style="background:none;border:none;color:var(--navy-700);font-size:13px;font-weight:700;cursor:pointer;padding:6px;">👀 Ver las palabras de la lección</button>
+    <p id="cel-words-label" style="display:none;"></p>
+    <div id="cel-word-cards" style="display:none;flex-direction:column;gap:8px;width:100%;max-width:300px;margin-top:8px;"></div>
+
+    <!-- Datos que el código sigue escribiendo pero ya no se muestran -->
+    <span id="cel-level" style="display:none;"></span><span id="cel-words" style="display:none;"></span><span id="cel-letters" style="display:none;"></span><span id="cel-series" style="display:none;"></span>
   </div>
 
-  <!-- Stars — animated in -->
-  <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:8px;">
-      <span id="cel-shekels" style="font-size:1.6rem;font-weight:900;color:#C4963C;font-family:'Fraunces',serif;"></span>
-      <span id="cel-level" style="font-size:12px;font-weight:700;color:var(--sand-500);"></span>
-    </div>
-    <div id="cel-stars" style="font-size:2.8rem;letter-spacing:0.1em;margin-bottom:12px;animation:fadeSlideUp .4s ease .1s both;"></div>
-
-  <h2 id="cel-title" style="font-family:'Fraunces',serif;font-size:1.75rem;font-weight:900;color:var(--navy-900);line-height:1.15;margin-bottom:6px;animation:fadeSlideUp .4s ease .2s both;"></h2>
-  <p id="cel-subtitle" style="font-size:14px;color:var(--sand-500);margin-bottom:24px;animation:fadeSlideUp .4s ease .3s both;"></p>
-
-  <!-- Stats cards -->
-  <div style="display:flex;gap:10px;width:100%;max-width:300px;margin-bottom:20px;animation:fadeSlideUp .4s ease .35s both;">
-    <div class="card" style="flex:1;padding:14px 8px;text-align:center;">
-      <div style="font-size:1.5rem;margin-bottom:4px;">📖</div>
-      <div id="cel-words" style="font-size:1.4rem;font-weight:900;color:var(--navy-800);font-family:'Fraunces',serif;"></div>
-      <div style="font-size:11px;font-weight:600;color:var(--sand-400);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">palabras</div>
-    </div>
-    <div class="card" style="flex:1;padding:14px 8px;text-align:center;">
-      <div style="font-size:1.5rem;margin-bottom:4px;">🔤</div>
-      <div id="cel-letters" style="font-size:1.4rem;font-weight:900;color:var(--navy-800);font-family:'Fraunces',serif;"></div>
-      <div style="font-size:11px;font-weight:600;color:var(--sand-400);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">letras</div>
-    </div>
-    <div class="card" style="flex:1;padding:14px 8px;text-align:center;">
-      <div style="font-size:1.5rem;margin-bottom:4px;">🏆</div>
-      <div id="cel-series" style="font-size:1.4rem;font-weight:900;color:var(--success);font-family:'Fraunces',serif;"></div>
-      <div style="font-size:11px;font-weight:600;color:var(--sand-400);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">series</div>
-    </div>
+  <!-- Acciones: siempre a la vista -->
+  <div id="cel-actions" style="position:sticky;bottom:0;width:100%;max-width:320px;display:flex;flex-direction:column;gap:10px;padding:14px 0 calc(16px + env(safe-area-inset-bottom));background:linear-gradient(to bottom, rgba(0,0,0,0), var(--sand-200) 22%);">
+    <button id="cel-next-btn" class="btn-primary" style="min-height:58px;font-size:16px;">Continuar →</button>
+    <button id="cel-home-btn" style="width:100%;padding:14px;border-radius:16px;font-weight:700;font-size:15px;background:white;color:var(--navy-700);border:1.5px solid var(--sand-300);min-height:52px;">🏠 Volver al inicio</button>
+    <button id="cel-review-btn" style="display:none;background:none;border:none;color:#C0392B;font-size:13px;font-weight:700;cursor:pointer;padding:4px;">🔁 Repasar las palabras difíciles</button>
   </div>
-
-  <!-- Progress bar -->
-  <div style="width:100%;max-width:300px;margin-bottom:24px;animation:fadeSlideUp .4s ease .4s both;">
-    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-      <span id="cel-progress-label" style="font-size:11px;font-weight:600;color:var(--sand-400);text-transform:uppercase;letter-spacing:0.06em;"></span>
-      <span id="cel-progress-pct" style="font-size:12px;font-weight:900;color:var(--navy-700);font-family:'Fraunces',serif;"></span>
-    </div>
-    <div style="height:10px;background:var(--sand-200);border-radius:99px;overflow:hidden;">
-      <div id="cel-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold-500),var(--gold-400));border-radius:99px;transition:width .8s ease .5s;"></div>
-    </div>
-  </div>
-
-  <!-- Word cards -->
-  <p id="cel-words-label" style="font-size:11px;font-weight:700;color:var(--sand-400);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;animation:fadeSlideUp .4s ease .45s both;">palabras de esta lección</p>
-  <div id="cel-word-cards" style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:300px;margin-bottom:24px;animation:fadeSlideUp .4s ease .5s both;"></div>
-
-  <!-- Action buttons -->
-  <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;animation:fadeSlideUp .4s ease .55s both;">
-    <button id="cel-next-btn" class="btn-primary" style="display:none;">Siguiente lección →</button>
-    <button id="cel-review-btn" style="display:none;width:100%;padding:16px;border-radius:16px;font-weight:700;font-size:15px;background:#FEF2F2;color:#C0392B;border:2px solid #FECACA;min-height:54px;">🔁 Repasar palabras difíciles</button>
-    <button id="cel-home-btn" style="width:100%;padding:16px;border-radius:16px;font-weight:700;font-size:15px;background:var(--sand-200);color:var(--navy-700);border:1.5px solid var(--sand-300);min-height:54px;">Volver al inicio</button>
-  </div>
-
 </div>
+
 
 
 <!-- ═══════════════════════════════════════════════════════ -->
@@ -3205,6 +3185,7 @@ function showNearMissToast(diff, nextLevel){
   setTimeout(() => {
     const celView = document.getElementById('view-celebration');
     if(!celView || celView.classList.contains('hidden')) return;
+    return; // fin de lección simplificado: sin panel extra (el nivel ya se ve en el home)
     let el = document.getElementById('near-miss-panel');
     if(!el){
       el = document.createElement('div');
@@ -9772,15 +9753,20 @@ function _finishFlash(){
             <div style="font-size:10px;color:var(--sand-500);font-weight:600;">experiencia</div>
           </div>
         </div>
+        ${'<button id="flash-next" style="width:100%;padding:14px;border-radius:14px;background:var(--navy-800);color:white;border:none;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:8px;">' + esc(getNextStep() ? ('Siguiente: ' + getNextStep().label + ' →') : 'Continuar →') + '</button>'}
         <button id="flash-done" style="width:100%;padding:13px;border-radius:14px;
-          background:var(--navy-800);color:white;border:none;font-size:14px;
-          font-weight:700;cursor:pointer;box-shadow:0 3px 0 var(--navy-900);">
-          Listo
+          background:white;color:var(--navy-700);border:1.5px solid var(--sand-300);font-size:14px;
+          font-weight:700;cursor:pointer;">
+          🏠 Volver al inicio
         </button>
       </div>`;
     card.querySelector('#flash-done').addEventListener('click', () => {
       document.getElementById('flash-modal')?.remove();
       renderHome(); // refrescar home para misiones
+    });
+    card.querySelector('#flash-next')?.addEventListener('click', () => {
+      document.getElementById('flash-modal')?.remove();
+      goToNextStep();
     });
   }
 }
@@ -12313,7 +12299,7 @@ function _runCelebration(){
       });
       if(_mw.length > 0) _sidurMatches.push({ title: t.esp, count: _mw.length });
     });
-    if(_sidurMatches.length > 0){
+    if(false && _sidurMatches.length > 0){ // ocultado: pantalla de fin de lección simplificada
       var _shEl = document.createElement('div');
       _shEl.style.cssText = 'width:100%;max-width:300px;margin:12px auto 0;background:rgba(168,85,247,0.06);border:1.5px solid rgba(168,85,247,0.2);border-radius:14px;padding:12px 16px;text-align:center;';
       _shEl.innerHTML = '<div style="font-size:10px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">📜 ¿Sabías que...?</div>' +
@@ -12326,11 +12312,23 @@ function _runCelebration(){
   }
   const nextBtn=document.getElementById("cel-next-btn");
   const homeBtn=document.getElementById("cel-home-btn");
+  nextBtn.style.display="block";
   if(nextLessonIdx!==-1){
-    nextBtn.style.display="block";
     nextBtn.innerText=`Siguiente lección (${nextLessonIdx+1} de ${totalLessons}) →`;
   } else {
-    nextBtn.style.display="none";
+    const _ns = getNextStep();
+    nextBtn.innerText = _ns ? ('Siguiente: ' + _ns.label + ' →') : 'Continuar →';
+  }
+  // Palabras plegadas
+  const _wt = document.getElementById('cel-words-toggle');
+  if(_wt){
+    cardsEl.style.display = 'none';
+    _wt.textContent = '👀 Ver las palabras ' + (isSeriesDone ? 'de la serie' : 'de la lección') + ' (' + wordsToShowUniq.length + ')';
+    _wt.onclick = function(){
+      const open = cardsEl.style.display !== 'none';
+      cardsEl.style.display = open ? 'none' : 'flex';
+      _wt.textContent = (open ? '👀 Ver' : '🙈 Ocultar') + ' las palabras ' + (isSeriesDone ? 'de la serie' : 'de la lección') + ' (' + wordsToShowUniq.length + ')';
+    };
   }
 
   // review button — show if series has hard words
@@ -12347,14 +12345,14 @@ function _runCelebration(){
     const newAchs = ACHIEVEMENTS.filter(a =>
       unlocked.includes(a.id) && ACHIEVEMENTS.indexOf(a) >= seenCount
     );
-    if(newAchs.length > 0){
+    if(false && newAchs.length > 0){ // el logro ya se anuncia con su propio aviso; no repetir en esta pantalla
       let el = document.getElementById('cel-new-achievements');
       if(!el){
         el = document.createElement('div');
         el.id = 'cel-new-achievements';
         el.style.cssText = 'width:100%;max-width:300px;margin:0 auto 16px;display:flex;flex-direction:column;gap:6px;';
-        const buttonsArea = document.getElementById('cel-next-btn')?.parentElement;
-        if(buttonsArea) buttonsArea.insertAdjacentElement('beforebegin', el);
+        const extras = document.getElementById('cel-extras');
+        if(extras) extras.appendChild(el);
       }
       el.innerHTML = `
         <div style="font-size:10px;font-weight:700;color:var(--gold-600);text-transform:uppercase;letter-spacing:0.1em;text-align:center;margin-bottom:4px;">✦ Logros desbloqueados ✦</div>
@@ -13079,17 +13077,26 @@ function _endQuickMode(){
           <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;margin-top:2px;">${label}</div>
         </div>`).join('')}
     </div>
-    <button id="quick-done-btn" style="background:linear-gradient(135deg,#D4A843,#A67C28);
-      color:white;border:none;border-radius:16px;padding:16px 40px;
+    <button id="quick-next-btn" style="background:linear-gradient(135deg,#D4A843,#A67C28);
+      color:white;border:none;border-radius:16px;padding:16px 28px;margin-bottom:10px;
       font-size:16px;font-weight:900;font-family:'Fraunces',serif;
       cursor:pointer;box-shadow:0 4px 0 #8a6420;">
-      Volver al inicio
+      ${esc(getNextStep() ? ('Seguir: ' + getNextStep().label + ' →') : 'Seguir practicando →')}
+    </button>
+    <button id="quick-done-btn" style="background:rgba(255,255,255,0.12);
+      color:white;border:1.5px solid rgba(255,255,255,0.3);border-radius:16px;padding:14px 28px;
+      font-size:15px;font-weight:700;cursor:pointer;">
+      🏠 Volver al inicio
     </button>`;
 
   document.body.appendChild(summary);
   summary.querySelector('#quick-done-btn').addEventListener('click', () => {
     summary.remove();
     renderHome();
+  });
+  summary.querySelector('#quick-next-btn').addEventListener('click', () => {
+    summary.remove();
+    goToNextStep();
   });
 
   if(typeof confetti !== 'undefined')
@@ -13638,8 +13645,23 @@ function goNextLesson(){
   const key=state.activeSeries;
   const lessons=getLessons(key);
   const nextIdx=lessons.findIndex((_,i)=>i>state.activeLesson&&!lessonDone(key,i));
-  if(nextIdx!==-1){ startSeries(key,nextIdx); }
-  else exitGame();
+  if(nextIdx!==-1){ startSeries(key,nextIdx); return; }
+  goToNextStep();
+}
+
+// Ejecuta el próximo paso recomendado (el mismo que la tarjeta "Continuar hoy" del home)
+function goToNextStep(){
+  const ns = getNextStep();
+  if(!ns){ exitGame(); return; }
+  if(ns.isParasha && ns.parashaId){
+    (async()=>{
+      showToast('Cargando...','cyan');
+      const ok = await startParashaSession(ns.parashaId, null);
+      if(ok) showAliyahSelect(ns.parashaId);
+    })();
+  } else {
+    startSeries(ns.key, ns.lessonIdx);
+  }
 }
 
 function startReview(){
