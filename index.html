@@ -13837,172 +13837,195 @@ function cleanupLocalStorage(){
 // Genera un código compacto con todo el progreso para backup manual
 // Permite restaurar en otro dispositivo sin necesidad de servidor
 
-function exportProgress(){
-  const backup = {
-    v:  2,  // versión del esquema
-    ts: Date.now(),
-    // Todos los keys de progreso
-    prog:  localStorage.getItem('heb_pro_v19_shekels'),
-    shk:   localStorage.getItem('heb_shekels'),
-    str:   localStorage.getItem('heb_streak'),
-    srs:   localStorage.getItem('heb_srs_reviews'),
-    ws:    localStorage.getItem('heb_word_states_v1'),
-    ach:   localStorage.getItem('heb_achievements_v1'),
-    bmd:   localStorage.getItem('heb_bm_date'),
-    bmp:   localStorage.getItem('heb_bm_parasha'),
-    pp:    localStorage.getItem('heb_parasha_progress_v1'),
-    dq:    localStorage.getItem('heb_daily_quests'),
-    dqd:   localStorage.getItem('heb_daily_quest_date'),
-    fm:    localStorage.getItem('heb_flash_memory'),
-    mat:   localStorage.getItem('heb_mi_aliya_times'),
-    ss:    localStorage.getItem('heb_streak_shield'),
-    tut:   localStorage.getItem('heb_tutorials_seen'),
-  };
-  // Comprimir con base64
-  const json = JSON.stringify(backup);
-  const b64  = btoa(unescape(encodeURIComponent(json)));
-  // Tomar los primeros 200 chars del código (suficiente para identificar)
-  return b64;
+// Claves de localStorage que forman el progreso completo (respaldo, código corto y nube)
+const BACKUP_KEYS = {
+  prog: 'heb_pro_v19_shekels', shk: 'heb_shekels', str: 'heb_streak', srs: 'heb_srs_reviews',
+  ws: 'heb_word_states_v1', ach: 'heb_achievements_v1', bmd: 'heb_bm_date', bmp: 'heb_bm_parasha',
+  pp: 'heb_parasha_progress_v1', dq: 'heb_daily_quests', dqd: 'heb_daily_quest_date',
+  fm: 'heb_flash_memory', mat: 'heb_mi_aliya_times', ss: 'heb_streak_shield', tut: 'heb_tutorials_seen',
+  sed: 'heb_series_ever_done', ms: 'heb_mission_state', wc: 'heb_weekly_challenges',
+  lvl: 'heb_user_level', rt: 'heb_reading_type', sel: 'heb_sel_shabat', rr: 'heb_rec_requests'
+};
+function buildBackupObject(){
+  const o = { v: 3, ts: Date.now() };
+  Object.entries(BACKUP_KEYS).forEach(([k, key]) => {
+    const val = localStorage.getItem(key);
+    if(val !== null) o[k] = val;
+  });
+  return o;
+}
+// skip: claves que no se pisan (p.ej. al restaurar desde la nube, que maneja progress/shekels aparte)
+function applyBackupObject(o, skip){
+  if(!o || !o.v || !o.ts) return false;
+  Object.entries(BACKUP_KEYS).forEach(([k, key]) => {
+    if(skip && skip.indexOf(k) >= 0) return;
+    if(o[k] !== null && o[k] !== undefined) localStorage.setItem(key, o[k]);
+  });
+  localStorage.setItem('heb_welcomed', '1');
+  return true;
 }
 
+// Compatibilidad: código largo (base64 del respaldo), como lo generaban versiones anteriores
+function exportProgress(){
+  return btoa(unescape(encodeURIComponent(JSON.stringify(buildBackupObject()))));
+}
 function importProgress(code){
   try {
-    const json   = decodeURIComponent(escape(atob(code.trim())));
-    const backup = JSON.parse(json);
-    if(!backup.v || !backup.ts) throw new Error('Formato inválido');
+    return applyBackupObject(JSON.parse(decodeURIComponent(escape(atob(code.trim())))));
+  } catch(e){ dbg('importProgress error:', e.message); return false; }
+}
 
-    // Restaurar todas las keys
-    const keys = {
-      'heb_pro_v19_shekels': backup.prog,
-      'heb_shekels':         backup.shk,
-      'heb_streak':          backup.str,
-      'heb_srs_reviews':     backup.srs,
-      'heb_word_states_v1':  backup.ws,
-      'heb_achievements_v1': backup.ach,
-      'heb_bm_date':         backup.bmd,
-      'heb_bm_parasha':      backup.bmp,
-      'heb_parasha_progress_v1': backup.pp,
-      'heb_daily_quests':    backup.dq,
-      'heb_daily_quest_date':backup.dqd,
-      'heb_flash_memory':    backup.fm,
-      'heb_mi_aliya_times':  backup.mat,
-      'heb_streak_shield':   backup.ss,
-      'heb_tutorials_seen':  backup.tut,
-      'heb_welcomed':        '1',
-    };
-    Object.entries(keys).forEach(([k,v]) => {
-      if(v !== null && v !== undefined) localStorage.setItem(k, v);
-    });
-    return true;
-  } catch(e) {
-    dbg('importProgress error:', e.message);
-    return false;
+const SHORT_CODE_RE = /^[A-Za-z0-9]{3}[-\s]?[A-Za-z0-9]{3}$/;
+function _fmtShortCode(c){ return c.slice(0, 3) + '-' + c.slice(3); }
+
+async function createShortBackupCode(){
+  if(!_sb) throw new Error('sin conexión');
+  const { data, error } = await _sb.rpc('create_progress_backup', { p_data: buildBackupObject() });
+  if(error || !data || data.ok !== true) throw new Error(error?.message || data?.reason || 'error');
+  return data.code;
+}
+async function restoreFromShortCode(code){
+  if(!_sb) throw new Error('sin conexión');
+  const { data, error } = await _sb.rpc('get_progress_backup', { p_code: code });
+  if(error) throw new Error(error.message);
+  return data ? applyBackupObject(data) : false;
+}
+function _copyText(text){
+  if(navigator.clipboard?.writeText){
+    return navigator.clipboard.writeText(text).then(() => showToast('¡Copiado!', 'green'));
   }
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  document.execCommand('copy'); ta.remove(); showToast('¡Copiado!', 'green');
+}
+function _downloadBackupFile(){
+  const blob = new Blob([JSON.stringify(buildBackupObject())], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'alefmaster-progreso-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function _afterRestore(modal){
+  modal.remove();
+  showToast('¡Progreso restaurado!', 'green');
+  trackEvent('progress_restored', {});
+  setTimeout(() => location.reload(), 1200);
 }
 
 function showExportModal(){
   const existing = document.getElementById('export-modal');
   if(existing){ existing.remove(); return; }
+  const logged = !!(_sb && _authUser);
+  const lastSync = parseInt(localStorage.getItem('heb_last_cloud_sync') || '0');
+  const lastTxt = lastSync
+    ? new Date(lastSync).toLocaleString('es', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })
+    : 'todavía no';
 
-  const code  = exportProgress();
+  const btn = (id, bg, color, border, label) =>
+    '<button id="' + id + '" style="width:100%;padding:13px;border-radius:14px;background:' + bg + ';color:' + color +
+    ';border:' + border + ';font-size:14px;font-weight:800;cursor:pointer;margin-bottom:10px;">' + label + '</button>';
+
+  const top = logged
+    ? '<div style="background:rgba(74,155,111,0.10);border:1.5px solid rgba(74,155,111,0.35);border-radius:14px;padding:14px;margin-bottom:12px;">' +
+        '<div style="font-size:14px;font-weight:800;color:var(--success);">✓ Tu progreso se guarda solo en tu cuenta</div>' +
+        '<div style="font-size:12px;color:var(--sand-500);margin-top:4px;">' + esc(_authUser.email || '') + ' · último guardado: <span id="exp-last">' + esc(lastTxt) + '</span></div>' +
+        '<div style="font-size:12px;color:var(--navy-700);margin-top:6px;">En otro dispositivo, entrá con la misma cuenta y se recupera todo.</div>' +
+      '</div>' +
+      btn('exp-sync-now', 'var(--navy-800)', 'white', 'none', '☁️ Guardar ahora')
+    : '<p style="font-size:13px;color:var(--sand-500);margin:0 0 12px;line-height:1.5;">Para no perder tu progreso si cambiás de celular o se borra el navegador:</p>' +
+      btn('exp-account', 'var(--navy-800)', 'white', 'none', '👤 Crear cuenta o ingresar (recomendado)') +
+      btn('exp-short', 'white', 'var(--navy-800)', '1.5px solid var(--navy-700)', '🔑 Generar código corto') +
+      '<div id="exp-code-box" style="display:none;text-align:center;background:var(--sand-100);border-radius:14px;padding:14px;margin-bottom:10px;">' +
+        '<div style="font-size:11px;color:var(--sand-500);font-weight:700;">Tu código (vale 90 días)</div>' +
+        '<div id="exp-code" style="font-family:monospace;font-size:2rem;font-weight:900;letter-spacing:0.12em;color:var(--navy-800);margin:6px 0;"></div>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button id="exp-code-copy" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--sand-300);background:white;font-weight:700;cursor:pointer;">📋 Copiar</button>' +
+          '<button id="exp-code-share" style="flex:1;padding:10px;border-radius:10px;border:none;background:#25D366;color:white;font-weight:700;cursor:pointer;">📤 Enviar</button>' +
+        '</div>' +
+      '</div>';
+
   const modal = document.createElement('div');
   modal.id = 'export-modal';
-  modal.style.cssText = [
-    'position:fixed;inset:0;z-index:9400',
-    'background:rgba(13,31,53,0.8)',
-    'display:flex;align-items:flex-end;justify-content:center',
-    'animation:fadeIn .2s ease'
-  ].join(';');
-
-  modal.innerHTML = `
-    <div style="background:white;border-radius:24px 24px 0 0;padding:24px 20px 32px;
-                width:100%;max-width:420px;animation:slideUp .3s cubic-bezier(.34,1.56,.64,1);">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h3 style="font-family:'Fraunces',serif;font-size:1.1rem;font-weight:900;color:var(--navy-800);">
-          💾 Guardar progreso
-        </h3>
-        <button id="exp-close" style="background:var(--sand-200);border:none;border-radius:50%;
-          width:30px;height:30px;font-size:14px;cursor:pointer;">✕</button>
-      </div>
-
-      <p style="font-size:13px;color:var(--sand-500);margin-bottom:16px;line-height:1.5;">
-        Guardá tu progreso para no perderlo si cambiás de dispositivo o limpiás el navegador.
-      </p>
-
-      <!-- Opción primaria: compartir por WhatsApp/email -->
-      <button id="exp-share" style="width:100%;padding:14px;border-radius:14px;
-        background:linear-gradient(135deg,#25D366,#1DA851);color:white;border:none;
-        font-size:14px;font-weight:900;cursor:pointer;margin-bottom:10px;
-        display:flex;align-items:center;justify-content:center;gap:8px;">
-        📤 Enviarme el código por WhatsApp / Email
-      </button>
-
-      <!-- Opción secundaria: copiar -->
-      <button id="exp-copy" style="width:100%;padding:12px;border-radius:14px;
-        background:var(--sand-200);color:var(--navy-700);border:1.5px solid var(--sand-300);
-        font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px;">
-        📋 Copiar código (para guardarlo manualmente)
-      </button>
-
-      <div style="border-top:1.5px solid var(--sand-200);padding-top:14px;">
-        <p style="font-size:12px;font-weight:700;color:var(--sand-500);margin-bottom:8px;">
-          ¿Tenés un código guardado? Restaurar progreso:
-        </p>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="exp-import-input" placeholder="Pegá tu código aquí..."
-            style="flex:1;padding:10px 12px;border:1.5px solid var(--sand-300);
-                   border-radius:10px;font-size:13px;box-sizing:border-box;outline:none;"
-            onfocus="this.style.borderColor='var(--navy-600)'"
-            onblur="this.style.borderColor='var(--sand-300)'"/>
-          <button id="exp-import-btn" style="padding:10px 14px;border-radius:10px;
-            background:var(--navy-800);color:white;border:none;font-size:13px;
-            font-weight:700;cursor:pointer;white-space:nowrap;">Restaurar</button>
-        </div>
-      </div>
-    </div>`;
-
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9400;background:rgba(13,31,53,0.8);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease';
+  modal.innerHTML =
+    '<div style="background:white;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;animation:slideUp .3s cubic-bezier(.34,1.56,.64,1);">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">' +
+        '<h3 style="font-family:\'Fraunces\',serif;font-size:1.1rem;font-weight:900;color:var(--navy-800);margin:0;">💾 Guardar progreso</h3>' +
+        '<button id="exp-close" style="background:var(--sand-200);border:none;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;">✕</button>' +
+      '</div>' + top +
+      '<button id="exp-file" style="width:100%;padding:10px;border-radius:12px;background:none;border:none;color:var(--sand-500);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:6px;">⬇️ Descargar archivo de respaldo</button>' +
+      '<div style="border-top:1.5px solid var(--sand-200);padding-top:14px;">' +
+        '<p style="font-size:12px;font-weight:700;color:var(--sand-500);margin:0 0 8px;">¿Tenés un código o un archivo? Restaurar progreso:</p>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<input type="text" id="exp-import-input" placeholder="Ej: K7P-4QX" autocapitalize="characters" autocomplete="off" ' +
+            'style="flex:1;min-width:0;padding:10px 12px;border:1.5px solid var(--sand-300);border-radius:10px;font-size:15px;font-family:monospace;letter-spacing:0.08em;box-sizing:border-box;outline:none;"/>' +
+          '<button id="exp-import-btn" style="padding:10px 14px;border-radius:10px;background:var(--navy-800);color:white;border:none;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Restaurar</button>' +
+        '</div>' +
+        '<label style="display:block;text-align:center;margin-top:10px;font-size:12px;color:var(--navy-700);font-weight:700;cursor:pointer;">📂 Abrir archivo de respaldo' +
+          '<input type="file" id="exp-file-input" accept=".json,application/json" style="display:none;"/></label>' +
+      '</div>' +
+    '</div>';
   document.body.appendChild(modal);
 
-  modal.querySelector('#exp-close').addEventListener('click', () => modal.remove());
-  modal.addEventListener('click', e => { if(e.target===modal) modal.remove(); });
+  const $m = sel => modal.querySelector(sel);
+  $m('#exp-close').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if(e.target === modal) modal.remove(); });
+  $m('#exp-file').addEventListener('click', () => { _downloadBackupFile(); trackEvent('progress_backup_file', {}); });
 
-  // Botón compartir (primario) — WhatsApp / email / cualquier app
-  modal.querySelector('#exp-share').addEventListener('click', () => {
-    const msg = '🎓 Mi progreso en AlefMaster:\n\n' + code;
-    if(navigator.share){
-      navigator.share({ title:'Progreso AlefMaster', text: msg })
-        .catch(() => _copyCodeFallback(code));
-    } else {
-      // Fallback: abrir WhatsApp web con el código
-      const waUrl = 'https://wa.me/?text=' + encodeURIComponent(msg);
-      window.open(waUrl, '_blank');
-    }
-  });
-
-  // Botón copiar (secundario)
-  function _copyCodeFallback(code){
-    if(navigator.clipboard?.writeText){
-      navigator.clipboard.writeText(code).then(() => showToast('¡Código copiado!','green'));
-    } else {
-      const ta = document.createElement('textarea');
-      ta.value = code; document.body.appendChild(ta);
-      ta.select(); document.execCommand('copy'); ta.remove();
-      showToast('¡Código copiado!','green');
-    }
+  if(logged){
+    $m('#exp-sync-now').addEventListener('click', async () => {
+      const b = $m('#exp-sync-now'); b.disabled = true; b.textContent = 'Guardando...';
+      const ok = await syncProgressToSupabase(true).catch(() => false);
+      b.disabled = false; b.textContent = '☁️ Guardar ahora';
+      if(ok){
+        $m('#exp-last').textContent = new Date().toLocaleString('es', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+        showToast('✓ Progreso guardado en tu cuenta', 'green');
+      } else showToast('No se pudo guardar. Revisá la conexión.', 'warn');
+    });
+  } else {
+    $m('#exp-account').addEventListener('click', () => { modal.remove(); showView('auth'); });
+    $m('#exp-short').addEventListener('click', async () => {
+      const b = $m('#exp-short'); b.disabled = true; b.textContent = 'Generando...';
+      try {
+        const code = _fmtShortCode(await createShortBackupCode());
+        $m('#exp-code').textContent = code;
+        $m('#exp-code-box').style.display = 'block';
+        b.style.display = 'none';
+        trackEvent('progress_short_code', {});
+        $m('#exp-code-copy').addEventListener('click', () => _copyText(code));
+        $m('#exp-code-share').addEventListener('click', () => {
+          const msg = '🎓 Mi código de progreso en AlefMaster: ' + code + '\n(alefmaster.com → Guardar progreso → Restaurar)';
+          if(navigator.share) navigator.share({ title: 'Progreso AlefMaster', text: msg }).catch(() => _copyText(code));
+          else window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+        });
+      } catch(e){
+        dbg('[Backup] ' + e.message);
+        b.disabled = false; b.textContent = '🔑 Generar código corto';
+        showToast('No se pudo generar el código. Probá "Descargar archivo".', 'warn');
+      }
+    });
   }
-  modal.querySelector('#exp-copy').addEventListener('click', () => _copyCodeFallback(code));
 
-  modal.querySelector('#exp-import-btn').addEventListener('click', () => {
-    const importCode = modal.querySelector('#exp-import-input').value;
-    if(!importCode.trim()){ showToast('Pegá un código primero','warm'); return; }
-    const ok = importProgress(importCode);
-    if(ok){
-      modal.remove();
-      showToast('¡Progreso restaurado!','green');
-      setTimeout(() => location.reload(), 1200);
-    } else {
-      showToast('Código inválido — verificalo','red');
-    }
+  $m('#exp-import-btn').addEventListener('click', async () => {
+    const code = $m('#exp-import-input').value.trim();
+    if(!code){ showToast('Escribí tu código primero', 'warm'); return; }
+    try {
+      const ok = SHORT_CODE_RE.test(code) ? await restoreFromShortCode(code) : importProgress(code);
+      if(ok) _afterRestore(modal);
+      else showToast(SHORT_CODE_RE.test(code) ? 'Código no encontrado o vencido' : 'Código inválido — verificalo', 'red');
+    } catch(e){ showToast('No se pudo restaurar. Revisá la conexión.', 'warn'); }
+  });
+  $m('#exp-file-input').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      let ok = false;
+      try { ok = applyBackupObject(JSON.parse(r.result)); } catch(err){}
+      if(ok) _afterRestore(modal); else showToast('Ese archivo no es un respaldo válido', 'red');
+    };
+    r.readAsText(f);
   });
 }
 
@@ -16689,6 +16712,7 @@ async function syncProgressToSupabase(force){
       word_states: (()=>{ try{ return JSON.parse(localStorage.getItem('heb_word_states_v1')||'{}'); }catch(e){ return {}; } })(),
       now:           typeof getActivityContext === 'function' ? getActivityContext() : null,
       recent_errors: typeof getRecentErrors === 'function' ? getRecentErrors() : [],
+      backup:        buildBackupObject(), // progreso completo (SRS, logros, parashot, fecha BM...)
     };
     const { error } = await _sb.from('user_progress').upsert({
       user_id:    _authUser.id,
@@ -16699,6 +16723,7 @@ async function syncProgressToSupabase(force){
     }, { onConflict: 'user_id' });
     if(error){ dbg('[Auth] syncProgress error:', error.message); return false; }
     _lastSupabaseSyncAt = _now;
+    try { localStorage.setItem('heb_last_cloud_sync', String(_now)); } catch(e){}
     dbg('[Auth] ✓ Progreso guardado en Supabase');
     trackEvent('sync_success', { backend: 'supabase' });
     if(typeof flushPendingAssignmentProgress === 'function') flushPendingAssignmentProgress().catch(() => {});
@@ -16937,6 +16962,8 @@ async function initAuth(){
           // Restaurar racha / series ever-done / inventario desde extra_data
           const extra = remote.extra_data || {};
           try {
+            // Respaldo completo (prog/shk los maneja state.progress/shekels)
+            if(extra.backup) applyBackupObject(extra.backup, ['prog', 'shk']);
             if(extra.heb_streak) localStorage.setItem('heb_streak', JSON.stringify(extra.heb_streak));
             if(extra.everDone)   localStorage.setItem(EVER_DONE_KEY, JSON.stringify(extra.everDone));
             if(extra.inventory && typeof saveInventory === 'function') saveInventory(extra.inventory);
